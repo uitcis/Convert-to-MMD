@@ -15,8 +15,9 @@ from mathutils import Vector, Matrix, Euler
 from math import radians
 import json
 from . import bone_mapping
-from . import operations  # 新增导入语句
-from .ui_panel import OBJECT_PT_skeleton_hierarchy  # 新增导入语句
+from . import operations
+from .ui_panel import OBJECT_PT_skeleton_hierarchy
+from .mmd_ik import OBJECT_OT_add_ik
 
 def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""
@@ -34,9 +35,10 @@ def register():
     bpy.utils.register_class(operations.OBJECT_OT_rename_to_mmd)
     bpy.utils.register_class(operations.OBJECT_OT_complete_missing_bones)
     bpy.utils.register_class(operations.OBJECT_OT_fill_from_selection_specific)
-    bpy.utils.register_class(operations.OBJECT_OT_export_preset)  # 更新注册
-    bpy.utils.register_class(operations.OBJECT_OT_import_preset)  # 更新注册
-    bones = operations.get_bones_list()  # 修改为从operations模块中获取
+    bpy.utils.register_class(operations.OBJECT_OT_export_preset)
+    bpy.utils.register_class(operations.OBJECT_OT_import_preset)
+    bpy.utils.register_class(OBJECT_OT_add_ik)
+    bones = operations.get_bones_list()
     register_properties(bones)
 
 def unregister():
@@ -44,9 +46,10 @@ def unregister():
     bpy.utils.unregister_class(operations.OBJECT_OT_rename_to_mmd)
     bpy.utils.unregister_class(operations.OBJECT_OT_complete_missing_bones)
     bpy.utils.unregister_class(operations.OBJECT_OT_fill_from_selection_specific)
-    bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)  # 更新注销
-    bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)  # 更新注销
-    bones = operations.get_bones_list()  # 修改为从operations模块中获取
+    bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
+    bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
+    bpy.utils.unregister_class(OBJECT_OT_add_ik)
+    bones = operations.get_bones_list()
     unregister_properties(bones)
 
 if __name__ == "__main__":

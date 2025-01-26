@@ -116,3 +116,6 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
         # Add export preset button
         layout.operator("object.export_preset", text="Export Preset")
+
+        # Add IK button
+        layout.operator("object.add_mmd_ik", text="Add MMD IK")
