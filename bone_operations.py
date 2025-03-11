@@ -143,7 +143,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='POSE')
 
         # Add IK constraint to left knee
-        add_ik_constraint(obj.pose.bones["左ひざ"], obj, "左足IK", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
+        add_ik_constraint(obj.pose.bones["左ひざ"], obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
         # Add rotation limit constraint to left knee
         add_limit_rotation_constraint(obj.pose.bones["左ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
@@ -158,7 +158,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         add_ik_constraint(obj.pose.bones["左足首"], obj, "左つま先IK", 1, 200)
 
         # Add IK constraint to right knee
-        add_ik_constraint(obj.pose.bones["右ひざ"], obj, "右足IK", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
+        add_ik_constraint(obj.pose.bones["右ひざ"], obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
         # Add rotation limit constraint to right knee
         add_limit_rotation_constraint(obj.pose.bones["右ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
