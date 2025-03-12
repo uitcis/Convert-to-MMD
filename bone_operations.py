@@ -53,28 +53,28 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         existing_bones = obj.pose.bones
 
-        # Ensure we are in EDIT mode
+        # 确保当前处于编辑模式 (EDIT mode)
         if context.mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = obj.data.edit_bones
 
-        # Check 上半身 bone exists and get its head position
+        # 检查上半身骨骼是否存在，并获取其 head 位置position
         upper_body_bone = existing_bones.get("上半身")
         if not upper_body_bone:
             self.report({'ERROR'}, "上半身 bone does not exist")
             return {'CANCELLED'}
         
-        # Disconnect 上半身 from its current parent
+        # 断开 上半身 骨骼与其当前父骨骼的连接
         if upper_body_bone.parent:
             upper_body_edit_bone = edit_bones[upper_body_bone.name]
             upper_body_edit_bone.use_connect = False
             upper_body_edit_bone.parent = None
 
-        # Get 上半身 bone's coordinates
+        # 获取 上半身 骨骼的坐标
         upper_body_head = upper_body_bone.head.copy()
 
-        # 基本骨のプロパティ定義
+        # 定义基本骨骼的属性
         bone_properties = {
             "全ての親": {"head": Vector((0, 0, 0)), "tail": Vector((0, 0, 0.3)), "parent": None},
             "センター": {"head": Vector((0, 0, 0.3)), "tail": Vector((0, 0, 0.6)), "parent": "全ての親"},
@@ -83,24 +83,24 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "下半身": {"head": upper_body_head, "tail": upper_body_head + Vector((0, 0, -0.15)), "parent": "腰"}
         }
 
-        # Check and create or update bones in order
+        # 按顺序检查并创建或更新骨骼
         for bone_name, properties in bone_properties.items():
             if bone_name == "下半身":
                 create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=True)
             else:
                 create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=False)
 
-        # Set 上半身's parent to 腰
+        # 将 上半身 骨骼的父骨骼设置为 腰
         if "上半身" in existing_bones:
             upper_body_edit_bone = edit_bones["上半身"]
             upper_body_edit_bone.parent = edit_bones.get("腰")
             upper_body_edit_bone.use_connect = False
             upper_body_edit_bone.roll = 0.0
 
-        # Switch back to POSE mode after editing
+        # 编辑完成后切换回 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')
 
-        # Check and call mmd_tools.convert_to_mmd_model()
+        # 检查并调用 mmd_tools.convert_to_mmd_model()
         try:
             bpy.ops.mmd_tools.convert_to_mmd_model()
         except AttributeError:
@@ -119,20 +119,20 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
             self.report({'ERROR'}, "No armature object selected")
             return {'CANCELLED'}
 
-        # Ensure we are in EDIT mode
+        # 确保当前处于编辑模式 (EDIT mode)
         if context.mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
 
         edit_bones = obj.data.edit_bones
 
-        # IK骨のプロパティ定義
+        # 定义 IK 骨骼的属性
         IKbone_properties = {
             "左足IK親": {"head": Vector((edit_bones["左ひざ"].tail.x, edit_bones["左ひざ"].tail.y, 0)), "tail": edit_bones["左ひざ"].tail, "parent": "全ての親"},
-            "左足IK": {"head": edit_bones["左ひざ"].tail, "tail": edit_bones["左ひざ"].tail + Vector((0, 0.1, 0)), "parent": "左足IK親"},
-            "左つま先IK": {"head": edit_bones["左足首"].tail, "tail": edit_bones["左足首"].tail + Vector((0, 0, -0.05)), "parent": "左足IK"},
+            "左足ＩＫ": {"head": edit_bones["左ひざ"].tail, "tail": edit_bones["左ひざ"].tail + Vector((0, 0.1, 0)), "parent": "左足IK親"},
+            "左つま先IK": {"head": edit_bones["左足首"].tail, "tail": edit_bones["左足首"].tail + Vector((0, 0, -0.05)), "parent": "左足ＩＫ"},
             "右足IK親": {"head": Vector((edit_bones["右ひざ"].tail.x, edit_bones["右ひざ"].tail.y, 0)), "tail": edit_bones["右ひざ"].tail, "parent": "全ての親"},
-            "右足IK": {"head": edit_bones["右ひざ"].tail, "tail": edit_bones["右ひざ"].tail + Vector((0, 0.1, 0)), "parent": "右足IK親"},
-            "右つま先IK": {"head": edit_bones["右足首"].tail, "tail": edit_bones["右足首"].tail + Vector((0, 0, -0.05)), "parent": "右足IK"}
+            "右足ＩＫ": {"head": edit_bones["右ひざ"].tail, "tail": edit_bones["右ひざ"].tail + Vector((0, 0.1, 0)), "parent": "右足IK親"},
+            "右つま先IK": {"head": edit_bones["右足首"].tail, "tail": edit_bones["右足首"].tail + Vector((0, 0, -0.05)), "parent": "右足ＩＫ"}
         }
 
         # Create or update bones using the defined properties
@@ -143,7 +143,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='POSE')
 
         # Add IK constraint to left knee
-        add_ik_constraint(obj.pose.bones["左ひざ"], obj, "左足IK", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
+        add_ik_constraint(obj.pose.bones["左ひざ"], obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
         # Add rotation limit constraint to left knee
         add_limit_rotation_constraint(obj.pose.bones["左ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
@@ -158,7 +158,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         add_ik_constraint(obj.pose.bones["左足首"], obj, "左つま先IK", 1, 200)
 
         # Add IK constraint to right knee
-        add_ik_constraint(obj.pose.bones["右ひざ"], obj, "右足IK", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
+        add_ik_constraint(obj.pose.bones["右ひざ"], obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
         # Add rotation limit constraint to right knee
         add_limit_rotation_constraint(obj.pose.bones["右ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
