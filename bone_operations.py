@@ -51,26 +51,30 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             self.report({'ERROR'}, "No armature selected")
             return {'CANCELLED'}
 
-        existing_bones = obj.pose.bones
-
         # 确保当前处于编辑模式 (EDIT mode)
         if context.mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = obj.data.edit_bones
-
-        # 检查上半身骨骼是否存在，并获取其 head 位置position
-        upper_body_bone = existing_bones.get("上半身")
-        if not upper_body_bone:
-            self.report({'ERROR'}, "上半身 bone does not exist")
-            return {'CANCELLED'}
-        
-        # 断开 上半身 骨骼与其当前父骨骼的连接
+        # 清除 左足 和 右足 骨骼的父级
+        left_foot_bone = edit_bones.get("左足")
+        right_foot_bone = edit_bones.get("右足")
+        upper_body_bone = edit_bones.get("上半身")
+        if left_foot_bone:
+            left_foot_bone.use_connect = False
+            left_foot_bone.parent = None
+        if right_foot_bone:
+            right_foot_bone.use_connect = False
+            right_foot_bone.parent = None
+        # 清除 上半身 骨骼的父级
         if upper_body_bone.parent:
             upper_body_edit_bone = edit_bones[upper_body_bone.name]
             upper_body_edit_bone.use_connect = False
             upper_body_edit_bone.parent = None
-
+        # 确认上半身骨骼存在
+        if not upper_body_bone:
+            self.report({'ERROR'}, "上半身 bone does not exist")
+            return {'CANCELLED'}
         # 获取 上半身 骨骼的坐标
         upper_body_head = upper_body_bone.head.copy()
 
@@ -89,13 +93,20 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=True)
             else:
                 create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=False)
-
-        # 将 上半身 骨骼的父骨骼设置为 腰
-        if "上半身" in existing_bones:
-            upper_body_edit_bone = edit_bones["上半身"]
+        
+        # 将 上半身 骨骼の父骨骼设置为 腰
+        if "上半身" in edit_bones:
             upper_body_edit_bone.parent = edit_bones.get("腰")
             upper_body_edit_bone.use_connect = False
             upper_body_edit_bone.roll = 0.0
+
+        # 将 左足 和 右足 骨骼の父级设置为 下半身
+        if left_foot_bone:
+            left_foot_bone.parent = edit_bones.get("下半身")
+            left_foot_bone.use_connect = False
+        if right_foot_bone:
+            right_foot_bone.parent = edit_bones.get("下半身")
+            right_foot_bone.use_connect = False
 
         # 编辑完成后切换回 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')
