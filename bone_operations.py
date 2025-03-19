@@ -109,10 +109,12 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = obj.data.edit_bones
-        # 清除 左足 和 右足 骨骼的父级
+        # 获取需要修改的骨骼
         left_foot_bone = edit_bones.get("左足")
         right_foot_bone = edit_bones.get("右足")
         upper_body_bone = edit_bones.get("上半身")
+        lower_body_bone = edit_bones.get("下半身")
+        # 清除 左足 和 右足 骨骼的父级
         if left_foot_bone:
             left_foot_bone.use_connect = False
             left_foot_bone.parent = None
@@ -121,9 +123,12 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             right_foot_bone.parent = None
         # 清除 上半身 骨骼的父级
         if upper_body_bone and upper_body_bone.parent:
-            
             upper_body_bone.use_connect = False
             upper_body_bone.parent = None
+        # 清除 下半身 骨骼的父级
+        if lower_body_bone and lower_body_bone.parent:
+            lower_body_bone.use_connect = False
+            lower_body_bone.parent = None
         # 确认上半身骨骼存在
         if not upper_body_bone:
             self.report({'ERROR'}, "上半身 bone does not exist")
@@ -162,7 +167,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             right_foot_bone.parent = edit_bones.get("下半身")
             right_foot_bone.use_connect = False
 
-        # 遍历指定的骨骼列表，并将它们的 Roll 值设置为 0
+        # 遍历指定的骨骼列表，并将它们的 Roll 値设置为 0
         specified_bones = [ "全ての親", "センター", "グルーブ", "腰", "上半身", "上半身2", "首", "頭", "下半身", "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首", "左足先EX", "右足先EX"]
         for bone_name in specified_bones:
             if bone_name in edit_bones:
