@@ -16,8 +16,9 @@ from math import radians
 import json
 from . import bone_mapping
 from . import operations
-from .ui_panel import OBJECT_PT_skeleton_hierarchy
-from .bone_operations import OBJECT_OT_add_ik, OBJECT_OT_complete_missing_bones
+from . import bone_operations
+from . import ui_panel
+
 
 def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""
@@ -31,24 +32,24 @@ def unregister_properties(properties_list):
             delattr(bpy.types.Scene, prop_name)
 
 def register():
-    bpy.utils.register_class(OBJECT_PT_skeleton_hierarchy)
-    bpy.utils.register_class(operations.OBJECT_OT_rename_to_mmd)
-    bpy.utils.register_class(OBJECT_OT_complete_missing_bones)
+    bpy.utils.register_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
+    bpy.utils.register_class(bone_operations.OBJECT_OT_rename_to_mmd)
+    bpy.utils.register_class(bone_operations.OBJECT_OT_complete_missing_bones)
     bpy.utils.register_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.register_class(operations.OBJECT_OT_export_preset)
     bpy.utils.register_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.register_class(OBJECT_OT_add_ik)
+    bpy.utils.register_class(bone_operations.OBJECT_OT_add_ik)
     bones = operations.get_bones_list()
     register_properties(bones)
 
 def unregister():
-    bpy.utils.unregister_class(OBJECT_PT_skeleton_hierarchy)
-    bpy.utils.unregister_class(operations.OBJECT_OT_rename_to_mmd)
-    bpy.utils.unregister_class(OBJECT_OT_complete_missing_bones)
+    bpy.utils.unregister_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
+    bpy.utils.unregister_class(bone_operations.OBJECT_OT_rename_to_mmd)
+    bpy.utils.unregister_class(bone_operations.OBJECT_OT_complete_missing_bones)
     bpy.utils.unregister_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
     bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.unregister_class(OBJECT_OT_add_ik)
+    bpy.utils.unregister_class(bone_operations.OBJECT_OT_add_ik)
     bones = operations.get_bones_list()
     unregister_properties(bones)
 

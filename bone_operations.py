@@ -1,7 +1,7 @@
 import bpy
 from mathutils import Vector
 from math import radians
-
+from . import bone_mapping # 新增导入语句
 from mathutils import Vector
 
 def create_or_update_bone(edit_bones, name, head_position, tail_position, parent_name=None, use_deform=True):
@@ -39,7 +39,60 @@ def add_limit_rotation_constraint(bone, use_limit_x=False, min_x=None, max_x=Non
     limit_constraint.name = "mmd_ik_limit_override"
     limit_constraint.use_limit_x = use_limit_x
     limit_constraint.owner_space = owner_space
+    if min_x is not None:
+        limit_constraint.min_x = min_x
+    if max_x is not None:
+        limit_constraint.max_x = max_x
     
+class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
+    """Operator which renames selected bones to MMD format"""
+    bl_idname = "object.rename_to_mmd"
+    bl_label = "Rename to MMD"
+
+    mmd_bone_mapping = bone_mapping.mmd_bone_mapping  # 使用导入的bone_mapping模块
+
+    def execute(self, context):
+        obj = context.active_object
+        if not obj or obj.type != 'ARMATURE':
+            self.report({'ERROR'}, "No armature object selected")
+            return {'CANCELLED'}
+
+        scene = context.scene
+        for prop_name, new_name in self.mmd_bone_mapping.items():
+            bone_name = getattr(scene, prop_name, None)
+            if bone_name:
+                bone = obj.pose.bones.get(bone_name)
+                if bone:
+                    # Check if the bone has already been renamed to the MMD format name
+                    if bone.name != new_name:
+                        bone.name = new_name
+                        # Update the bone property value in the scene
+                        setattr(scene, prop_name, new_name)
+                    else:
+                        self.report({'INFO'}, f"Bone '{bone_name}' is already renamed to {new_name}")
+                else:
+                    self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")
+
+        return {'FINISHED'}
+
+    def rename_finger_bone(self, context, obj, scene, base_finger_name, segment):
+        for side in ["left", "right"]:
+            prop_name = f"{side}_{base_finger_name}_{segment}"
+            if prop_name in self.mmd_bone_mapping:
+                new_name = self.mmd_bone_mapping.get(prop_name)
+                bone_name = getattr(scene, prop_name, None)
+                if bone_name:
+                    bone = obj.pose.bones.get(bone_name)
+                    if bone:
+                        # Check if the bone has already been renamed to the MMD format name
+                        if bone.name != new_name:
+                            bone.name = new_name
+                            # Update the bone property value in the scene
+                            setattr(scene, prop_name, new_name)
+                        else:
+                            self.report({'INFO'}, f"Bone '{bone_name}' is already renamed to {new_name}")
+                    else:
+                        self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")    
 class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
     """Operator which completes missing bones for MMD format"""
     bl_idname = "object.complete_missing_bones"
@@ -67,10 +120,10 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             right_foot_bone.use_connect = False
             right_foot_bone.parent = None
         # 清除 上半身 骨骼的父级
-        if upper_body_bone.parent:
-            upper_body_edit_bone = edit_bones[upper_body_bone.name]
-            upper_body_edit_bone.use_connect = False
-            upper_body_edit_bone.parent = None
+        if upper_body_bone and upper_body_bone.parent:
+            
+            upper_body_bone.use_connect = False
+            upper_body_bone.parent = None
         # 确认上半身骨骼存在
         if not upper_body_bone:
             self.report({'ERROR'}, "上半身 bone does not exist")
@@ -96,9 +149,10 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         
         # 将 上半身 骨骼の父骨骼设置为 腰
         if "上半身" in edit_bones:
-            upper_body_edit_bone.parent = edit_bones.get("腰")
-            upper_body_edit_bone.use_connect = False
-            upper_body_edit_bone.roll = 0.0
+            
+            upper_body_bone.parent = edit_bones.get("腰")
+            upper_body_bone.use_connect = False
+            
 
         # 将 左足 和 右足 骨骼の父级设置为 下半身
         if left_foot_bone:
@@ -107,6 +161,12 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         if right_foot_bone:
             right_foot_bone.parent = edit_bones.get("下半身")
             right_foot_bone.use_connect = False
+
+        # 遍历指定的骨骼列表，并将它们的 Roll 值设置为 0
+        specified_bones = [ "全ての親", "センター", "グルーブ", "腰", "上半身", "上半身2", "首", "頭", "下半身", "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首", "左足先EX", "右足先EX"]
+        for bone_name in specified_bones:
+            if bone_name in edit_bones:
+                edit_bones[bone_name].roll = 0.0
 
         # 编辑完成后切换回 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')

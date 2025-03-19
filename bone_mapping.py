@@ -1,7 +1,7 @@
 mmd_bone_mapping = {
     "all_parents_bone": "全ての親",
-    "groove_bone": "グルーブ",
     "center_bone": "センター",
+    "groove_bone": "グルーブ",
     "hip_bone": "腰",
     "upper_body_bone": "上半身",
     "upper_body2_bone": "上半身2",

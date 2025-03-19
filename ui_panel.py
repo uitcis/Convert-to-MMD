@@ -11,20 +11,20 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        # Check if the active object is an armature
+        # 检查活动对象是否为骨架
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            layout.label(text="Please select an Armature", icon='ERROR')
+            layout.menu("TOPBAR_MT_file_import", text="Import", icon='IMPORT')
             return
 
-        # Function to create a row with label, prop_search for a bone, and a button to fill from selection
+        # 添加带有标签、prop_search用于骨骼和填充按钮的行的函数
         def add_bone_row_with_button(layout, label_text, prop_name):
             row = layout.row(align=True)
             split = row.split(factor=0.85, align=True)
             split.prop_search(scene, prop_name, obj.data, "bones", text=label_text)
             op = split.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
             op.bone_property = prop_name
-        
+            
         def add_symmetric_bones_with_buttons(layout, label_text, left_prop, right_prop):
             row = layout.row(align=True)
             split1 = row.split(factor=0.2, align=True)
@@ -33,21 +33,21 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             col_left = split2.column(align=True)
             col_right = split2.column(align=True)
             
-            add_bone_row_with_button(col_left, "Left", left_prop)
-            add_bone_row_with_button(col_right, "Right", right_prop)
+            add_bone_row_with_button(col_left, "left", left_prop)
+            add_bone_row_with_button(col_right, "right", right_prop)
 
         main_col = layout.column(align=True)
 
-        # Full Body to Hip Section
+        # 全ての親到腰部分
         full_body_box = main_col.box()
         col = full_body_box.column()
 
         add_bone_row_with_button(col, "全ての親", "all_parents_bone")
-        add_bone_row_with_button(col, "グルーブ", "groove_bone")
         add_bone_row_with_button(col, "センター", "center_bone")
+        add_bone_row_with_button(col, "グルーブ", "groove_bone")
         add_bone_row_with_button(col, "腰", "hip_bone")
 
-        # Upper Body to Head Section
+        # 上半身到頭部分
         upper_body_box = main_col.box()
         col = upper_body_box.column()
 
@@ -61,7 +61,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         add_symmetric_bones_with_buttons(col, "ひじ:", "left_lower_arm_bone", "right_lower_arm_bone")
         add_symmetric_bones_with_buttons(col, "手首:", "left_hand_bone", "right_hand_bone")
 
-        # Lower Body to Ankle Section
+        # 下半身到足首部分
         lower_body_box = main_col.box()
         col = lower_body_box.column()
 
@@ -70,15 +70,15 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         add_symmetric_bones_with_buttons(col, "ひざ:", "left_calf_bone", "right_calf_bone")
         add_symmetric_bones_with_buttons(col, "足首:", "left_foot_bone", "right_foot_bone")
 
-        # Optional Bones Section
+        # 可選骨骼部分
         opt_box = main_col.box()
-        
+            
         add_bone_row_with_button(opt_box, "操作中心:", "control_center_bone")
 
         add_symmetric_bones_with_buttons(opt_box, "目:", "left_eye_bone", "right_eye_bone")
         add_symmetric_bones_with_buttons(opt_box, "足先EX:", "left_toe_bone", "right_toe_bone")
 
-        # Fingers Section
+        # 手指部分
         finger_labels = [
             ("left_thumb", ["0", "1", "2"], "左親指"),
             ("left_index", ["1", "2", "3"], "左人指"),
@@ -105,17 +105,17 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 op = row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
                 op.bone_property = prop_name
 
-        # Add rename button
-        layout.operator("object.rename_to_mmd", text="Rename to MMD")
+        # 添加重命名按钮
+        layout.operator("object.rename_to_mmd", text="重命名为MMD")
 
-        # Add complete missing bones button
-        layout.operator("object.complete_missing_bones", text="Complete Missing Bones")
+        # 添加补全缺失骨骼按钮
+        layout.operator("object.complete_missing_bones", text="补全缺失骨骼")
 
-        # Add import preset button
-        layout.operator("object.import_preset", text="Import Preset")
+        # 添加导入预设按钮
+        layout.operator("object.import_preset", text="导入预设")
 
-        # Add export preset button
-        layout.operator("object.export_preset", text="Export Preset")
+        # 添加导出预设按钮
+        layout.operator("object.export_preset", text="导出预设")
 
-        # Add IK button
-        layout.operator("object.add_mmd_ik", text="Add MMD IK")
+        # 添加IK按钮
+        layout.operator("object.add_mmd_ik", text="添加MMD IK")

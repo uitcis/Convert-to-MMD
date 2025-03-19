@@ -1,6 +1,6 @@
 import bpy
 import json
-from . import bone_mapping # 新增导入语句
+
 from mathutils import Vector, Matrix, Euler
 
 class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
@@ -27,56 +27,6 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
         setattr(scene, self.bone_property, selected_bones[0])
 
         return {'FINISHED'}
-
-class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
-    """Operator which renames selected bones to MMD format"""
-    bl_idname = "object.rename_to_mmd"
-    bl_label = "Rename to MMD"
-
-    mmd_bone_mapping = bone_mapping.mmd_bone_mapping  # 使用导入的bone_mapping模块
-
-    def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature object selected")
-            return {'CANCELLED'}
-
-        scene = context.scene
-        for prop_name, new_name in self.mmd_bone_mapping.items():
-            bone_name = getattr(scene, prop_name, None)
-            if bone_name:
-                bone = obj.pose.bones.get(bone_name)
-                if bone:
-                    # Check if the bone has already been renamed to the MMD format name
-                    if bone.name != new_name:
-                        bone.name = new_name
-                        # Update the bone property value in the scene
-                        setattr(scene, prop_name, new_name)
-                    else:
-                        self.report({'INFO'}, f"Bone '{bone_name}' is already renamed to {new_name}")
-                else:
-                    self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")
-
-        return {'FINISHED'}
-
-    def rename_finger_bone(self, context, obj, scene, base_finger_name, segment):
-        for side in ["left", "right"]:
-            prop_name = f"{side}_{base_finger_name}_{segment}"
-            if prop_name in self.mmd_bone_mapping:
-                new_name = self.mmd_bone_mapping.get(prop_name)
-                bone_name = getattr(scene, prop_name, None)
-                if bone_name:
-                    bone = obj.pose.bones.get(bone_name)
-                    if bone:
-                        # Check if the bone has already been renamed to the MMD format name
-                        if bone.name != new_name:
-                            bone.name = new_name
-                            # Update the bone property value in the scene
-                            setattr(scene, prop_name, new_name)
-                        else:
-                            self.report({'INFO'}, f"Bone '{bone_name}' is already renamed to {new_name}")
-                    else:
-                        self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")
 
 class OBJECT_OT_export_preset(bpy.types.Operator):
     """Operator which exports the current bone configuration as a preset"""
@@ -143,8 +93,8 @@ def get_bones_list():
     
     bone_list = {
         "all_parents_bone": "",
-        "groove_bone": "",
         "center_bone": "",
+        "groove_bone": "",
         "hip_bone": "",
         "upper_body_bone": "",
         "upper_body2_bone": "",
