@@ -54,7 +54,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature object selected")
+            self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -63,15 +63,18 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             if bone_name:
                 bone = obj.pose.bones.get(bone_name)
                 if bone:
-                    # Check if the bone has already been renamed to the MMD format name
+                    # 检查骨骼是否已经重命名为MMD格式名称
                     if bone.name != new_name:
                         bone.name = new_name
-                        # Update the bone property value in the scene
+                        # 更新场景中的骨骼属性值
                         setattr(scene, prop_name, new_name)
                     else:
-                        self.report({'INFO'}, f"Bone '{bone_name}' is already renamed to {new_name}")
+                        self.report({'INFO'}, f"骨骼 '{bone_name}' 已经重命名为 {new_name}")
                 else:
-                    self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")
+                    self.report({'WARNING'}, f"未找到骨骼 '{bone_name}' 以重命名为 {new_name}")
+
+        # 打开骨骼名称显示
+        bpy.context.object.data.show_names = True
 
         return {'FINISHED'}
 
@@ -101,7 +104,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature selected")
+            self.report({'ERROR'}, "没有选择骨架")
             return {'CANCELLED'}
 
         # 确保当前处于编辑模式 (EDIT mode)
@@ -131,7 +134,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             lower_body_bone.parent = None
         # 确认上半身骨骼存在
         if not upper_body_bone:
-            self.report({'ERROR'}, "上半身 bone does not exist")
+            self.report({'ERROR'}, "上半身骨骼不存在")
             return {'CANCELLED'}
         # 获取 上半身 骨骼的坐标
         upper_body_head = upper_body_bone.head.copy()
@@ -167,12 +170,31 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             right_foot_bone.parent = edit_bones.get("下半身")
             right_foot_bone.use_connect = False
 
-        # 遍历指定的骨骼列表，并将它们的 Roll 値设置为 0
-        specified_bones = [ "全ての親", "センター", "グルーブ", "腰", "上半身", "上半身2", "首", "頭", "下半身", "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首", "左足先EX", "右足先EX"]
-        for bone_name in specified_bones:
-            if bone_name in edit_bones:
-                edit_bones[bone_name].roll = 0.0
-
+        def set_roll_values(edit_bones, bone_roll_mapping):
+            """
+            根据骨骼名称和对应的 roll 値设置骨骼的 roll 属性。
+            
+            :param edit_bones: 骨骼字典，键为骨骼名称，値为骨骼对象。
+            :param bone_roll_mapping: 字典，键为骨骼名称，値为对应的 roll 値（度数）。
+            """
+            for bone_name, roll_value in bone_roll_mapping.items():
+                if bone_name in edit_bones:
+                    edit_bones[bone_name].roll = radians(roll_value)  # 将度数转换为弧度
+                else:
+                    print(f"警告: 骨骼 '{bone_name}' 未在 edit_bones 中找到。")
+    
+        # 定义骨骼名称和对应的 roll 値
+        bone_roll_mapping = {
+            "全ての親": 0.0, "センター": 0.0, "グルーブ": 0.0, "腰": 0.0, 
+            "上半身": 0.0,"上半身2": 0.0, "首": 0.0, "頭": 0.0,
+            "下半身": 0.0, "左足": 0.0, "右足": 0.0,"左ひざ": 0.0, "右ひざ": 0.0, "左足首": 0.0, "右足首": 0.0, "左足先EX": 0.0,"右足先EX": 0.0, 
+            "左腕": 45.0, "左ひじ": 45.0, "左手首": 45.0,
+            "右腕": 135.0, "右ひじ": 135.0, "右手首": 135.0,
+            "左肩": 0.0, "右肩": 180.0
+        }
+    
+        # 调用函数设置 roll 値
+        set_roll_values(edit_bones, bone_roll_mapping)               
         # 编辑完成后切换回 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')
 
@@ -180,7 +202,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         try:
             bpy.ops.mmd_tools.convert_to_mmd_model()
         except AttributeError:
-            self.report({'ERROR'}, "Please install or enable the mmdtools add-on.")
+            self.report({'ERROR'}, "请安装或启用 mmdtools 插件。")
             return {'CANCELLED'}
 
         return {'FINISHED'}
@@ -192,7 +214,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature object selected")
+            self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
         # 确保当前处于编辑模式 (EDIT mode)
@@ -211,41 +233,41 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
             "右つま先IK": {"head": edit_bones["右足首"].tail, "tail": edit_bones["右足首"].tail + Vector((0, 0, -0.05)), "parent": "右足ＩＫ"}
         }
 
-        # Create or update bones using the defined properties
+        # 创建或更新骨骼使用定义的属性
         for bone_name, properties in IKbone_properties.items():
             create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=False)
 
-        # Switch to POSE mode
+        # 切换到 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')
 
-        # Add IK constraint to left knee
+        # 为左ひざ添加 IK 约束
         add_ik_constraint(obj.pose.bones["左ひざ"], obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
-        # Add rotation limit constraint to left knee
+        # 为左ひざ添加旋转限制约束
         add_limit_rotation_constraint(obj.pose.bones["左ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
 
-        # Add damped track constraint to left foot
+        # 为左足首添加阻尼跟踪约束
         left_foot_damped_track_constraint = obj.pose.bones["左足首"].constraints.new(type='DAMPED_TRACK')
         left_foot_damped_track_constraint.name = "Damped Track"
         left_foot_damped_track_constraint.target = obj
         left_foot_damped_track_constraint.subtarget = "左ひざ"
 
-        # Add IK constraint to left foot
+        # 为左足首添加 IK 约束
         add_ik_constraint(obj.pose.bones["左足首"], obj, "左つま先IK", 1, 200)
 
-        # Add IK constraint to right knee
+        # 为右ひざ添加 IK 约束
         add_ik_constraint(obj.pose.bones["右ひざ"], obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True)
 
-        # Add rotation limit constraint to right knee
+        # 为右ひざ添加旋转限制约束
         add_limit_rotation_constraint(obj.pose.bones["右ひざ"], use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
 
-        # Add damped track constraint to right foot
+        # 为右足首添加阻尼跟踪约束
         right_foot_damped_track_constraint = obj.pose.bones["右足首"].constraints.new(type='DAMPED_TRACK')
         right_foot_damped_track_constraint.name = "Damped Track"
         right_foot_damped_track_constraint.target = obj
         right_foot_damped_track_constraint.subtarget = "右ひざ"
 
-        # Add IK constraint to right foot
+        # 为右足首添加 IK 约束
         add_ik_constraint(obj.pose.bones["右足首"], obj, "右つま先IK", 1, 200)
         return {'FINISHED'}
 

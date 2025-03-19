@@ -104,6 +104,9 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 row.prop_search(scene, prop_name, obj.data, "bones", text=f" {segment}")
                 op = row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
                 op.bone_property = prop_name
+                
+        # 添加T-Pose到A-Pose转换按钮
+        layout.operator("object.convert_to_apose", text="转换为A-Pose")
 
         # 添加重命名按钮
         layout.operator("object.rename_to_mmd", text="重命名为MMD")

@@ -128,3 +128,54 @@ def get_bones_list():
                 bone_list[f"{side}_{finger_base}_{segment}"] = ""
     
     return bone_list
+
+# 新增的T-Pose到A-Pose转换操作符
+class OBJECT_OT_convert_to_apose(bpy.types.Operator):
+    """Operator which converts the armature from T-Pose to A-Pose"""
+    bl_idname = "object.convert_to_apose"
+    bl_label = "Convert to A-Pose"
+
+    def execute(self, context):
+        obj = context.active_object
+        if not obj or obj.type != 'ARMATURE':
+            self.report({'ERROR'}, "No armature object selected")
+            return {'CANCELLED'}
+
+        # 确保当前处于POSE模式
+        if context.mode != 'POSE':
+            bpy.ops.object.mode_set(mode='POSE')
+
+        pose_bones = obj.pose.bones
+
+        # 定义T-Pose到A-Pose的旋转角度
+        apose_rotations = {
+            "upper_body_bone": (0, 0, 0),
+            "upper_body2_bone": (0, 0, 0),
+            "neck_bone": (0, 0, 0),
+            "head_bone": (0, 0, 0),
+            "left_shoulder_bone": (0, 0, radians(45)),
+            "right_shoulder_bone": (0, 0, radians(-45)),
+            "left_upper_arm_bone": (0, radians(-90), radians(45)),
+            "right_upper_arm_bone": (0, radians(90), radians(-45)),
+            "left_lower_arm_bone": (0, radians(90), 0),
+            "right_lower_arm_bone": (0, radians(-90), 0),
+            "left_hand_bone": (0, 0, 0),
+            "right_hand_bone": (0, 0, 0),
+            "left_thigh_bone": (0, radians(-45), 0),
+            "right_thigh_bone": (0, radians(45), 0),
+            "left_calf_bone": (0, radians(90), 0),
+            "right_calf_bone": (0, radians(-90), 0),
+            "left_foot_bone": (0, 0, 0),
+            "right_foot_bone": (0, 0, 0)
+        }
+
+        # 应用旋转角度
+        for bone_name, rotation in apose_rotations.items():
+            if bone_name in pose_bones:
+                pose_bones[bone_name].rotation_euler = rotation
+
+        # 切换回POSE模式
+        bpy.ops.object.mode_set(mode='POSE')
+
+        self.report({'INFO'}, "Converted to A-Pose")
+        return {'FINISHED'}
