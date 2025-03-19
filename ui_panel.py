@@ -105,12 +105,12 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 op = row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
                 op.bone_property = prop_name
                 
-        # 添加T-Pose到A-Pose转换按钮
-        layout.operator("object.convert_to_apose", text="转换为A-Pose")
+
 
         # 添加重命名按钮
         layout.operator("object.rename_to_mmd", text="重命名为MMD")
-
+        # 添加T-Pose到A-Pose转换按钮
+        layout.operator("object.convert_to_apose", text="转换为A-Pose")
         # 添加补全缺失骨骼按钮
         layout.operator("object.complete_missing_bones", text="补全缺失骨骼")
 

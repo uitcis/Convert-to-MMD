@@ -38,6 +38,7 @@ def register():
     bpy.utils.register_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.register_class(operations.OBJECT_OT_export_preset)
     bpy.utils.register_class(operations.OBJECT_OT_import_preset)
+    bpy.utils.register_class(operations.OBJECT_OT_convert_to_apose)
     bpy.utils.register_class(bone_operations.OBJECT_OT_add_ik)
     bones = operations.get_bones_list()
     register_properties(bones)
@@ -49,6 +50,8 @@ def unregister():
     bpy.utils.unregister_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
     bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
+    bpy.utils.unregister_class(operations.OBJECT_OT_convert_to_apose)
+    
     bpy.utils.unregister_class(bone_operations.OBJECT_OT_add_ik)
     bones = operations.get_bones_list()
     unregister_properties(bones)

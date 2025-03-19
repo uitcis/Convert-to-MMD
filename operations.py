@@ -1,5 +1,6 @@
 import bpy
 import json
+import math
 
 from mathutils import Vector, Matrix, Euler
 
@@ -149,24 +150,10 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         # 定义T-Pose到A-Pose的旋转角度
         apose_rotations = {
-            "upper_body_bone": (0, 0, 0),
-            "upper_body2_bone": (0, 0, 0),
-            "neck_bone": (0, 0, 0),
-            "head_bone": (0, 0, 0),
-            "left_shoulder_bone": (0, 0, radians(45)),
-            "right_shoulder_bone": (0, 0, radians(-45)),
-            "left_upper_arm_bone": (0, radians(-90), radians(45)),
-            "right_upper_arm_bone": (0, radians(90), radians(-45)),
-            "left_lower_arm_bone": (0, radians(90), 0),
-            "right_lower_arm_bone": (0, radians(-90), 0),
-            "left_hand_bone": (0, 0, 0),
-            "right_hand_bone": (0, 0, 0),
-            "left_thigh_bone": (0, radians(-45), 0),
-            "right_thigh_bone": (0, radians(45), 0),
-            "left_calf_bone": (0, radians(90), 0),
-            "right_calf_bone": (0, radians(-90), 0),
-            "left_foot_bone": (0, 0, 0),
-            "right_foot_bone": (0, 0, 0)
+
+            "左腕": (0, math.radians(-90), math.radians(45)),
+            "右腕": (0, math.radians(90), math.radians(-45)),
+
         }
 
         # 应用旋转角度
