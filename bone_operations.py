@@ -3,6 +3,16 @@ from mathutils import Vector
 from math import radians
 from . import bone_mapping  # 新增导入语句
 
+# 常量定义
+DEFAULT_ROLL_VALUES = {
+    "全ての親": 0.0, "センター": 0.0, "グルーブ": 0.0, "腰": 0.0, 
+    "上半身": 0.0,"上半身2": 0.0, "首": 0.0, "頭": 0.0,
+    "下半身": 0.0, "左足": 0.0, "右足": 0.0,"左ひざ": 0.0, "右ひざ": 0.0, "左足首": 0.0, "右足首": 0.0, "左足先EX": 0.0,"右足先EX": 0.0, 
+    "左腕": 45.0, "左ひじ": 45.0, "左手首": 45.0,
+    "右腕": 135.0, "右ひじ": 135.0, "右手首": 135.0,
+    "左肩": 0.0, "右肩": 180.0
+}
+
 def create_or_update_bone(edit_bones, name, head_position, tail_position, parent_name=None, use_deform=True):
     bone = edit_bones.get(name)
     if bone:
@@ -63,12 +73,25 @@ def add_damped_track_constraint(bone, target, subtarget):
 
 def add_ik_and_limit_rotation_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, min_x=None, max_x=None):
     add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x, ik_max_x, use_ik_limit_x)
-    add_limit_rotation_constraint(bone, use_ik_limit_x, min_x, max_x)  # 修改 use_limit_x 为 use_ik_limit_x
+    add_limit_rotation_constraint(bone, use_ik_limit_x, min_x, max_x)
 
 def add_ik_and_damped_track_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, min_x=None, max_x=None, damped_track_subtarget=None):
     add_ik_and_limit_rotation_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x, ik_max_x, use_ik_limit_x, min_x, max_x)
     if damped_track_subtarget:
         add_damped_track_constraint(bone, target, damped_track_subtarget)
+
+def set_roll_values(edit_bones, bone_roll_mapping):
+    """
+    根据骨骼名称和对应的 roll 値设置骨骼的 roll 属性。
+    
+    :param edit_bones: 骨骼字典，键为骨骼名称，値为骨骼对象。
+    :param bone_roll_mapping: 字典，键为骨骼名称，値为对应的 roll 値（度数）。
+    """
+    for bone_name, roll_value in bone_roll_mapping.items():
+        if bone_name in edit_bones:
+            edit_bones[bone_name].roll = radians(roll_value)  # 将度数转换为弧度
+        else:
+            raise ValueError(f"骨骼 '{bone_name}' 未在 edit_bones 中找到。")
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     """Operator which renames selected bones to MMD format"""
@@ -186,7 +209,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         if "上半身" in edit_bones:
             upper_body_bone.parent = edit_bones.get("腰")
             upper_body_bone.use_connect = False
-            
+        
 
         # 将 左足 和 右足 骨骼の父级设置为 下半身
         if left_foot_bone:
@@ -196,40 +219,19 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             right_foot_bone.parent = edit_bones.get("下半身")
             right_foot_bone.use_connect = False
 
-        def set_roll_values(edit_bones, bone_roll_mapping):
-            """
-            根据骨骼名称和对应的 roll 値设置骨骼的 roll 属性。
-            
-            :param edit_bones: 骨骼字典，键为骨骼名称，値为骨骼对象。
-            :param bone_roll_mapping: 字典，键为骨骼名称，値为对应的 roll 値（度数）。
-            """
-            for bone_name, roll_value in bone_roll_mapping.items():
-                if bone_name in edit_bones:
-                    edit_bones[bone_name].roll = radians(roll_value)  # 将度数转换为弧度
-                else:
-                    print(f"警告: 骨骼 '{bone_name}' 未在 edit_bones 中找到。")
-    
-        # 定义骨骼名称和对应的 roll 値
-        bone_roll_mapping = {
-            "全ての親": 0.0, "センター": 0.0, "グルーブ": 0.0, "腰": 0.0, 
-            "上半身": 0.0,"上半身2": 0.0, "首": 0.0, "頭": 0.0,
-            "下半身": 0.0, "左足": 0.0, "右足": 0.0,"左ひざ": 0.0, "右ひざ": 0.0, "左足首": 0.0, "右足首": 0.0, "左足先EX": 0.0,"右足先EX": 0.0, 
-            "左腕": 45.0, "左ひじ": 45.0, "左手首": 45.0,
-            "右腕": 135.0, "右ひじ": 135.0, "右手首": 135.0,
-            "左肩": 0.0, "右肩": 180.0
-        }
-    
         # 调用函数设置 roll 値
-        set_roll_values(edit_bones, bone_roll_mapping)               
+        set_roll_values(edit_bones, DEFAULT_ROLL_VALUES)               
         # 编辑完成后切换回 POSE 模式
         bpy.ops.object.mode_set(mode='POSE')
 
         # 检查并调用 mmd_tools.convert_to_mmd_model()
         try:
             bpy.ops.mmd_tools.convert_to_mmd_model()
-        except AttributeError:
-            self.report({'ERROR'}, "请安装或启用 mmdtools 插件。")
-            return {'CANCELLED'}
+        except AttributeError as e:
+            if "bone_groups" in str(e):
+                self.report({'WARNING'}, "安装并启用符合版本的 mmd_tools 插件。")
+            else:
+                raise e
 
         # 自动选择之前的骨架
         bpy.context.view_layer.objects.active = obj
