@@ -28,11 +28,23 @@ def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x
     ik_constraint.subtarget = subtarget
     ik_constraint.chain_count = chain_count
     ik_constraint.iterations = iterations
+    
+    # Set X axis limits
     if ik_min_x is not None:
         bone.ik_min_x = ik_min_x
     if ik_max_x is not None:
         bone.ik_max_x = ik_max_x
     bone.use_ik_limit_x = use_ik_limit_x
+    
+    # Set Y axis limits to 0
+    bone.ik_min_y = 0
+    bone.ik_max_y = 0
+    bone.use_ik_limit_y = True
+    
+    # Set Z axis limits to 0
+    bone.ik_min_z = 0
+    bone.ik_max_z = 0
+    bone.use_ik_limit_z = True
 
 def add_limit_rotation_constraint(bone, use_limit_x=False, min_x=None, max_x=None, owner_space='LOCAL'):
     limit_constraint = bone.constraints.new(type='LIMIT_ROTATION')

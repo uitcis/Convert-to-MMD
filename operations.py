@@ -132,8 +132,8 @@ def get_bones_list():
 
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
-    """Operator which converts the armature from T-Pose to A-Pose"""
-    bl_idname = "object.convert_to_apose"
+    """Operator which converts the armature to A-Pose and applies it as the new rest pose"""
+    bl_idname = "object.convert_to_apose" 
     bl_label = "Convert to A-Pose"
 
     def execute(self, context):
@@ -142,27 +142,105 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             self.report({'ERROR'}, "No armature object selected")
             return {'CANCELLED'}
 
-        # 确保当前处于POSE模式
-        if context.mode != 'POSE':
-            bpy.ops.object.mode_set(mode='POSE')
-
-        pose_bones = obj.pose.bones
-
-        # 定义T-Pose到A-Pose的旋转角度
-        apose_rotations = {
-
-            "左腕": (0, math.radians(-90), math.radians(45)),
-            "右腕": (0, math.radians(90), math.radians(-45)),
-
+        scene = context.scene
+        
+        # 获取骨骼名称
+        arm_bones = {
+            "left_upper_arm": getattr(scene, "left_upper_arm_bone", ""),
+            "right_upper_arm": getattr(scene, "right_upper_arm_bone", ""),
         }
 
-        # 应用旋转角度
-        for bone_name, rotation in apose_rotations.items():
-            if bone_name in pose_bones:
-                pose_bones[bone_name].rotation_euler = rotation
+        # 检查是否有设置骨骼
+        if not any(arm_bones.values()):
+            self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
+            return {'CANCELLED'}
 
-        # 切换回POSE模式
+        # 1. 确保在对象模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        # 2. 找到所有使用这个骨骼的网格对象，并检查形态键
+        meshes_with_armature = []
+        for mesh_obj in bpy.data.objects:
+            if mesh_obj.type == 'MESH':
+                for modifier in mesh_obj.modifiers:
+                    if modifier.type == 'ARMATURE' and modifier.object == obj:
+                        # 检查是否有形态键
+                        if not mesh_obj.data.shape_keys:
+                            meshes_with_armature.append(mesh_obj)
+                        break
+
+        # 检查是否找到可用的网格
+        if not meshes_with_armature:
+            self.report({'ERROR'}, "没有找到可用的网格。请分离身体网格并清除形态键后再试")
+            return {'CANCELLED'}
+
+        # 3. 为每个网格复制骨骼修改器，但保留原始修改器
+        for mesh_obj in meshes_with_armature:
+            for modifier in mesh_obj.modifiers:
+                if modifier.type == 'ARMATURE' and modifier.object == obj:
+                    # 复制修改器
+                    new_modifier = mesh_obj.modifiers.new(name=modifier.name + "_copy", type='ARMATURE')
+                    new_modifier.object = modifier.object
+                    new_modifier.use_vertex_groups = modifier.use_vertex_groups
+                    new_modifier.use_bone_envelopes = modifier.use_bone_envelopes
+                    break
+
+        # 4. 切换到姿态模式设置A-Pose
+        context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='POSE')
 
-        self.report({'INFO'}, "Converted to A-Pose")
+        # 5. 清除所有现有姿态
+        bpy.ops.pose.select_all(action='SELECT')
+        bpy.ops.pose.rot_clear()
+        bpy.ops.pose.scale_clear()
+        bpy.ops.pose.loc_clear()
+        bpy.ops.pose.select_all(action='DESELECT')
+
+        # 6. 为骨骼设置A-Pose旋转
+        pose_bones = obj.pose.bones
+        converted_bones = []
+
+        for bone_type, bone_name in arm_bones.items():
+            if bone_name and bone_name in pose_bones:
+                bone = pose_bones[bone_name]
+                bone.rotation_mode = 'XYZ'
+                
+                if "left" in bone_type:
+                    if "upper_arm" in bone_type:
+                        # 左上臂 - 向下旋转37度
+                        bone.rotation_euler = (math.radians(-37), 0, 0)
+                else:
+                    if "upper_arm" in bone_type:
+                        # 右上臂 - 向下旋转37度
+                        bone.rotation_euler = (math.radians(-37), 0, 0)
+                
+                converted_bones.append(bone_name)
+
+        if not converted_bones:
+            self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
+            return {'CANCELLED'}
+
+        # 7. 更新视图以确保姿态已应用
+        context.view_layer.update()
+
+        # 8. 应用第二个修改器（复制的修改器）来调整网格姿态
+        try:
+            for mesh_obj in meshes_with_armature:
+                context.view_layer.objects.active = mesh_obj
+                for modifier in mesh_obj.modifiers:
+                    if modifier.type == 'ARMATURE' and modifier.object == obj and "_copy" in modifier.name:
+                        bpy.ops.object.modifier_apply(modifier=modifier.name)
+                        break
+        except RuntimeError as e:
+            self.report({'ERROR'}, f"应用修改器时出错：{str(e)}")
+            return {'CANCELLED'}
+
+        # 9. 切换回骨骼对象
+        context.view_layer.objects.active = obj
+        bpy.ops.object.mode_set(mode='POSE')
+
+        # 10. 应用当前姿态为新的静置姿态
+        bpy.ops.pose.armature_apply()
+
+        self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
         return {'FINISHED'}
