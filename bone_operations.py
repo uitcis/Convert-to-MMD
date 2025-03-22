@@ -228,8 +228,14 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         try:
             bpy.ops.mmd_tools.convert_to_mmd_model()
         except AttributeError as e:
-            if "bone_groups" in str(e):
-                self.report({'WARNING'}, "安装并启用符合版本的 mmd_tools 插件。")
+            if "mmd_tools" in str(e):
+                user_response = bpy.context.window_manager.popup_menu(
+                    lambda self, context: self.layout.label(text="mmd_tools 插件未安装或无法调用。是否要打开下载地址？"),
+                    title="提示",
+                    icon='QUESTION'
+                )
+                if user_response == 'CONFIRM':
+                    bpy.ops.wm.url_open(url="https://extensions.blender.org/add-ons/mmd-tools/")
             else:
                 raise e
 
