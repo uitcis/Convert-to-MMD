@@ -18,7 +18,15 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
             return {'CANCELLED'}
 
         scene = context.scene
-        selected_bones = [bone.name for bone in obj.pose.bones if bone.bone.select]
+        mode = context.mode
+
+        if mode == 'POSE':
+            selected_bones = [bone.name for bone in obj.pose.bones if bone.bone.select]
+        elif mode == 'EDIT_ARMATURE':
+            selected_bones = [bone.name for bone in obj.data.edit_bones if bone.select]
+        else:
+            self.report({'ERROR'}, "Please select bones in Pose or Edit mode")
+            return {'CANCELLED'}
 
         if not selected_bones:
             self.report({'ERROR'}, "No bones selected")
