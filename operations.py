@@ -5,16 +5,16 @@ import math
 from mathutils import Vector, Matrix, Euler
 
 class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
-    """Operator which fills a specific bone property from the currently selected bone"""
+    """从当前选定的骨骼填充特定的骨骼属性"""
     bl_idname = "object.fill_from_selection_specific"
     bl_label = "Fill from Selection Specific"
     
-    bone_property: bpy.props.StringProperty(name="Bone Property")
+    bone_property : bpy.props.StringProperty(name="Bone Property")# type: ignore
 
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature object selected")
+            self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -25,47 +25,47 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
         elif mode == 'EDIT_ARMATURE':
             selected_bones = [bone.name for bone in obj.data.edit_bones if bone.select]
         else:
-            self.report({'ERROR'}, "Please select bones in Pose or Edit mode")
+            self.report({'ERROR'}, "请在姿态模式或编辑模式下选择骨骼")
             return {'CANCELLED'}
 
         if not selected_bones:
-            self.report({'ERROR'}, "No bones selected")
+            self.report({'ERROR'}, "未选择骨骼")
             return {'CANCELLED'}
 
-        # Fill the first selected bone into the specified property
+        # 将第一个选定的骨骼填充到指定属性中
         setattr(scene, self.bone_property, selected_bones[0])
 
         return {'FINISHED'}
 
 class OBJECT_OT_export_preset(bpy.types.Operator):
-    """Operator which exports the current bone configuration as a preset"""
+    """导出当前骨骼配置为预设"""
     bl_idname = "object.export_preset"
     bl_label = "Export Preset"
-    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    filepath : bpy.props.StringProperty(subtype="FILE_PATH")# type: ignore
 
     def execute(self, context):
         scene = context.scene
         preset = {}
-        for prop_name in get_bones_list():  # Ensure get_bones_list is in the current scope
+        for prop_name in get_bones_list():  # 确保 get_bones_list 在当前作用域中
             preset[prop_name] = getattr(scene, prop_name, "")
 
         with open(self.filepath, 'w') as file:
             json.dump(preset, file, indent=4)
 
-        self.report({'INFO'}, f"Preset exported to {self.filepath}")
+        self.report({'INFO'}, f"预设已导出到 {self.filepath}")
         return {'FINISHED'}
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
-        # Set default file name to CTMMD.json
+        # 设置默认文件名为 CTMMD.json
         self.filepath = bpy.path.ensure_ext("CTMMD", ".json")
         return {'RUNNING_MODAL'}
 
 class OBJECT_OT_import_preset(bpy.types.Operator):
-    """Operator which imports a bone configuration preset"""
+    """导入骨骼配置预设"""
     bl_idname = "object.import_preset"
     bl_label = "Import Preset"
-    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    filepath : bpy.props.StringProperty(subtype="FILE_PATH")# type: ignore
 
     def execute(self, context):
         scene = context.scene
@@ -73,24 +73,24 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
             with open(self.filepath, 'r') as file:
                 preset = json.load(file)
         except Exception as e:
-            self.report({'ERROR'}, f"Failed to load preset: {str(e)}")
+            self.report({'ERROR'}, f"加载预设失败：{str(e)}")
             return {'CANCELLED'}
 
         for prop_name, value in preset.items():
             if prop_name in get_bones_list():
                 setattr(scene, prop_name, value)
 
-        self.report({'INFO'}, f"Preset imported from {self.filepath}")
+        self.report({'INFO'}, f"已从 {self.filepath} 导入预设")
         return {'FINISHED'}
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
-        # Set file filter to only show JSON files
+        # 设置文件过滤器仅显示 JSON 文件
         self.filter_glob = "*.json"
         return {'RUNNING_MODAL'}
 
 def get_bones_list():
-    """Generates the list of bone property names."""
+    """生成骨骼属性名称列表"""
     fingers = ["thumb", "index", "middle", "ring", "pinky"]
     finger_segments = {
         "thumb": ["0", "1", "2"],
@@ -140,14 +140,14 @@ def get_bones_list():
 
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
-    """Operator which converts the armature to A-Pose and applies it as the new rest pose"""
+    """将骨架转换为 A-Pose 并应用为新的静置姿态"""
     bl_idname = "object.convert_to_apose" 
     bl_label = "Convert to A-Pose"
 
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "No armature object selected")
+            self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene

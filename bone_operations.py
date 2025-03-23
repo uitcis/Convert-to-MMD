@@ -20,14 +20,14 @@ def create_or_update_bone(edit_bones, name, head_position, tail_position, parent
         bone.tail = tail_position
         bone.use_connect = False
         bone.parent = edit_bones.get(parent_name) if parent_name else None
-        bone.use_deform = use_deform  # Set the use_deform property
+        bone.use_deform = use_deform  # 设置是否变形属性
     else:
         bone = edit_bones.new(name)
         bone.head = head_position
         bone.tail = tail_position
         bone.use_connect = False
         bone.parent = edit_bones.get(parent_name) if parent_name else None
-        bone.use_deform = use_deform  # Set the use_deform property
+        bone.use_deform = use_deform  # 设置是否变形属性
     return bone
 
 def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False):
@@ -38,19 +38,19 @@ def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x
     ik_constraint.chain_count = chain_count
     ik_constraint.iterations = iterations
     
-    # Set X axis limits
+    # 设置 X 轴限制
     if ik_min_x is not None:
         bone.ik_min_x = ik_min_x
     if ik_max_x is not None:
         bone.ik_max_x = ik_max_x
     bone.use_ik_limit_x = use_ik_limit_x
     
-    # Set Y axis limits to 0
+    # 设置 Y 轴限制为 0
     bone.ik_min_y = 0
     bone.ik_max_y = 0
     bone.use_ik_limit_y = True
     
-    # Set Z axis limits to 0
+    # 设置 Z 轴限制为 0
     bone.ik_min_z = 0
     bone.ik_max_z = 0
     bone.use_ik_limit_z = True
@@ -91,10 +91,10 @@ def set_roll_values(edit_bones, bone_roll_mapping):
         if bone_name in edit_bones:
             edit_bones[bone_name].roll = radians(roll_value)  # 将度数转换为弧度
         else:
-            raise ValueError(f"骨骼 '{bone_name}' 未在 edit_bones 中找到。")
+            pass
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
-    """Operator which renames selected bones to MMD format"""
+    """将选定的骨骼重命名为 MMD 格式"""
     bl_idname = "object.rename_to_mmd"
     bl_label = "Rename to MMD"
 
@@ -112,7 +112,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             if bone_name:
                 bone = obj.pose.bones.get(bone_name)
                 if bone:
-                    # 检查骨骼是否已经重命名为MMD格式名称
+                    # 检查骨骼是否已经重命名为 MMD 格式名称
                     if bone.name != new_name:
                         bone.name = new_name
                         # 更新场景中的骨骼属性值
@@ -147,7 +147,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
                         self.report({'WARNING'}, f"Bone '{bone_name}' not found for renaming to {new_name}")
 
 class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
-    """Operator which completes missing bones for MMD format"""
+    """补充缺失的 MMD 格式骨骼"""
     bl_idname = "object.complete_missing_bones"
     bl_label = "Complete Missing Bones"
 
@@ -246,7 +246,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         return {'FINISHED'}
 
 class OBJECT_OT_add_ik(bpy.types.Operator):
-    """Operator which adds MMD IK to the armature"""
+    """为骨架添加 MMD IK"""
     bl_idname = "object.add_mmd_ik"
     bl_label = "Add MMD IK"
 
@@ -256,7 +256,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
-        # 确保当前处于编辑模式 (EDIT mode)
+        # 确保当前处于编辑模式
         if context.mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
 
@@ -276,7 +276,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         for bone_name, properties in IKbone_properties.items():
             create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties["parent"], use_deform=False)
 
-        # 切换到 POSE 模式
+        # 切换到姿态模式
         bpy.ops.object.mode_set(mode='POSE')
 
         # 获取骨骼对象
