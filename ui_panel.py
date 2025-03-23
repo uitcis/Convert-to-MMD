@@ -23,7 +23,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             split = row.split(factor=0.2, align=True)  # 修改: 固定文字总宽度比例为 0.2
             split.label(text=label_text)
             
-            single_split = split.split(factor=0.05, align=True)  # 修改: 剩余宽度比例分配给按钮和选择框,按钮占0.1
+            single_split = split.split(factor=0.055, align=True)  # 修改: 剩余宽度比例分配给按钮和选择框,按钮占0.1
             single_split.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = prop_name
             single_split.prop_search(scene, prop_name, obj.data, "bones", text="")
            
