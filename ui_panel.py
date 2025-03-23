@@ -20,21 +20,33 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 添加带有标签、prop_search用于骨骼和填充按钮的行的函数
         def add_bone_row_with_button(layout, label_text, prop_name):
             row = layout.row(align=True)
-            split = row.split(factor=0.85, align=True)
-            split.prop_search(scene, prop_name, obj.data, "bones", text=label_text)
-            op = split.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
-            op.bone_property = prop_name
+            split = row.split(factor=0.2, align=True)  # 修改: 固定文字总宽度比例为 0.2
+            split.label(text=label_text)
             
+            single_split = split.split(factor=0.05, align=True)  # 修改: 剩余宽度比例分配给按钮和选择框,按钮占0.1
+            single_split.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = prop_name
+            single_split.prop_search(scene, prop_name, obj.data, "bones", text="")
+           
+
         def add_symmetric_bones_with_buttons(layout, label_text, left_prop, right_prop):
             row = layout.row(align=True)
-            split1 = row.split(factor=0.2, align=True)
+            split1 = row.split(factor=0.2, align=True)  # 固定文字宽度比例为 0.2
             split1.label(text=label_text)
-            split2 = split1.split(factor=0.5, align=True)
-            col_left = split2.column(align=True)
-            col_right = split2.column(align=True)
+            split2 = split1.split(factor=0.5, align=True)  # 左右对称骨骼的按钮和选择框宽度比例一致
             
-            add_bone_row_with_button(col_left, "left", left_prop)
-            add_bone_row_with_button(col_right, "right", right_prop)
+            # 左侧布局
+            col_left = split2.column(align=True)
+            row_left = col_left.row(align=True)
+            sub_split_left = row_left.split(factor=0.1, align=True)
+            sub_split_left.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = left_prop
+            sub_split_left.prop_search(context.scene, left_prop, context.active_object.data, "bones", text="")
+            
+            # 右侧布局
+            col_right = split2.column(align=True)
+            row_right = col_right.row(align=True)
+            sub_split_right = row_right.split(factor=0.1, align=True)
+            sub_split_right.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = right_prop
+            sub_split_right.prop_search(context.scene, right_prop, context.active_object.data, "bones", text="")
 
         main_col = layout.column(align=True)
 
@@ -101,9 +113,10 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
             for segment in segments:
                 prop_name = f"{LR_base_finger_name}_{segment}"  # 修改: 直接使用 LR_base_finger_name
-                row.prop_search(scene, prop_name, obj.data, "bones", text=f" {segment}")
-                op = row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED')
-                op.bone_property = prop_name
+                row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = prop_name
+                row.prop_search(scene, prop_name, obj.data, "bones", text=f"")
+                
+                
                 
         # 添加导入预设按钮
         layout.operator("object.import_preset", text="导入预设")
