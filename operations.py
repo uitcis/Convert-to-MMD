@@ -213,14 +213,14 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 bone = pose_bones[bone_name]
                 bone.rotation_mode = 'XYZ'
                 
-                if "left" in bone_type:
-                    if "upper_arm" in bone_type:
-                        # 左上臂 - 向下旋转37度
-                        bone.rotation_euler = (math.radians(-37), 0, 0)
-                else:
-                    if "upper_arm" in bone_type:
-                        # 右上臂 - 向下旋转37度
-                        bone.rotation_euler = (math.radians(-37), 0, 0)
+                # 根据骨骼类型设置不同的旋转角度
+                if bone_type == "left_upper_arm":
+                    rotation_matrix = Matrix.Rotation(math.radians(37), 4, 'Y')
+                elif bone_type == "right_upper_arm":
+                    rotation_matrix = Matrix.Rotation(math.radians(-37), 4, 'Y')
+                
+                # 应用旋转矩阵
+                bone.matrix = rotation_matrix @ bone.matrix
                 
                 converted_bones.append(bone_name)
 
