@@ -179,8 +179,25 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         # 检查是否找到可用的网格
         if not meshes_with_armature:
-            self.report({'ERROR'}, "没有找到可用的网格。请分离身体网格并清除形态键后再试")
-            return {'CANCELLED'}
+            # 创建临时测试网格
+            try:
+                bpy.ops.mesh.primitive_cube_add(size=0.5)
+                temp_mesh = context.active_object
+                temp_mesh.name = "CTMMD_TEMP_MESH"
+                
+                # 添加骨架修改器
+                modifier = temp_mesh.modifiers.new(name="Armature", type='ARMATURE')
+                modifier.object = obj
+                
+                # 添加到可用网格列表
+                meshes_with_armature.append(temp_mesh)
+                
+                # 标记为临时网格
+                temp_mesh["is_temp_mesh"] = True
+                
+            except Exception as e:
+                self.report({'ERROR'}, f"创建临时网格失败：{str(e)}")
+                return {'CANCELLED'}
 
         # 3. 为每个网格复制骨骼修改器，但保留原始修改器
         for mesh_obj in meshes_with_armature:
@@ -249,6 +266,11 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         # 10. 应用当前姿态为新的静置姿态
         bpy.ops.pose.armature_apply()
+
+        # 11. 清理临时创建的网格
+        for mesh_obj in meshes_with_armature:
+            if mesh_obj.get("is_temp_mesh"):
+                bpy.data.objects.remove(mesh_obj, do_unlink=True)
 
         self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
         return {'FINISHED'}

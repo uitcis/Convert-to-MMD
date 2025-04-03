@@ -118,8 +118,10 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 
                 
                 
-        # 添加导入预设按钮
-        layout.operator("object.import_preset", text="导入预设")
+        # 添加导入/导出预设按钮
+        row = layout.row()
+        row.operator("object.import_preset", text="导入预设")
+        row.operator("object.export_preset", text="导出预设")
 
         # 添加T-Pose到A-Pose转换按钮
         layout.operator("object.convert_to_apose", text="转换为A-Pose")
@@ -132,6 +134,3 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
         # 添加IK按钮
         layout.operator("object.add_mmd_ik", text="添加MMD IK")
-
-        # 添加导出预设按钮
-        layout.operator("object.export_preset", text="导出预设")
