@@ -30,7 +30,7 @@ def create_or_update_bone(edit_bones, name, head_position, tail_position, parent
         bone.use_deform = use_deform  # 设置是否变形属性
     return bone
 
-def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False):
+def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, ik_min_y=0, ik_max_y=0, use_ik_limit_y=False, ik_min_z=0, ik_max_z=0, use_ik_limit_z=False):
     ik_constraint = bone.constraints.new(type='IK')
     ik_constraint.name = "IK"
     ik_constraint.target = target
@@ -45,40 +45,38 @@ def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x
         bone.ik_max_x = ik_max_x
     bone.use_ik_limit_x = use_ik_limit_x
     
-    # 设置 Y 轴限制为 0
-    bone.ik_min_y = 0
-    bone.ik_max_y = 0
-    bone.use_ik_limit_y = True
+    # 设置 Y 轴限制
+    if ik_min_y is not None:
+        bone.ik_min_y = ik_min_y
+    if ik_max_y is not None:
+        bone.ik_max_y = ik_max_y
+    bone.use_ik_limit_y = use_ik_limit_y
     
-    # 设置 Z 轴限制为 0
-    bone.ik_min_z = 0
-    bone.ik_max_z = 0
-    bone.use_ik_limit_z = True
+    # 设置 Z 轴限制
+    if ik_min_z is not None:
+        bone.ik_min_z = ik_min_z
+    if ik_max_z is not None:
+        bone.ik_max_z = ik_max_z
+    bone.use_ik_limit_z = use_ik_limit_z
 
-def add_limit_rotation_constraint(bone, use_limit_x=False, min_x=None, max_x=None, owner_space='LOCAL'):
+def add_limit_rotation_constraint(bone, influence=1, use_limit_x=False, min_x=None, max_x=None, owner_space='LOCAL'):
     limit_constraint = bone.constraints.new(type='LIMIT_ROTATION')
     limit_constraint.name = "mmd_ik_limit_override"
+    limit_constraint.influence = influence
     limit_constraint.use_limit_x = use_limit_x
     limit_constraint.owner_space = owner_space
+    
     if min_x is not None:
         limit_constraint.min_x = min_x
     if max_x is not None:
         limit_constraint.max_x = max_x
 
-def add_damped_track_constraint(bone, target, subtarget):
+def add_damped_track_constraint(bone, target, subtarget, influence=0):
     damped_track_constraint = bone.constraints.new(type='DAMPED_TRACK')
-    damped_track_constraint.name = "Damped Track"
+    damped_track_constraint.name = "mmd_ik_target_override"
     damped_track_constraint.target = target
     damped_track_constraint.subtarget = subtarget
-
-def add_ik_and_limit_rotation_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, min_x=None, max_x=None):
-    add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x, ik_max_x, use_ik_limit_x)
-    add_limit_rotation_constraint(bone, use_ik_limit_x, min_x, max_x)
-
-def add_ik_and_damped_track_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, min_x=None, max_x=None, damped_track_subtarget=None):
-    add_ik_and_limit_rotation_constraints(bone, target, subtarget, chain_count, iterations, ik_min_x, ik_max_x, use_ik_limit_x, min_x, max_x)
-    if damped_track_subtarget:
-        add_damped_track_constraint(bone, target, damped_track_subtarget)
+    damped_track_constraint.influence = influence  # 设置影响值为传入的参数
 
 def set_roll_values(edit_bones, bone_roll_mapping):
     """
@@ -221,27 +219,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # 调用函数设置 roll 値
         set_roll_values(edit_bones, DEFAULT_ROLL_VALUES)               
-        # 编辑完成后切换回 POSE 模式
-        bpy.ops.object.mode_set(mode='POSE')
 
-        # 检查并调用 mmd_tools.convert_to_mmd_model()
-        try:
-            bpy.ops.mmd_tools.convert_to_mmd_model()
-        except AttributeError as e:
-            if "mmd_tools" in str(e):
-                user_response = bpy.context.window_manager.popup_menu(
-                    lambda self, context: self.layout.label(text="mmd_tools 插件未安装或无法调用。是否要打开下载地址？"),
-                    title="提示",
-                    icon='QUESTION'
-                )
-                if user_response == 'CONFIRM':
-                    bpy.ops.wm.url_open(url="https://extensions.blender.org/add-ons/mmd-tools/")
-            else:
-                raise e
-
-        # 自动选择之前的骨架
-        bpy.context.view_layer.objects.active = obj
-        obj.select_set(True)
 
         return {'FINISHED'}
 
@@ -261,6 +239,13 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
 
         edit_bones = obj.data.edit_bones
+
+        # 检查基础骨骼是否存在
+        required_bones = ['左ひざ', '右ひざ', '左足首', '右足首', '全ての親']
+        missing_bones = [name for name in required_bones if name not in edit_bones]
+        if missing_bones:
+            self.report({'ERROR'}, f"缺失基础骨骼: {', '.join(missing_bones)}，请先补全骨骼")
+            return {'CANCELLED'}
 
         # 定义 IK 骨骼的属性
         IKbone_properties = {
@@ -286,15 +271,16 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         right_kutu = obj.pose.bones["右足首"]
 
         # 为左ひざ添加 IK 和旋转限制约束
-        add_ik_and_limit_rotation_constraints(left_hiza, obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True, min_x=radians(0.5), max_x=radians(180))
-
-        # 为左足首添加阻尼跟踪和 IK 约束
-        add_ik_and_damped_track_constraints(left_kutu, obj, "左つま先ＩＫ", 1, 200, damped_track_subtarget="左ひざ")
-
+        add_ik_constraint(left_hiza, obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True,use_ik_limit_y=True, use_ik_limit_z=True )
+        add_limit_rotation_constraint(left_hiza, use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
         # 为右ひざ添加 IK 和旋转限制约束
-        add_ik_and_limit_rotation_constraints(right_hiza, obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True, min_x=radians(0.5), max_x=radians(180))
-
-        # 为右足首添加阻尼跟踪和 IK 约束
-        add_ik_and_damped_track_constraints(right_kutu, obj, "右つま先ＩＫ", 1, 200, damped_track_subtarget="右ひざ")
+        add_ik_constraint(right_hiza, obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True,use_ik_limit_y=True, use_ik_limit_z=True )
+        add_limit_rotation_constraint(right_hiza, use_limit_x=True, min_x=radians(0.5), max_x=radians(180))
+        # 为左足首添加IK 约束和阻尼跟踪 
+        add_ik_constraint(left_kutu, obj, "左つま先ＩＫ", 1, 200)
+        add_damped_track_constraint(left_kutu, obj, "左ひざ")
+        # 为右足首添加IK 约束和阻尼跟踪
+        add_ik_constraint(right_kutu, obj, "右つま先ＩＫ", 1, 200)
+        add_damped_track_constraint(right_kutu, obj, "右ひざ")
 
         return {'FINISHED'}
