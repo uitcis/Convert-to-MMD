@@ -18,6 +18,7 @@ from . import bone_mapping
 from . import operations
 from . import bone_operations
 from . import ui_panel
+from . import bone_grouping
 
 
 def register_properties(properties_dict):
@@ -40,6 +41,7 @@ def register():
     bpy.utils.register_class(operations.OBJECT_OT_import_preset)
     bpy.utils.register_class(operations.OBJECT_OT_convert_to_apose)
     bpy.utils.register_class(bone_operations.OBJECT_OT_add_ik)
+    bpy.utils.register_class(bone_grouping.OBJECT_OT_create_bone_grouping)
     bones = operations.get_bones_list()
     register_properties(bones)
 
@@ -51,8 +53,8 @@ def unregister():
     bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
     bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
     bpy.utils.unregister_class(operations.OBJECT_OT_convert_to_apose)
-    
     bpy.utils.unregister_class(bone_operations.OBJECT_OT_add_ik)
+    bpy.utils.unregister_class(bone_grouping.OBJECT_OT_create_bone_grouping)
     bones = operations.get_bones_list()
     unregister_properties(bones)
 

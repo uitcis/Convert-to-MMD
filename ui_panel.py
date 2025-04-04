@@ -134,3 +134,6 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
         # 添加IK按钮
         layout.operator("object.add_mmd_ik", text="添加MMD IK")
+
+        # 在面板底部添加骨骼集合创建按钮
+        layout.operator("object.create_bone_grouping", text="创建骨骼集合")

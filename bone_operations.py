@@ -289,12 +289,12 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         add_ik_and_limit_rotation_constraints(left_hiza, obj, "左足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True, min_x=radians(0.5), max_x=radians(180))
 
         # 为左足首添加阻尼跟踪和 IK 约束
-        add_ik_and_damped_track_constraints(left_kutu, obj, "左つま先IK", 1, 200, damped_track_subtarget="左ひざ")
+        add_ik_and_damped_track_constraints(left_kutu, obj, "左つま先ＩＫ", 1, 200, damped_track_subtarget="左ひざ")
 
         # 为右ひざ添加 IK 和旋转限制约束
         add_ik_and_limit_rotation_constraints(right_hiza, obj, "右足ＩＫ", 2, 200, ik_min_x=radians(0), ik_max_x=radians(180), use_ik_limit_x=True, min_x=radians(0.5), max_x=radians(180))
 
         # 为右足首添加阻尼跟踪和 IK 约束
-        add_ik_and_damped_track_constraints(right_kutu, obj, "右つま先IK", 1, 200, damped_track_subtarget="右ひざ")
+        add_ik_and_damped_track_constraints(right_kutu, obj, "右つま先ＩＫ", 1, 200, damped_track_subtarget="右ひざ")
 
         return {'FINISHED'}
