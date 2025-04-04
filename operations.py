@@ -274,3 +274,53 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
         return {'FINISHED'}
+class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
+    """调用mmdtools进行格式转换"""
+    bl_idname = "object.use_mmd_tools_convert"
+    bl_label = "Convert to MMD Model"
+    bl_description = "使用mmd_tools插件转换模型格式（需要先安装mmd_tools插件）"
+
+    def execute(self, context):
+        obj = context.active_object
+        if not obj or obj.type != 'ARMATURE':
+            self.report({'ERROR'}, "未选择骨架对象")
+            return {'CANCELLED'}
+
+        # 保存当前模式并切换到OBJECT模式
+        current_mode = context.mode
+        if current_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        try:
+            # 调用mmd_tools的转换功能
+            bpy.ops.mmd_tools.convert_to_mmd_model()
+        except AttributeError as e:
+            # 弹出错误提示窗口
+            self.report({'ERROR'}, "mmd_tools插件未安装")
+            bpy.context.window_manager.popup_menu(
+                self.draw_error_menu,
+                title="MMD Tools未安装",
+                icon='ERROR'
+            )
+            return {'CANCELLED'}
+
+        # 恢复原始选择状态
+        context.view_layer.objects.active = obj
+        obj.select_set(True)
+        return {'FINISHED'}
+
+    def draw_error_menu(self, menu, context):
+        layout = menu.layout
+        layout.label(text="mmd_tools 插件未安装", icon='ERROR')
+        layout.separator()
+        layout.operator(
+            "wm.url_open",
+            text="前往下载页面",
+            icon='URL'
+        ).url = "https://extensions.blender.org/add-ons/mmd-tools/"
+        layout.operator(
+            "wm.url_open",
+            text="查看使用文档",
+            icon='HELP'
+        ).url = "https://mmd-blender.fandom.com/wiki/MMD_Tools_Documentation"
+        obj.select_set(True)
