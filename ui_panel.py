@@ -126,14 +126,15 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 添加T-Pose到A-Pose转换按钮
         layout.operator("object.convert_to_apose", text="转换为A-Pose")
 
-        # 添加重命名按钮
-        layout.operator("object.rename_to_mmd", text="重命名为MMD")
+        # 添加重命名按钮和补全缺失骨骼按钮到同一行
+        row = layout.row()
+        row.operator("object.rename_to_mmd", text="1.重命名为MMD")
+        row.operator("object.complete_missing_bones", text="2.补全缺失骨骼")
 
-        # 添加补全缺失骨骼按钮
-        layout.operator("object.complete_missing_bones", text="补全缺失骨骼")
+        # 添加IK按钮和创建骨骼集合按钮到同一行
+        row = layout.row()
+        row.operator("object.add_mmd_ik", text="3.添加MMD IK")
+        row.operator("object.create_bone_grouping", text="4.创建骨骼集合")
 
-        # 添加IK按钮
-        layout.operator("object.add_mmd_ik", text="添加MMD IK")
-
-        # 在面板底部添加骨骼集合创建按钮
-        layout.operator("object.create_bone_grouping", text="创建骨骼集合")
+        # 添加“使用mmdtools转换格式”按钮到最下方
+        layout.operator("object.use_mmd_tools_convert", text="使用mmdtools转换格式")
