@@ -19,7 +19,9 @@ from . import operations
 from . import bone_operations
 from . import ui_panel
 from . import bone_grouping
-
+from . import bone_utils
+from . import ik_operations
+from. import Apose_operation
 
 def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""
@@ -39,9 +41,9 @@ def register():
     bpy.utils.register_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.register_class(operations.OBJECT_OT_export_preset)
     bpy.utils.register_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.register_class(operations.OBJECT_OT_convert_to_apose)
     bpy.utils.register_class(operations.OBJECT_OT_use_mmd_tools_convert)
-    bpy.utils.register_class(bone_operations.OBJECT_OT_add_ik)
+    bpy.utils.register_class(Apose_operation.OBJECT_OT_convert_to_apose)
+    bpy.utils.register_class(ik_operations.OBJECT_OT_add_ik)
     bpy.utils.register_class(bone_grouping.OBJECT_OT_create_bone_grouping)
     bones = operations.get_bones_list()
     register_properties(bones)
@@ -53,9 +55,9 @@ def unregister():
     bpy.utils.unregister_class(operations.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
     bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.unregister_class(operations.OBJECT_OT_convert_to_apose)
     bpy.utils.unregister_class(operations.OBJECT_OT_use_mmd_tools_convert)
-    bpy.utils.unregister_class(bone_operations.OBJECT_OT_add_ik)
+    bpy.utils.unregister_class(Apose_operation.OBJECT_OT_convert_to_apose)
+    bpy.utils.unregister_class(ik_operations.OBJECT_OT_add_ik)
     bpy.utils.unregister_class(bone_grouping.OBJECT_OT_create_bone_grouping)
     bones = operations.get_bones_list()
     unregister_properties(bones)
