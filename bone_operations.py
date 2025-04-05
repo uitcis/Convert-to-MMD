@@ -103,6 +103,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # 定义基本骨骼的属性
         bone_properties = {
+
             "全ての親": {"head": Vector((0, 0, 0)), "tail": Vector((0, 0, 0.3)), "parent": None, "use_deform": False, "use_connect": False},
             "センター": {"head": Vector((0, 0, 0.3)), "tail": Vector((0, 0, 0.6)), "parent": "全ての親", "use_deform": False, "use_connect": False},
             "グルーブ": {"head": Vector((0, 0, 0.8)), "tail": Vector((0, 0, 0.7)), "parent": "センター", "use_deform": False, "use_connect": False},
@@ -111,6 +112,45 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "上半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_tail.y, upper_body_head.z+0.15)), "parent": "腰", "use_connect": False},
             "上半身2": {"head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), "tail": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z+0.15)),
                 "parent": "上半身", "use_connect": False},
+            # 上肢骨骼链
+            "左肩": {
+                "head": edit_bones["左肩"].head,
+                "tail": edit_bones["左腕"].head,
+                "parent": None,
+                "use_connect": True
+            },
+            "左腕": {
+                "head": edit_bones["左腕"].head,
+                "tail": edit_bones["左ひじ"].head,
+                "parent": "左肩",
+                "use_connect": True
+            },
+            "左ひじ": {
+                "head": edit_bones["左ひじ"].head,
+                "tail": edit_bones["左手首"].head,
+                "parent": "左腕",
+                "use_connect": True
+            },
+       
+            "右肩": {
+                "head": edit_bones["右肩"].head,
+                "tail": edit_bones["右腕"].head,
+                "parent": None,
+                "use_connect": True
+            },
+            "右腕": {
+                "head": edit_bones["右腕"].head,
+                "tail": edit_bones["右ひじ"].head,
+                "parent": "右肩",
+                "use_connect": True
+            },
+            "右ひじ": {
+                "head": edit_bones["右ひじ"].head,
+                "tail": edit_bones["右手首"].head,
+                "parent": "右腕",
+                "use_connect": True
+            }, 
+            
             "下半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_head.y, upper_body_head.z - 0.15)), "parent": "腰", "use_connect": False},
             "左足": {
                 "head": edit_bones["左足"].head,
