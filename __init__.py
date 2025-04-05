@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Convert to MMD",
     "author": "UITCIS(空想幻灵)",
-    "version": (2, 0),
+    "version": (2, 1),
     "blender": (3, 0, 0),
     "location": "View3D > Sidebar",
     "description": "Plugin to automatically rename and complete missing bones for MMD format",
