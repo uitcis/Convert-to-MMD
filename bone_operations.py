@@ -116,7 +116,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "左肩": {
                 "head": edit_bones["左肩"].head,
                 "tail": edit_bones["左腕"].head,
-                "parent": None,
+                "parent": edit_bones["左肩"].parent.name if edit_bones["左肩"].parent else None,
                 "use_connect": True
             },
             "左腕": {
@@ -127,7 +127,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             },
             "左ひじ": {
                 "head": edit_bones["左ひじ"].head,
-                "tail": edit_bones["左手首"].head,
+                "tail": edit_bones["左手首"].head if edit_bones["左手首"]else edit_bones["左ひじ"].tail,
                 "parent": "左腕",
                 "use_connect": True
             },
@@ -135,7 +135,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "右肩": {
                 "head": edit_bones["右肩"].head,
                 "tail": edit_bones["右腕"].head,
-                "parent": None,
+                "parent": edit_bones["右肩"].parent.name if edit_bones["右肩"].parent else None,
                 "use_connect": True
             },
             "右腕": {
@@ -146,7 +146,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             },
             "右ひじ": {
                 "head": edit_bones["右ひじ"].head,
-                "tail": edit_bones["右手首"].head,
+                "tail": edit_bones["右手首"].head if edit_bones["右手首"]else edit_bones["右ひじ"].tail,
                 "parent": "右腕",
                 "use_connect": True
             }, 
