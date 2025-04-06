@@ -117,7 +117,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "head": Vector((0, edit_bones["左肩"].head.y , edit_bones["左腕"].head.z)),
                 "tail": edit_bones["左腕"].head,
                 "parent": edit_bones["左肩"].parent.name if edit_bones["左肩"].parent else None,
-                "use_connect": True
+                "use_connect": False
             },
             "左腕": {
                 "head": edit_bones["左腕"].head,
@@ -136,7 +136,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "head": Vector((0, edit_bones["右肩"].head.y , edit_bones["右腕"].head.z)),
                 "tail": edit_bones["右腕"].head,
                 "parent": edit_bones["右肩"].parent.name if edit_bones["右肩"].parent else None,
-                "use_connect": True
+                "use_connect": False
             },
             "右腕": {
                 "head": edit_bones["右腕"].head,
