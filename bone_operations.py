@@ -3,6 +3,7 @@ from mathutils import Vector
 from math import radians
 from . import bone_mapping
 from . import bone_utils
+from . import operations
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     """将选定的骨骼重命名为 MMD 格式"""
@@ -18,6 +19,15 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             return {'CANCELLED'}
 
         scene = context.scene
+        # 检查选择框里是否有骨骼设置
+        has_bone_set = False
+        for prop_name in operations.get_bones_list():  # 从operations.py中获取骨骼属性名称列表
+            if getattr(scene, prop_name, None):
+                has_bone_set = True
+                break
+        if not has_bone_set:
+            self.report({'WARNING'}, "未设置骨骼")
+            return {'CANCELLED'}
         for prop_name, new_name in self.mmd_bone_mapping.items():
             bone_name = getattr(scene, prop_name, None)
             if bone_name:
