@@ -58,7 +58,7 @@ mmd_bone_map = {
     "right_pinky_2": "右小指２",
     "right_pinky_3": "右小指３",
 }
-mmd_bone_group=[
+mmd_bone_group = [
     {
         "name": "センター",
         "bones": [

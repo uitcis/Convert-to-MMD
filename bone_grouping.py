@@ -72,10 +72,13 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
         
         # 批量删除集合操作
         if collections := getattr(armature, 'collections', None):
-            collections.remove(*collections)
+            # 适配Blender 4.0+的删除方式
+            for coll in list(collections):
+                collections.remove(coll)
         
         # 使用集合差集优化剩余骨骼计算
-        remaining_bones = set(bone_dict.keys()) & PRESET_BONES
+        remaining_bones = set(bone_dict.keys()) - PRESET_BONES
+        print(f'预设应包含骨骼数量: {len(PRESET_BONES)} 实际骨骼数量: {len(bone_dict)} 初始剩余骨骼数量: {len(remaining_bones)}')
         
         # 批量创建集合并分配骨骼
         for group_name, bones in BONE_GROUPING_PRESETS.items():
@@ -84,6 +87,7 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
                 for b in valid_bones:
                     coll.assign(bone_dict[b])
                 remaining_bones -= set(valid_bones)
+            print(f'处理分组【{group_name}】后剩余骨骼数量: {len(remaining_bones)}')
 
         # 优化other分组处理
         if remaining_bones:
