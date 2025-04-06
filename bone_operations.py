@@ -114,7 +114,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "parent": "上半身", "use_connect": False},
             # 上肢骨骼链
             "左肩": {
-                "head": Vector((0, edit_bones["左肩"].head.y , edit_bones["左腕"].head.Z)),
+                "head": Vector((0, edit_bones["左肩"].head.y , edit_bones["左腕"].head.z)),
                 "tail": edit_bones["左腕"].head,
                 "parent": edit_bones["左肩"].parent.name if edit_bones["左肩"].parent else None,
                 "use_connect": True
@@ -133,7 +133,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             },
        
             "右肩": {
-                "head": Vector((0, edit_bones["右肩"].head.y , edit_bones["右腕"].head.Z)),
+                "head": Vector((0, edit_bones["右肩"].head.y , edit_bones["右腕"].head.z)),
                 "tail": edit_bones["右腕"].head,
                 "parent": edit_bones["右肩"].parent.name if edit_bones["右肩"].parent else None,
                 "use_connect": True
