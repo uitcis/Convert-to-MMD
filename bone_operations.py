@@ -1,7 +1,7 @@
 import bpy
 from mathutils import Vector
 from math import radians
-from . import bone_mapping
+from . import bone_map_and_group
 from . import bone_utils
 from . import operations
 
@@ -10,7 +10,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     bl_idname = "object.rename_to_mmd"
     bl_label = "Rename to MMD"
 
-    mmd_bone_mapping = bone_mapping.mmd_bone_mapping  # 使用导入的bone_mapping模块
+    mmd_bone_map = bone_map_and_group.mmd_bone_map  # 使用导入的bone_map模块
 
     def execute(self, context):
         obj = context.active_object
@@ -28,7 +28,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         if not has_bone_set:
             self.report({'WARNING'}, "未设置骨骼")
             return {'CANCELLED'}
-        for prop_name, new_name in self.mmd_bone_mapping.items():
+        for prop_name, new_name in self.mmd_bone_map.items():
             bone_name = getattr(scene, prop_name, None)
             if bone_name:
                 bone = obj.pose.bones.get(bone_name)
@@ -51,8 +51,8 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     def rename_finger_bone(self, context, obj, scene, base_finger_name, segment):
         for side in ["left", "right"]:
             prop_name = f"{side}_{base_finger_name}_{segment}"
-            if prop_name in self.mmd_bone_mapping:
-                new_name = self.mmd_bone_mapping.get(prop_name)
+            if prop_name in self.mmd_bone_map:
+                new_name = self.mmd_bone_map.get(prop_name)
                 bone_name = getattr(scene, prop_name, None)
                 if bone_name:
                     bone = obj.pose.bones.get(bone_name)

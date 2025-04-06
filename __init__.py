@@ -14,7 +14,7 @@ import bpy
 from mathutils import Vector, Matrix, Euler
 from math import radians
 import json
-from . import bone_mapping
+from . import bone_map_and_group
 from . import operations
 from . import bone_operations
 from . import ui_panel
