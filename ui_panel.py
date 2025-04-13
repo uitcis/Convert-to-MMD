@@ -94,11 +94,10 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 text=""  # 右侧选择框（Search Box）
             )
         main_col = layout.column(align=True)
-
         # 全ての親到腰部分
         full_body_box = main_col.box()
         col = full_body_box.column()
-
+        add_bone_row_with_button(col, "操作中心:", "control_center_bone")
         add_bone_row_with_button(col, "全ての親", "all_parents_bone")
         add_bone_row_with_button(col, "センター", "center_bone")
         add_bone_row_with_button(col, "グルーブ", "groove_bone")
@@ -107,12 +106,11 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 上半身到頭部分
         upper_body_box = main_col.box()
         col = upper_body_box.column()
-
         add_bone_row_with_button(col, "上半身", "upper_body_bone")
         add_bone_row_with_button(col, "上半身2", "upper_body2_bone")
         add_bone_row_with_button(col, "首", "neck_bone")
         add_bone_row_with_button(col, "頭", "head_bone")
-
+        add_symmetric_bones_with_buttons(col, "目:", "left_eye_bone", "right_eye_bone")
         add_symmetric_bones_with_buttons(col, "肩:", "left_shoulder_bone", "right_shoulder_bone")
         add_symmetric_bones_with_buttons(col, "腕:", "left_upper_arm_bone", "right_upper_arm_bone")
         add_symmetric_bones_with_buttons(col, "ひじ:", "left_lower_arm_bone", "right_lower_arm_bone")
@@ -121,20 +119,11 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 下半身到足首部分
         lower_body_box = main_col.box()
         col = lower_body_box.column()
-
         add_bone_row_with_button(col, "下半身", "lower_body_bone")
         add_symmetric_bones_with_buttons(col, "足:", "left_thigh_bone", "right_thigh_bone")
         add_symmetric_bones_with_buttons(col, "ひざ:", "left_calf_bone", "right_calf_bone")
         add_symmetric_bones_with_buttons(col, "足首:", "left_foot_bone", "right_foot_bone")
-
-        # 可選骨骼部分
-        opt_box = main_col.box()
-            
-        add_bone_row_with_button(opt_box, "操作中心:", "control_center_bone")
-
-        add_symmetric_bones_with_buttons(opt_box, "目:", "left_eye_bone", "right_eye_bone")
-        add_symmetric_bones_with_buttons(opt_box, "足先EX:", "left_toe_bone", "right_toe_bone")
-
+        add_symmetric_bones_with_buttons(col, "足先EX:", "left_toe_bone", "right_toe_bone")
         # 手指部分
         finger_labels = [
             ("left_thumb", ["0", "1", "2"], "左親指"),
@@ -148,20 +137,22 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             ("right_ring", ["1", "2", "3"], "右薬指"),
             ("right_pinky", ["1", "2", "3"], "右小指")
         ]
-
-        fingers_box = opt_box.column(align=True)
+            
+        
+        fingers_box = main_col.box()
+        col = fingers_box.column()
+        
         for LR_base_finger_name, segments, label_text in finger_labels:
             side = "left" if "left" in LR_base_finger_name else "right"
             
-            row = fingers_box.row(align=True)
+            row = col.row(align=True)
             row.label(text=f"{label_text}:")
 
             for segment in segments:
                 prop_name = f"{LR_base_finger_name}_{segment}"  # 修改: 直接使用 LR_base_finger_name
                 row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = prop_name
                 row.prop_search(scene, prop_name, obj.data, "bones", text=f"")
-                
-                
+
                 
         # 添加导入/导出预设按钮
         row = layout.row()
