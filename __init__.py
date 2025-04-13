@@ -21,7 +21,7 @@ from . import ui_panel
 from . import bone_grouping
 from . import bone_utils
 from . import ik_operations
-from. import Apose_operation
+from . import Apose_operation
 
 def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""

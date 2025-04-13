@@ -20,7 +20,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 添加带有标签、prop_search用于骨骼和填充按钮的行的函数
         def add_bone_row_with_button(layout, label_text, prop_name):
             row = layout.row(align=True)
-            split_name = row.split(factor=0.2, align=True)
+            split_name = row.split(factor=0.1, align=True)
             # 左侧部分：骨骼名称
             split_name.label(text=label_text)
             # action部分占用剩余的0.8
@@ -44,10 +44,10 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             # 第一层划分：将行分为 0.2 和 0.8 两部分
             row = layout.row(align=True)
             # 骨骼名字（Name）使用0.2
-            split_name = row.split(factor=0.2, align=True)
+            split_name = row.split(factor=0.1, align=True)
             split_name.label(text=label_text)  # 显示骨骼名字
             # split() 的比例是基于当前容器的剩余空间
-            # advtion部分使用name剩下的0.8
+            # action部分使用name剩下的0.8
             split_action = split_name.split(factor=1, align=True)
 
             # 左侧操作部分 使用action的0.49
@@ -93,6 +93,81 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 "bones",
                 text=""  # 右侧选择框（Search Box）
             )
+        def add_finger_bones_with_buttons(layout, label_text, first_prop, second_prop, third_prop):
+            
+            divider_ratio = 0.02
+            split_ratio = (1-2*divider_ratio)/3
+            # 第一层划分：将行分为 0.2 和 0.8 两部分
+            row = layout.row(align=True)
+            # 骨骼名字（Name）使用0.2
+            split_name = row.split(factor=0.1, align=True)
+            split_name.label(text=label_text)  # 显示骨骼名字
+            # split() 的比例是基于当前容器的剩余空间
+            # action部分使用name剩下的0.8
+            split_action = split_name.split(factor=1, align=True)
+
+            # 右侧操作区域划分为三列：split_ratio divider_ratio split_ratio divider_ratio split_ratio
+            # 第一个操作区域（0.32）
+            split_first_action = split_action.split(factor=split_ratio, align=True)
+            col_first_action = split_first_action.column(align=True)
+            row_first_action = col_first_action.row(align=True)
+            # 在右侧操作部分进一步划分为 Button 和 Search Box
+            sub_split_first_button = row_first_action.split(factor=0.1, align=True)
+            sub_split_first_button.operator(
+                "object.fill_from_selection_specific",
+                text="",
+                icon='ZOOM_SELECTED'
+            ).bone_property = first_prop  # 右侧按钮（Button）
+            sub_split_first_button.prop_search(
+                scene,
+                first_prop,
+                obj.data,
+                "bones",
+                text=""  # 右侧选择框（Search Box）
+            )
+            # 中间分割线（{divider_ratio}）
+            split_divider1 = split_first_action.split(factor=divider_ratio/(1-split_ratio), align=True)
+            split_divider1.label(text="|")  # 分割线
+            # 第二个操作区域（0.32）
+            split_second_bone = split_divider1.split(factor=split_ratio/(1-split_ratio-divider_ratio), align=True)
+            col_second_bone = split_second_bone.column(align=True)
+            row_second_bone = col_second_bone.row(align=True)
+            # 在右侧操作部分进一步划分为 Button 和 Search Box
+            sub_split_second_button = row_second_bone.split(factor=0.1, align=True)
+            sub_split_second_button.operator(
+                "object.fill_from_selection_specific",
+                text="",
+                icon='ZOOM_SELECTED'
+            ).bone_property = second_prop  # 右侧按钮（Button）
+            sub_split_second_button.prop_search(
+                scene,
+                second_prop,
+                obj.data,
+                "bones",
+                text=""  # 右侧选择框（Search Box）
+            )
+            # 中间分割线（{divider_ratio}）
+            split_divider2 = split_second_bone.split(factor=divider_ratio/(1-split_ratio*2-divider_ratio), align=True)
+            split_divider2.label(text="|")
+            
+            # 第三个操作区
+            split_third_bone = split_divider2.split(factor=1, align=True)
+            col_third_bone = split_third_bone.column(align=True)
+            row_third_bone = col_third_bone.row(align=True)
+            # 在右侧操作部分进一步划分为 Button 和 Search Box
+            sub_split_third_button = row_third_bone.split(factor=0.1, align=True)
+            sub_split_third_button.operator(
+                "object.fill_from_selection_specific",
+                text="",
+                icon='ZOOM_SELECTED'
+            ).bone_property = third_prop  # 右侧按钮（Button）
+            sub_split_third_button.prop_search(
+                scene,
+                third_prop,
+                obj.data,
+                "bones",
+                text=""  # 右侧选择框（Search Box）
+            )
         main_col = layout.column(align=True)
         # 全ての親到腰部分
         full_body_box = main_col.box()
@@ -124,36 +199,21 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         add_symmetric_bones_with_buttons(col, "ひざ:", "left_calf_bone", "right_calf_bone")
         add_symmetric_bones_with_buttons(col, "足首:", "left_foot_bone", "right_foot_bone")
         add_symmetric_bones_with_buttons(col, "足先EX:", "left_toe_bone", "right_toe_bone")
-        # 手指部分
-        finger_labels = [
-            ("left_thumb", ["0", "1", "2"], "左親指"),
-            ("left_index", ["1", "2", "3"], "左人指"),
-            ("left_middle", ["1", "2", "3"], "左中指"),
-            ("left_ring", ["1", "2", "3"], "左薬指"),
-            ("left_pinky", ["1", "2", "3"], "左小指"),
-            ("right_thumb", ["0", "1", "2"], "右親指"),
-            ("right_index", ["1", "2", "3"], "右人指"),
-            ("right_middle", ["1", "2", "3"], "右中指"),
-            ("right_ring", ["1", "2", "3"], "右薬指"),
-            ("right_pinky", ["1", "2", "3"], "右小指")
-        ]
-            
-        
+
         fingers_box = main_col.box()
         col = fingers_box.column()
-        
-        for LR_base_finger_name, segments, label_text in finger_labels:
-            side = "left" if "left" in LR_base_finger_name else "right"
+        add_finger_bones_with_buttons(col, "左親指:", "left_thumb_0", "left_thumb_1", "left_thumb_2")
+        add_finger_bones_with_buttons(col, "左人指:", "left_index_1", "left_index_2", "left_index_3")
+        add_finger_bones_with_buttons(col, "左中指:", "left_middle_1", "left_middle_2", "left_middle_3")
+        add_finger_bones_with_buttons(col, "左薬指:", "left_ring_1", "left_ring_2", "left_ring_3")
+        add_finger_bones_with_buttons(col, "左小指:", "left_pinky_1", "left_pinky_2", "left_pinky_3")
+
+        add_finger_bones_with_buttons(col, "右親指:", "right_thumb_0", "right_thumb_1", "right_thumb_2")
+        add_finger_bones_with_buttons(col, "右人指:", "right_index_1", "right_index_2", "right_index_3")
+        add_finger_bones_with_buttons(col, "右中指:", "right_middle_1", "right_middle_2", "right_middle_3")
+        add_finger_bones_with_buttons(col, "右薬指:", "right_ring_1", "right_ring_2", "right_ring_3")
+        add_finger_bones_with_buttons(col, "右小指:", "right_pinky_1", "right_pinky_2", "right_pinky_3")    
             
-            row = col.row(align=True)
-            row.label(text=f"{label_text}:")
-
-            for segment in segments:
-                prop_name = f"{LR_base_finger_name}_{segment}"  # 修改: 直接使用 LR_base_finger_name
-                row.operator("object.fill_from_selection_specific", text="", icon='ZOOM_SELECTED').bone_property = prop_name
-                row.prop_search(scene, prop_name, obj.data, "bones", text=f"")
-
-                
         # 添加导入/导出预设按钮
         row = layout.row()
         row.operator("object.import_preset", text="导入预设")
