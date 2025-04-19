@@ -1,4 +1,27 @@
 import bpy
+import os
+import json
+
+class OBJECT_OT_load_preset(bpy.types.Operator):
+    bl_idname = "object.load_preset"
+    bl_label = "Load Preset"
+    
+    preset_name: bpy.props.StringProperty()
+    
+    def execute(self, context):
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        presets_dir = os.path.join(script_dir, "presets")
+        preset_path = os.path.join(presets_dir, f"{self.preset_name}.json")
+        
+        if os.path.exists(preset_path):
+            with open(preset_path, 'r', encoding='utf-8') as f:
+                preset_data = json.load(f)
+                
+            for prop_name, bone_name in preset_data.items():
+                if hasattr(context.scene, prop_name):
+                    setattr(context.scene, prop_name, bone_name)
+        
+        return {'FINISHED'}
 
 class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
     bl_label = "Convert to MMD"
@@ -10,6 +33,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+
 
         # 检查活动对象是否为骨架
         obj = context.active_object
@@ -117,13 +141,13 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 "object.fill_from_selection_specific",
                 text="",
                 icon='ZOOM_SELECTED'
-            ).bone_property = first_prop  # 右侧按钮（Button）
+            ).bone_property = first_prop  # 右側按钮（Button）
             sub_split_first_button.prop_search(
                 scene,
                 first_prop,
                 obj.data,
                 "bones",
-                text=""  # 右侧选择框（Search Box）
+                text=""  # 右側选择框（Search Box）
             )
             # 中间分割线（{divider_ratio}）
             split_divider1 = split_first_action.split(factor=divider_ratio/(1-split_ratio), align=True)
@@ -138,13 +162,13 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 "object.fill_from_selection_specific",
                 text="",
                 icon='ZOOM_SELECTED'
-            ).bone_property = second_prop  # 右侧按钮（Button）
+            ).bone_property = second_prop  # 右側按钮（Button）
             sub_split_second_button.prop_search(
                 scene,
                 second_prop,
                 obj.data,
                 "bones",
-                text=""  # 右侧选择框（Search Box）
+                text=""  # 右側选择框（Search Box）
             )
             # 中间分割线（{divider_ratio}）
             split_divider2 = split_second_bone.split(factor=divider_ratio/(1-split_ratio*2-divider_ratio), align=True)
@@ -160,14 +184,18 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 "object.fill_from_selection_specific",
                 text="",
                 icon='ZOOM_SELECTED'
-            ).bone_property = third_prop  # 右侧按钮（Button）
+            ).bone_property = third_prop  # 右側按钮（Button）
             sub_split_third_button.prop_search(
                 scene,
                 third_prop,
                 obj.data,
                 "bones",
-                text=""  # 右侧选择框（Search Box）
+                text=""  # 右側选择框（Search Box）
             )
+        # 新增 EnumProperty 下拉菜单
+        row = layout.row()
+        row.prop(scene, "preset_enum", text="")
+    
         main_col = layout.column(align=True)
         # 全ての親到腰部分
         full_body_box = main_col.box()
