@@ -1,8 +1,6 @@
 import bpy
 import math
-import mathutils
-import os
-from mathutils import Vector, Matrix, Euler
+from mathutils import Matrix
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
     """将骨架转换为 A-Pose 并应用为新的静置姿态"""

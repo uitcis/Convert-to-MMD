@@ -1,5 +1,4 @@
 import bpy
-import sys
 from bpy.props import BoolProperty
 from functools import lru_cache
 

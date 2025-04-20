@@ -1,5 +1,3 @@
-import bpy
-from mathutils import Vector
 from math import radians
 
 DEFAULT_ROLL_VALUES = {

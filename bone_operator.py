@@ -1,6 +1,5 @@
 import bpy
 from mathutils import Vector
-from math import radians
 from . import bone_map_and_group
 from . import bone_utils
 from . import preset_operator

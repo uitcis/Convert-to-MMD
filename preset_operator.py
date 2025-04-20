@@ -1,8 +1,5 @@
 import bpy
 import json
-import math
-
-from mathutils import Vector, Matrix, Euler
 
 class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
     """从当前选定的骨骼填充特定的骨骼属性"""
