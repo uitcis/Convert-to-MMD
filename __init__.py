@@ -17,7 +17,7 @@ import json
 import os  # 新增：导入os模块
 from . import bone_map_and_group
 from . import preset_operator
-from . import bone_operations
+from . import bone_operator
 from . import ui_panel
 from . import collection_operator
 from . import bone_utils
@@ -39,8 +39,8 @@ def register():
     # 注册所有类
     bpy.utils.register_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.register_class(ui_panel.OBJECT_OT_load_preset)
-    bpy.utils.register_class(bone_operations.OBJECT_OT_rename_to_mmd)
-    bpy.utils.register_class(bone_operations.OBJECT_OT_complete_missing_bones)
+    bpy.utils.register_class(bone_operator.OBJECT_OT_rename_to_mmd)
+    bpy.utils.register_class(bone_operator.OBJECT_OT_complete_missing_bones)
     bpy.utils.register_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.register_class(preset_operator.OBJECT_OT_export_preset)
     bpy.utils.register_class(preset_operator.OBJECT_OT_import_preset)
@@ -65,8 +65,8 @@ def unregister():
     # 注销所有类
     bpy.utils.unregister_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.unregister_class(ui_panel.OBJECT_OT_load_preset)
-    bpy.utils.unregister_class(bone_operations.OBJECT_OT_rename_to_mmd)
-    bpy.utils.unregister_class(bone_operations.OBJECT_OT_complete_missing_bones)
+    bpy.utils.unregister_class(bone_operator.OBJECT_OT_rename_to_mmd)
+    bpy.utils.unregister_class(bone_operator.OBJECT_OT_complete_missing_bones)
     bpy.utils.unregister_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
     bpy.utils.unregister_class(preset_operator.OBJECT_OT_export_preset)
     bpy.utils.unregister_class(preset_operator.OBJECT_OT_import_preset)
