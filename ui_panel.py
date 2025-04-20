@@ -258,7 +258,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         # 添加IK按钮和创建骨骼集合按钮到同一行
         row = layout.row()
         row.operator("object.add_mmd_ik", text="3.添加MMD IK")
-        row.operator("object.create_bone_grouping", text="4.创建骨骼集合")
+        row.operator("object.create_bone_group", text="4.创建骨骼集合")
 
         # 添加“使用mmdtools转换格式”按钮到最下方
         layout.operator("object.use_mmd_tools_convert", text="使用mmdtools转换格式")

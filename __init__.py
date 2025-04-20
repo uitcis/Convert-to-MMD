@@ -16,13 +16,13 @@ from math import radians
 import json
 import os  # 新增：导入os模块
 from . import bone_map_and_group
-from . import operations
+from . import preset_operator
 from . import bone_operations
 from . import ui_panel
-from . import bone_grouping
+from . import collection_operator
 from . import bone_utils
-from . import ik_operations
-from . import Apose_operation
+from . import ik_operator
+from . import pose_operator
 
 def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""
@@ -41,16 +41,16 @@ def register():
     bpy.utils.register_class(ui_panel.OBJECT_OT_load_preset)
     bpy.utils.register_class(bone_operations.OBJECT_OT_rename_to_mmd)
     bpy.utils.register_class(bone_operations.OBJECT_OT_complete_missing_bones)
-    bpy.utils.register_class(operations.OBJECT_OT_fill_from_selection_specific)
-    bpy.utils.register_class(operations.OBJECT_OT_export_preset)
-    bpy.utils.register_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.register_class(operations.OBJECT_OT_use_mmd_tools_convert)
-    bpy.utils.register_class(Apose_operation.OBJECT_OT_convert_to_apose)
-    bpy.utils.register_class(ik_operations.OBJECT_OT_add_ik)
-    bpy.utils.register_class(bone_grouping.OBJECT_OT_create_bone_grouping)
+    bpy.utils.register_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
+    bpy.utils.register_class(preset_operator.OBJECT_OT_export_preset)
+    bpy.utils.register_class(preset_operator.OBJECT_OT_import_preset)
+    bpy.utils.register_class(preset_operator.OBJECT_OT_use_mmd_tools_convert)
+    bpy.utils.register_class(pose_operator.OBJECT_OT_convert_to_apose)
+    bpy.utils.register_class(ik_operator.OBJECT_OT_add_ik)
+    bpy.utils.register_class(collection_operator.OBJECT_OT_create_bone_group)
 
     # 注册动态属性
-    bones = operations.get_bones_list()
+    bones = preset_operator.get_bones_list()
     register_properties(bones)
 
     # 注册 EnumProperty
@@ -67,16 +67,16 @@ def unregister():
     bpy.utils.unregister_class(ui_panel.OBJECT_OT_load_preset)
     bpy.utils.unregister_class(bone_operations.OBJECT_OT_rename_to_mmd)
     bpy.utils.unregister_class(bone_operations.OBJECT_OT_complete_missing_bones)
-    bpy.utils.unregister_class(operations.OBJECT_OT_fill_from_selection_specific)
-    bpy.utils.unregister_class(operations.OBJECT_OT_export_preset)
-    bpy.utils.unregister_class(operations.OBJECT_OT_import_preset)
-    bpy.utils.unregister_class(operations.OBJECT_OT_use_mmd_tools_convert)
-    bpy.utils.unregister_class(Apose_operation.OBJECT_OT_convert_to_apose)
-    bpy.utils.unregister_class(ik_operations.OBJECT_OT_add_ik)
-    bpy.utils.unregister_class(bone_grouping.OBJECT_OT_create_bone_grouping)
+    bpy.utils.unregister_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
+    bpy.utils.unregister_class(preset_operator.OBJECT_OT_export_preset)
+    bpy.utils.unregister_class(preset_operator.OBJECT_OT_import_preset)
+    bpy.utils.unregister_class(preset_operator.OBJECT_OT_use_mmd_tools_convert)
+    bpy.utils.unregister_class(pose_operator.OBJECT_OT_convert_to_apose)
+    bpy.utils.unregister_class(ik_operator.OBJECT_OT_add_ik)
+    bpy.utils.unregister_class(collection_operator.OBJECT_OT_create_bone_group)
 
     # 注销动态属性
-    bones = operations.get_bones_list()
+    bones = preset_operator.get_bones_list()
     unregister_properties(bones)
 
     # 注销 EnumProperty

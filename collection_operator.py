@@ -32,10 +32,10 @@ def load_bone_presets():
         print(f"加载骨骼分组配置失败: {str(e)}")
     return {}, set()
 
-BONE_GROUPING_PRESETS, PRESET_BONES = load_bone_presets()
+BONE_GROUP_PRESETS, PRESET_BONES = load_bone_presets()
 
-class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
-    bl_idname = "object.create_bone_grouping"
+class OBJECT_OT_create_bone_group(bpy.types.Operator):
+    bl_idname = "object.create_bone_group"
     bl_label = "创建骨骼集合"
     bl_description = "根据Blender版本自动创建骨骼组或骨骼集合"
 
@@ -51,7 +51,7 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 
-        if self.use_presets and not BONE_GROUPING_PRESETS:
+        if self.use_presets and not BONE_GROUP_PRESETS:
             self.report({'ERROR'}, "未找到有效的骨骼分组配置，请检查bone_map_and_group.py文件")
             return {'CANCELLED'}
 
@@ -81,7 +81,7 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
         print(f'预设应包含骨骼数量: {len(PRESET_BONES)} 实际骨骼数量: {len(bone_dict)} 初始剩余骨骼数量: {len(remaining_bones)}')
         
         # 批量创建集合并分配骨骼
-        for group_name, bones in BONE_GROUPING_PRESETS.items():
+        for group_name, bones in BONE_GROUP_PRESETS.items():
             if valid_bones := [b for b in bones if b in bone_dict]:
                 coll = armature.collections.new(group_name)
                 for b in valid_bones:
@@ -100,7 +100,7 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
         bone_dict = {b.name: b for b in obj.data.bones}
         
         # 批量创建骨骼组
-        groups_to_create = [g for g in BONE_GROUPING_PRESETS 
+        groups_to_create = [g for g in BONE_GROUP_PRESETS 
                           if g not in obj.pose.bone_groups]
         
         with bpy.context.temp_override(selected_objects=[obj],
@@ -113,14 +113,14 @@ class OBJECT_OT_create_bone_grouping(bpy.types.Operator):
         group_dict = {g.name: g for g in obj.pose.bone_groups}
         
         # 批量分配骨骼组
-        for group_name, bones in BONE_GROUPING_PRESETS.items():
+        for group_name, bones in BONE_GROUP_PRESETS.items():
             if group_name in group_dict:
                 for b in bones:
                     if pose_bone := obj.pose.bones.get(b):
                         pose_bone.bone_group = group_dict[group_name]
         
         # 优化remaining_bones计算
-        assigned = {b for g in BONE_GROUPING_PRESETS.values() for b in g}
+        assigned = {b for g in BONE_GROUP_PRESETS.values() for b in g}
         remaining_bones = set(bone_dict.keys()) - assigned
         
         if remaining_bones:

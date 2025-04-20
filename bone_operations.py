@@ -3,7 +3,7 @@ from mathutils import Vector
 from math import radians
 from . import bone_map_and_group
 from . import bone_utils
-from . import operations
+from . import preset_operator
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     """将选定的骨骼重命名为 MMD 格式"""
@@ -21,7 +21,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         scene = context.scene
         # 检查选择框里是否有骨骼设置
         has_bone_set = False
-        for prop_name in operations.get_bones_list():  # 从operations.py中获取骨骼属性名称列表
+        for prop_name in preset_operator.get_bones_list():  # 从operations.py中获取骨骼属性名称列表
             if getattr(scene, prop_name, None):
                 has_bone_set = True
                 break
