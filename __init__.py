@@ -13,11 +13,11 @@ bl_info = {
 import bpy
 import os  # 新增：导入os模块
 
-from . import preset_operator
-from . import bone_operator
-from . import collection_operator
-from . import ik_operator
-from . import pose_operator
+from .operators import preset_operator
+from .operators import bone_operator
+from .operators import collection_operator
+from .operators import ik_operator
+from .operators import pose_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
