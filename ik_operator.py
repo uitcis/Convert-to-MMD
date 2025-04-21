@@ -1,7 +1,7 @@
 import bpy
 from mathutils import Vector
 from math import radians
-from .. import bone_utils
+from . import bone_utils
 
 # IK约束相关函数
 def add_ik_constraint(bone, target, subtarget, chain_count, iterations, ik_min_x=None, ik_max_x=None, use_ik_limit_x=False, ik_min_y=0, ik_max_y=0, use_ik_limit_y=False, ik_min_z=0, ik_max_z=0, use_ik_limit_z=False):

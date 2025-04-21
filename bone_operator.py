@@ -1,8 +1,8 @@
 import bpy
 from mathutils import Vector
-from .. import bone_map_and_group
-from .. import bone_utils
-from .. import preset_operator
+from . import bone_map_and_group
+from . import bone_utils
+from . import preset_operator
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     """将选定的骨骼重命名为 MMD 格式"""
