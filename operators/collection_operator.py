@@ -4,7 +4,7 @@ from functools import lru_cache
 
 @lru_cache(maxsize=None)
 def load_bone_presets():
-    from .bone_map_and_group import mmd_bone_group
+    from ..bone_map_and_group import mmd_bone_group
     all_bones = set()
     try:
         valid_groups = []
