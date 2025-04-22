@@ -1,6 +1,7 @@
 import bpy
 import math
 from mathutils import Matrix
+from ..bone_utils import apply_armature_transforms
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
     """将骨架转换为 A-Pose 并应用为新的静置姿态"""
@@ -12,7 +13,9 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         if not obj or obj.type != 'ARMATURE':
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
-
+        if not apply_armature_transforms(context):
+            self.report({'ERROR'}, "应用骨架变换失败")
+            return {'CANCELLED'}
         scene = context.scene
         
         # 获取骨骼名称
