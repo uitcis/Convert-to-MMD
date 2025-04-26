@@ -119,8 +119,14 @@ class OBJECT_OT_create_bone_group(bpy.types.Operator):
                         pose_bone.bone_group = group_dict[group_name]
         
         # 优化remaining_bones计算
-        assigned = {b for g in BONE_GROUP_PRESETS.values() for b in g}
-        remaining_bones = set(bone_dict.keys()) - assigned
+        # 获取所有预设分组中的骨骼
+        assigned_bones = set()
+        for group_bones in BONE_GROUP_PRESETS.values():
+            assigned_bones.update(group_bones)
+        
+        # 计算未分配骨骼
+        remaining_bones = set(bone_dict.keys()) - assigned_bones
+        print(f'总骨骼数: {len(bone_dict)} 已分配: {len(assigned_bones)} 未分配: {len(remaining_bones)}')
         
         if remaining_bones:
             other_group = group_dict.get('other') or obj.pose.bone_groups.new(name='other')

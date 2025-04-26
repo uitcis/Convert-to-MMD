@@ -88,51 +88,8 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
 
 def get_bones_list():
     """生成骨骼属性名称列表"""
-    fingers = ["thumb", "index", "middle", "ring", "pinky"]
-    finger_segments = {
-        "thumb": ["0", "1", "2"],
-        "index": ["1", "2", "3"],
-        "middle": ["1", "2", "3"],
-        "ring": ["1", "2", "3"],
-        "pinky": ["1", "2", "3"]
-    }
-    
-    bone_list = {
-        "all_parents_bone": "",
-        "center_bone": "",
-        "groove_bone": "",
-        "hip_bone": "",
-        "upper_body_bone": "",
-        "upper_body2_bone": "",
-        "neck_bone": "",
-        "head_bone": "",
-        "left_shoulder_bone": "",
-        "right_shoulder_bone": "",  
-        "left_upper_arm_bone": "",
-        "right_upper_arm_bone": "",
-        "left_lower_arm_bone": "",
-        "right_lower_arm_bone": "",
-        "left_hand_bone": "",
-        "right_hand_bone": "",
-        "lower_body_bone": "",  
-        "left_thigh_bone": "",
-        "right_thigh_bone": "",
-        "left_calf_bone": "",
-        "right_calf_bone": "",
-        "left_foot_bone": "",
-        "right_foot_bone": "",
-        "left_toe_bone": "",
-        "right_toe_bone": "",
-        "control_center_bone": "",
-        "left_eye_bone": "",
-        "right_eye_bone": ""
-    }
-    
-    for finger_base, segments in finger_segments.items():
-        for side in ["left", "right"]:
-            for i, segment in enumerate(segments):
-                bone_list[f"{side}_{finger_base}_{segment}"] = ""
-    
+    from ..bone_map_and_group import mmd_bone_map
+    bone_list = {k: "" for k in mmd_bone_map.keys()}
     return bone_list
 
 class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
