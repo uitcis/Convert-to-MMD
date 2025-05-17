@@ -1,5 +1,7 @@
 import bpy
 from mathutils import Vector
+import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
     """清理没有权重的骨骼"""
@@ -50,28 +52,29 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
             if not has_weights:
                 bones_to_remove.append(bone.name)
         
-        # 使用定时器分步删除骨骼，防止界面卡死
+        # 使用多线程删除骨骼
         self.bones_to_remove = bones_to_remove
         self.armature = armature
-        self.current_index = 0
-        bpy.app.timers.register(self.remove_bones_step)
+        self.remove_bones_with_threads()  # 使用多线程删除骨骼
         
         return {'RUNNING_MODAL'}
     
-    def remove_bones_step(self):
-        if self.current_index >= len(self.bones_to_remove):
-            # 返回物体模式
-            bpy.ops.object.mode_set(mode='OBJECT')
-            self.report({'INFO'}, f"已删除 {len(self.bones_to_remove)} 个无权重骨骼")
-            return None
+    def remove_bones_with_threads(self):
+        """使用多线程删除骨骼"""
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self.remove_bone, bone_name) for bone_name in self.bones_to_remove]
+            for future in as_completed(futures):
+                future.result()  # 确保所有任务完成
         
-        bone_name = self.bones_to_remove[self.current_index]
+        # 返回物体模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+        self.report({'INFO'}, f"已删除 {len(self.bones_to_remove)} 个无权重骨骼")
+    
+    def remove_bone(self, bone_name):
+        """删除单个骨骼"""
         bone = self.armature.data.edit_bones.get(bone_name)
         if bone:
             self.armature.data.edit_bones.remove(bone)
-        
-        self.current_index += 1
-        return 0.01  # 每0.01秒处理一个骨骼
 
 class OBJECT_OT_merge_single_child_bones(bpy.types.Operator):
     """合并只有一个子级的骨骼"""
