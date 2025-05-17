@@ -15,8 +15,11 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
             
         # 检查该顶点组是否有权重
         for mesh in bpy.data.meshes:
-            if mesh.vertices and any(bone_name in [g.group for g in v.groups] for v in mesh.vertices):
-                return True
+            if mesh.vertices:
+                for v in mesh.vertices:
+                    for g in v.groups:
+                        if g.group == vertex_group.index and g.weight > 0:
+                            return True
         return False
     
     def execute(self, context):
@@ -47,17 +50,28 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
             if not has_weights:
                 bones_to_remove.append(bone.name)
         
-        # 删除无权重的骨骼
-        for bone_name in bones_to_remove:
-            bone = armature.data.edit_bones.get(bone_name)
-            if bone:
-                armature.data.edit_bones.remove(bone)
+        # 使用定时器分步删除骨骼，防止界面卡死
+        self.bones_to_remove = bones_to_remove
+        self.armature = armature
+        self.current_index = 0
+        bpy.app.timers.register(self.remove_bones_step)
         
-        # 返回物体模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+        return {'RUNNING_MODAL'}
+    
+    def remove_bones_step(self):
+        if self.current_index >= len(self.bones_to_remove):
+            # 返回物体模式
+            bpy.ops.object.mode_set(mode='OBJECT')
+            self.report({'INFO'}, f"已删除 {len(self.bones_to_remove)} 个无权重骨骼")
+            return None
         
-        self.report({'INFO'}, f"已删除 {len(bones_to_remove)} 个无权重骨骼")
-        return {'FINISHED'}
+        bone_name = self.bones_to_remove[self.current_index]
+        bone = self.armature.data.edit_bones.get(bone_name)
+        if bone:
+            self.armature.data.edit_bones.remove(bone)
+        
+        self.current_index += 1
+        return 0.01  # 每0.01秒处理一个骨骼
 
 class OBJECT_OT_merge_single_child_bones(bpy.types.Operator):
     """合并只有一个子级的骨骼"""
