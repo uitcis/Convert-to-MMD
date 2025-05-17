@@ -192,73 +192,83 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                 "bones",
                 text=""  # 右側选择框（Search Box）
             )
-        # 新增 EnumProperty 下拉菜单
+        # 添加选项卡按钮 - 移动到条件判断外部，使其始终可见
         row = layout.row()
-        row.prop(scene, "preset_enum", text="")
-    
-        main_col = layout.column(align=True)
-        # 全ての親到腰部分
-        full_body_box = main_col.box()
-        col = full_body_box.column()
-        add_bone_row_with_button(col, "操作中心:", "control_center_bone")
-        add_bone_row_with_button(col, "全ての親", "all_parents_bone")
-        add_bone_row_with_button(col, "センター", "center_bone")
-        add_bone_row_with_button(col, "グルーブ", "groove_bone")
-        add_bone_row_with_button(col, "腰", "hip_bone")
+        row.prop(scene, "my_enum", expand=True)
+        if scene.my_enum == 'option1':
 
-        # 上半身到頭部分
-        upper_body_box = main_col.box()
-        col = upper_body_box.column()
-        add_bone_row_with_button(col, "上半身", "upper_body_bone")
-        add_bone_row_with_button(col, "上半身2", "upper_body2_bone")
-        add_bone_row_with_button(col, "首", "neck_bone")
-        add_bone_row_with_button(col, "頭", "head_bone")
-        add_symmetric_bones_with_buttons(col, "目:", "left_eye_bone", "right_eye_bone")
-        add_symmetric_bones_with_buttons(col, "肩:", "left_shoulder_bone", "right_shoulder_bone")
-        add_symmetric_bones_with_buttons(col, "腕:", "left_upper_arm_bone", "right_upper_arm_bone")
-        add_symmetric_bones_with_buttons(col, "ひじ:", "left_lower_arm_bone", "right_lower_arm_bone")
-        add_symmetric_bones_with_buttons(col, "手首:", "left_hand_bone", "right_hand_bone")
+            # 新增 EnumProperty 下拉菜单
+            row = layout.row()
+            row.prop(scene, "preset_enum", text="")
+        
+            main_col = layout.column(align=True)
+            # 全ての親到腰部分
+            full_body_box = main_col.box()
+            col = full_body_box.column()
+            add_bone_row_with_button(col, "操作中心:", "control_center_bone")
+            add_bone_row_with_button(col, "全ての親", "all_parents_bone")
+            add_bone_row_with_button(col, "センター", "center_bone")
+            add_bone_row_with_button(col, "グルーブ", "groove_bone")
+            add_bone_row_with_button(col, "腰", "hip_bone")
 
-        # 下半身到足首部分
-        lower_body_box = main_col.box()
-        col = lower_body_box.column()
-        add_bone_row_with_button(col, "下半身", "lower_body_bone")
-        add_symmetric_bones_with_buttons(col, "足:", "left_thigh_bone", "right_thigh_bone")
-        add_symmetric_bones_with_buttons(col, "ひざ:", "left_calf_bone", "right_calf_bone")
-        add_symmetric_bones_with_buttons(col, "足首:", "left_foot_bone", "right_foot_bone")
-        add_symmetric_bones_with_buttons(col, "足先EX:", "left_toe_bone", "right_toe_bone")
+            # 上半身到頭部分
+            upper_body_box = main_col.box()
+            col = upper_body_box.column()
+            add_bone_row_with_button(col, "上半身", "upper_body_bone")
+            add_bone_row_with_button(col, "上半身2", "upper_body2_bone")
+            add_bone_row_with_button(col, "首", "neck_bone")
+            add_bone_row_with_button(col, "頭", "head_bone")
+            add_symmetric_bones_with_buttons(col, "目:", "left_eye_bone", "right_eye_bone")
+            add_symmetric_bones_with_buttons(col, "肩:", "left_shoulder_bone", "right_shoulder_bone")
+            add_symmetric_bones_with_buttons(col, "腕:", "left_upper_arm_bone", "right_upper_arm_bone")
+            add_symmetric_bones_with_buttons(col, "ひじ:", "left_lower_arm_bone", "right_lower_arm_bone")
+            add_symmetric_bones_with_buttons(col, "手首:", "left_hand_bone", "right_hand_bone")
 
-        fingers_box = main_col.box()
-        col = fingers_box.column()
-        add_finger_bones_with_buttons(col, "左親指:", "left_thumb_0", "left_thumb_1", "left_thumb_2")
-        add_finger_bones_with_buttons(col, "左人指:", "left_index_1", "left_index_2", "left_index_3")
-        add_finger_bones_with_buttons(col, "左中指:", "left_middle_1", "left_middle_2", "left_middle_3")
-        add_finger_bones_with_buttons(col, "左薬指:", "left_ring_1", "left_ring_2", "left_ring_3")
-        add_finger_bones_with_buttons(col, "左小指:", "left_pinky_1", "left_pinky_2", "left_pinky_3")
+            # 下半身到足首部分
+            lower_body_box = main_col.box()
+            col = lower_body_box.column()
+            add_bone_row_with_button(col, "下半身", "lower_body_bone")
+            add_symmetric_bones_with_buttons(col, "足:", "left_thigh_bone", "right_thigh_bone")
+            add_symmetric_bones_with_buttons(col, "ひざ:", "left_calf_bone", "right_calf_bone")
+            add_symmetric_bones_with_buttons(col, "足首:", "left_foot_bone", "right_foot_bone")
+            add_symmetric_bones_with_buttons(col, "足先EX:", "left_toe_bone", "right_toe_bone")
 
-        add_finger_bones_with_buttons(col, "右親指:", "right_thumb_0", "right_thumb_1", "right_thumb_2")
-        add_finger_bones_with_buttons(col, "右人指:", "right_index_1", "right_index_2", "right_index_3")
-        add_finger_bones_with_buttons(col, "右中指:", "right_middle_1", "right_middle_2", "right_middle_3")
-        add_finger_bones_with_buttons(col, "右薬指:", "right_ring_1", "right_ring_2", "right_ring_3")
-        add_finger_bones_with_buttons(col, "右小指:", "right_pinky_1", "right_pinky_2", "right_pinky_3")    
-            
-        # 添加导入/导出预设按钮
-        row = layout.row()
-        row.operator("object.import_preset", text="导入预设")
-        row.operator("object.export_preset", text="导出预设")
+            fingers_box = main_col.box()
+            col = fingers_box.column()
+            add_finger_bones_with_buttons(col, "左親指:", "left_thumb_0", "left_thumb_1", "left_thumb_2")
+            add_finger_bones_with_buttons(col, "左人指:", "left_index_1", "left_index_2", "left_index_3")
+            add_finger_bones_with_buttons(col, "左中指:", "left_middle_1", "left_middle_2", "left_middle_3")
+            add_finger_bones_with_buttons(col, "左薬指:", "left_ring_1", "left_ring_2", "left_ring_3")
+            add_finger_bones_with_buttons(col, "左小指:", "left_pinky_1", "left_pinky_2", "left_pinky_3")
 
-        # 添加T-Pose到A-Pose转换按钮
-        layout.operator("object.convert_to_apose", text="转换为A-Pose")
+            add_finger_bones_with_buttons(col, "右親指:", "right_thumb_0", "right_thumb_1", "right_thumb_2")
+            add_finger_bones_with_buttons(col, "右人指:", "right_index_1", "right_index_2", "right_index_3")
+            add_finger_bones_with_buttons(col, "右中指:", "right_middle_1", "right_middle_2", "right_middle_3")
+            add_finger_bones_with_buttons(col, "右薬指:", "right_ring_1", "right_ring_2", "right_ring_3")
+            add_finger_bones_with_buttons(col, "右小指:", "right_pinky_1", "right_pinky_2", "right_pinky_3")    
+                
+            # 添加导入/导出预设按钮
+            row = layout.row()
+            row.operator("object.import_preset", text="导入预设")
+            row.operator("object.export_preset", text="导出预设")
 
-        # 添加重命名按钮和补全缺失骨骼按钮到同一行
-        row = layout.row()
-        row.operator("object.rename_to_mmd", text="1.重命名为MMD")
-        row.operator("object.complete_missing_bones", text="2.补全缺失骨骼")
+            # 添加T-Pose到A-Pose转换按钮
+            layout.operator("object.convert_to_apose", text="转换为A-Pose")
 
-        # 添加IK按钮和创建骨骼集合按钮到同一行
-        row = layout.row()
-        row.operator("object.add_mmd_ik", text="3.添加MMD IK")
-        row.operator("object.create_bone_group", text="4.创建骨骼集合")
+            # 添加重命名按钮和补全缺失骨骼按钮到同一行
+            row = layout.row()
+            row.operator("object.rename_to_mmd", text="1.重命名为MMD")
+            row.operator("object.complete_missing_bones", text="2.补全缺失骨骼")
 
-        # 添加“使用mmdtools转换格式”按钮到最下方
-        layout.operator("object.use_mmd_tools_convert", text="使用mmdtools转换格式")
+            # 添加IK按钮和创建骨骼集合按钮到同一行
+            row = layout.row()
+            row.operator("object.add_mmd_ik", text="3.添加MMD IK")
+            row.operator("object.create_bone_group", text="4.创建骨骼集合")
+
+            # 添加“使用mmdtools转换格式”按钮到最下方
+            layout.operator("object.use_mmd_tools_convert", text="使用mmdtools转换格式")
+        # 骨骼清理选项卡
+        elif scene.my_enum == 'option2':
+            row = layout.row()
+            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
+            row.operator("object.merge_single_child_bones", text="合并单子级骨骼", icon='CONSTRAINT_BONE')            

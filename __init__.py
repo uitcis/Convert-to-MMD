@@ -18,6 +18,7 @@ from .operators import bone_operator
 from .operators import collection_operator
 from .operators import ik_operator
 from .operators import pose_operator
+from .operators import clear_unweighted_bones_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -25,6 +26,7 @@ def register_properties(properties_dict):
     """Registers properties dynamically using a dictionary."""
     for prop_name, prop_value in properties_dict.items():
         setattr(bpy.types.Scene, prop_name, bpy.props.StringProperty(default=prop_value))
+
 
 def unregister_properties(properties_list):
     """Unregisters properties dynamically using a list of property names."""
@@ -45,7 +47,8 @@ def register():
     bpy.utils.register_class(pose_operator.OBJECT_OT_convert_to_apose)
     bpy.utils.register_class(ik_operator.OBJECT_OT_add_ik)
     bpy.utils.register_class(collection_operator.OBJECT_OT_create_bone_group)
-
+    bpy.utils.register_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
+    bpy.utils.register_class(clear_unweighted_bones_operator.OBJECT_OT_merge_single_child_bones)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     register_properties(bones)
@@ -57,7 +60,15 @@ def register():
         items=get_preset_enum,
         update=preset_enum_update  # 使用显式函数替代 lambda
     )
-
+    bpy.types.Scene.my_enum = bpy.props.EnumProperty(
+        name="模式",
+        description="选择操作模式",
+        items=[
+            ('option1', "骨骼映射", "进行骨骼映射"),
+            ('option2', "骨骼清理", "进行骨骼清理")
+        ],
+        default='option1'
+    )    
 def unregister():
     # 注销所有类
     bpy.utils.unregister_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
@@ -71,7 +82,9 @@ def unregister():
     bpy.utils.unregister_class(pose_operator.OBJECT_OT_convert_to_apose)
     bpy.utils.unregister_class(ik_operator.OBJECT_OT_add_ik)
     bpy.utils.unregister_class(collection_operator.OBJECT_OT_create_bone_group)
-
+    bpy.utils.unregister_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
+    bpy.utils.unregister_class(clear_unweighted_bones_operator.OBJECT_OT_merge_single_child_bones)
+    del bpy.types.Scene.my_enum
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     unregister_properties(bones)
