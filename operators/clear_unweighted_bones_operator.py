@@ -2,27 +2,56 @@ import bpy
 from mathutils import Vector
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from ..bone_map_and_group import mmd_bone_map, mmd_bone_group
 
 class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
     """清理没有权重的骨骼"""
     bl_idname = "object.clear_unweighted_bones"
     bl_label = "Clear Unweighted Bones"
     
-    def has_vertex_groups(self, bone_name, obj):
-        """检查骨骼是否有对应的顶点组且有权重"""
-        # 查找与骨骼同名的顶点组
-        vertex_group = obj.vertex_groups.get(bone_name)
-        if not vertex_group:
-            return False
-            
-        # 检查该顶点组是否有权重
-        for mesh in bpy.data.meshes:
-            if mesh.vertices:
-                for v in mesh.vertices:
-                    for g in v.groups:
-                        if g.group == vertex_group.index and g.weight > 0:
-                            return True
-        return False
+    def get_mmd_bone_whitelist(self):
+        """获取MMD骨骼白名单"""
+        # 从bone_map中获取所有MMD骨骼名称
+        mmd_bones = set(mmd_bone_map.values())
+        
+        # 从bone_group中获取所有MMD骨骼名称
+        for group in mmd_bone_group:
+            mmd_bones.update(group["bones"])
+        
+        return mmd_bones
+    
+    def preprocess_mesh_weights(self, mesh_objects):
+        """预处理所有网格对象的权重信息，构建骨骼名称到是否有权重的映射"""
+        bone_weight_map = {}
+        
+        for mesh_obj in mesh_objects:
+            # 遍历所有顶点组
+            for vg in mesh_obj.vertex_groups:
+                bone_name = vg.name
+                # 如果该骨骼已经被标记为有权重，跳过
+                if bone_name in bone_weight_map and bone_weight_map[bone_name]:
+                    continue
+                
+                # 检查该顶点组是否有权重
+                has_weight = False
+                # 获取对应的网格数据
+                mesh = mesh_obj.data
+                if mesh.vertices:
+                    # 遍历所有顶点
+                    for v in mesh.vertices:
+                        # 遍历顶点的所有组
+                        for g in v.groups:
+                            if g.group == vg.index and g.weight > 0:
+                                has_weight = True
+                                break
+                        if has_weight:
+                            break
+                
+                # 如果有权重，更新映射
+                if has_weight:
+                    bone_weight_map[bone_name] = True
+        
+        return bone_weight_map
     
     def execute(self, context):
         armature = context.active_object
@@ -36,45 +65,46 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
             self.report({'ERROR'}, "场景中没有网格对象")
             return {'CANCELLED'}
             
+        # 预处理所有网格对象的权重信息
+        bone_weight_map = self.preprocess_mesh_weights(mesh_objects)
+        
         # 切换到编辑模式
         bpy.ops.object.mode_set(mode='EDIT')
+        
+        # 获取MMD骨骼白名单
+        mmd_bone_whitelist = self.get_mmd_bone_whitelist()
         
         # 收集要删除的骨骼
         bones_to_remove = []
         for bone in armature.data.edit_bones:
-            has_weights = False
-            # 检查所有网格对象中是否有该骨骼的权重
-            for mesh_obj in mesh_objects:
-                if self.has_vertex_groups(bone.name, mesh_obj):
-                    has_weights = True
-                    break
+            # 检查是否是MMD骨骼，如果是则跳过
+            if bone.name in mmd_bone_whitelist:
+                continue
+                
+            # 检查骨骼是否有权重
+            has_weights = bone.name in bone_weight_map
             
             if not has_weights:
                 bones_to_remove.append(bone.name)
         
-        # 使用多线程删除骨骼
+        # 准备删除骨骼
         self.bones_to_remove = bones_to_remove
         self.armature = armature
-        self.remove_bones_with_threads()  # 使用多线程删除骨骼
+        self.remove_bones_with_threads()  # 批量删除骨骼
         
         return {'RUNNING_MODAL'}
     
     def remove_bones_with_threads(self):
-        """使用多线程删除骨骼"""
-        with ThreadPoolExecutor() as executor:
-            futures = [executor.submit(self.remove_bone, bone_name) for bone_name in self.bones_to_remove]
-            for future in as_completed(futures):
-                future.result()  # 确保所有任务完成
+        """使用批处理方式删除骨骼，避免线程安全问题"""
+        # 批量删除骨骼
+        for bone_name in self.bones_to_remove:
+            bone = self.armature.data.edit_bones.get(bone_name)
+            if bone:
+                self.armature.data.edit_bones.remove(bone)
         
         # 返回物体模式
         bpy.ops.object.mode_set(mode='OBJECT')
         self.report({'INFO'}, f"已删除 {len(self.bones_to_remove)} 个无权重骨骼")
-    
-    def remove_bone(self, bone_name):
-        """删除单个骨骼"""
-        bone = self.armature.data.edit_bones.get(bone_name)
-        if bone:
-            self.armature.data.edit_bones.remove(bone)
 
 class OBJECT_OT_merge_single_child_bones(bpy.types.Operator):
     """合并只有一个子级的骨骼"""
