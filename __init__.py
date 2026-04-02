@@ -19,6 +19,7 @@ from .operators import collection_operator
 from .operators import ik_operator
 from .operators import pose_operator
 from .operators import clear_unweighted_bones_operator
+from .operators import add_leg_d_bones_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -48,7 +49,7 @@ def register():
     bpy.utils.register_class(ik_operator.OBJECT_OT_add_ik)
     bpy.utils.register_class(collection_operator.OBJECT_OT_create_bone_group)
     bpy.utils.register_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
-    bpy.utils.register_class(clear_unweighted_bones_operator.OBJECT_OT_merge_single_child_bones)
+    bpy.utils.register_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     register_properties(bones)
@@ -65,7 +66,7 @@ def register():
         description="选择操作模式",
         items=[
             ('option1', "骨骼映射", "进行骨骼映射"),
-            ('option2', "骨骼清理", "进行骨骼清理")
+            ('option2', "其他操作", "骨骼清理和副骨骼添加")
         ],
         default='option1'
     )    
@@ -83,7 +84,7 @@ def unregister():
     bpy.utils.unregister_class(ik_operator.OBJECT_OT_add_ik)
     bpy.utils.unregister_class(collection_operator.OBJECT_OT_create_bone_group)
     bpy.utils.unregister_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
-    bpy.utils.unregister_class(clear_unweighted_bones_operator.OBJECT_OT_merge_single_child_bones)
+    bpy.utils.unregister_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
     del bpy.types.Scene.my_enum
     # 注销动态属性
     bones = preset_operator.get_bones_list()

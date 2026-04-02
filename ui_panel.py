@@ -266,9 +266,12 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.create_bone_group", text="4.创建骨骼集合")
 
             # 添加“使用mmdtools转换格式”按钮到最下方
-            layout.operator("object.use_mmd_tools_convert", text="使用mmdtools转换格式")
+            layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
         # 骨骼清理选项卡
         elif scene.my_enum == 'option2':
             row = layout.row()
             row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            row.operator("object.merge_single_child_bones", text="合并单子级骨骼", icon='CONSTRAINT_BONE')            
+            
+            # 添加腿部D骨骼按钮
+            row = layout.row()
+            row.operator("object.add_leg_d_bones", text="添加腿部D骨骼", icon='BONE_DATA')            

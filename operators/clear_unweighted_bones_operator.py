@@ -106,60 +106,12 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
         self.report({'INFO'}, f"已删除 {len(self.bones_to_remove)} 个无权重骨骼")
 
-class OBJECT_OT_merge_single_child_bones(bpy.types.Operator):
-    """合并只有一个子级的骨骼"""
-    bl_idname = "object.merge_single_child_bones"
-    bl_label = "Merge Single Child Bones"
-    
-    def should_merge_bone(self, bone):
-        """检查骨骼是否应该被合并"""
-        # 计算直接子骨骼数量
-        children = [child for child in bone.children]
-        # 如果只有一个子骨骼，且该子骨骼没有其他子骨骼，则可以合并
-        if len(children) == 1 and len(children[0].children) == 0:
-            return True
-        return False
-    
-    def execute(self, context):
-        armature = context.active_object
-        if not armature or armature.type != 'ARMATURE':
-            self.report({'ERROR'}, "请选择一个骨架")
-            return {'CANCELLED'}
-        
-        # 切换到编辑模式
-        bpy.ops.object.mode_set(mode='EDIT')
-        
-        bones_merged = 0
-        # 遍历所有骨骼
-        for bone in list(armature.data.edit_bones):  # 创建副本以避免在迭代时修改
-            if not bone.parent:  # 跳过没有父级的骨骼
-                continue
-                
-            if self.should_merge_bone(bone.parent):
-                parent = bone.parent
-                # 更新父骨骼的尾部位置为子骨骼的尾部位置
-                parent.tail = bone.tail
-                # 重新连接所有原来连接到子骨骼的骨骼
-                for child in bone.children:
-                    child.parent = parent
-                # 删除子骨骼
-                armature.data.edit_bones.remove(bone)
-                bones_merged += 1
-        
-        # 返回物体模式
-        bpy.ops.object.mode_set(mode='OBJECT')
-        
-        self.report({'INFO'}, f"已合并 {bones_merged} 个单子级骨骼")
-        return {'FINISHED'}
-
 # 注册操作类
 def register():
     bpy.utils.register_class(OBJECT_OT_clear_unweighted_bones)
-    bpy.utils.register_class(OBJECT_OT_merge_single_child_bones)
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_clear_unweighted_bones)
-    bpy.utils.unregister_class(OBJECT_OT_merge_single_child_bones)
 
 if __name__ == "__main__":
     register()
