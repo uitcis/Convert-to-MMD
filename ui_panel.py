@@ -274,4 +274,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             
             # 添加腿部D骨骼按钮
             row = layout.row()
-            row.operator("object.add_leg_d_bones", text="添加腿部D骨骼", icon='BONE_DATA')            
+            row.operator("object.add_leg_d_bones", text="添加腿部D骨骼", icon='BONE_DATA')
+            
+            # 添加合并足部骨骼链按钮
+            row = layout.row()
+            row.operator("object.merge_leg_bones", text="合并足部骨骼链", icon='CONSTRAINT')            

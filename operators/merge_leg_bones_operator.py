@@ -1,0 +1,124 @@
+import bpy
+from .. import bone_map_and_group
+
+
+class OBJECT_OT_merge_leg_bones(bpy.types.Operator):
+    """合并足部骨骼链"""
+    bl_idname = "object.merge_leg_bones"
+    bl_label = "合并足部骨骼链"
+    
+    def get_mmd_bones(self):
+        """获取MMD骨骼列表"""
+        mmd_bones = set()
+        for bone_name in bone_map_and_group.mmd_bone_map.values():
+            mmd_bones.add(bone_name)
+        for bone_group in bone_map_and_group.mmd_bone_group:
+            for bone_name in bone_group.get("bones", []):
+                mmd_bones.add(bone_name)
+        return mmd_bones
+    
+    def find_all_children(self, start_bone, mmd_bones):
+        """找到起始骨骼的所有子级骨骼（排除MMD骨骼）"""
+        bones_to_merge = []
+        
+        def recursive_find_children(bone):
+            for child in bone.children:
+                if child.name not in mmd_bones:
+                    bones_to_merge.append(child)
+                recursive_find_children(child)
+        
+        recursive_find_children(start_bone)
+        return bones_to_merge
+    
+    def merge_vertex_groups(self, obj, target_bone_name, source_bone_name):
+        """合并顶点组"""
+        if not obj or obj.type != 'MESH':
+            return
+        
+        target_vg = obj.vertex_groups.get(target_bone_name)
+        source_vg = obj.vertex_groups.get(source_bone_name)
+        
+        if not source_vg:
+            return
+        
+        if not target_vg:
+            target_vg = obj.vertex_groups.new(name=target_bone_name)
+        
+        for vertex in obj.data.vertices:
+            for group in vertex.groups:
+                if group.group == source_vg.index:
+                    target_vg.add([vertex.index], group.weight, 'ADD')
+        
+        obj.vertex_groups.remove(source_vg)
+    
+    def merge_bone_chain(self, armature, start_bone_name, mmd_bones):
+        """合并起始骨骼的所有子级骨骼（排除MMD骨骼）"""
+        start_bone = armature.data.edit_bones.get(start_bone_name)
+        
+        if not start_bone:
+            return 0
+        
+        bones_to_merge = self.find_all_children(start_bone, mmd_bones)
+        
+        if not bones_to_merge:
+            return 0
+        
+        merged_count = 0
+        
+        for bone in bones_to_merge:
+            children = list(bone.children)
+            
+            for child in children:
+                if child != start_bone:
+                    child.parent = start_bone
+            
+            for obj in bpy.context.scene.objects:
+                if obj.type == 'MESH':
+                    for modifier in obj.modifiers:
+                        if modifier.type == 'ARMATURE' and modifier.object == armature:
+                            self.merge_vertex_groups(obj, start_bone_name, bone.name)
+                            break
+            
+            armature.data.edit_bones.remove(bone)
+            merged_count += 1
+        
+        return merged_count
+    
+    def execute(self, context):
+        armature = context.active_object
+        if not armature or armature.type != 'ARMATURE':
+            self.report({'ERROR'}, "请选择一个骨架")
+            return {'CANCELLED'}
+        
+        mmd_bones = self.get_mmd_bones()
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        total_merged = 0
+        
+        left_merged = self.merge_bone_chain(armature, "左足", mmd_bones)
+        total_merged += left_merged
+        
+        right_merged = self.merge_bone_chain(armature, "右足", mmd_bones)
+        total_merged += right_merged
+        
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
+        if total_merged > 0:
+            self.report({'INFO'}, f"已合并 {total_merged} 个足部骨骼")
+        else:
+            self.report({'INFO'}, "没有找到需要合并的足部骨骼")
+        
+        return {'FINISHED'}
+
+
+def register():
+    bpy.utils.register_class(OBJECT_OT_merge_leg_bones)
+
+
+def unregister():
+    bpy.utils.unregister_class(OBJECT_OT_merge_leg_bones)
+
+
+if __name__ == "__main__":
+    register()

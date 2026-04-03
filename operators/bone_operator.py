@@ -109,17 +109,27 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         # 获取 上半身 骨骼的坐标
         upper_body_head = upper_body_bone.head.copy()
         upper_body_tail = upper_body_bone.tail.copy()
+        
+        # 计算骨架高度
+        min_z = float('inf')
+        max_z = -float('inf')
+        for bone in edit_bones:
+            min_z = min(min_z, bone.head.z, bone.tail.z)
+            max_z = max(max_z, bone.head.z, bone.tail.z)
+        skeleton_height = max_z - min_z
+        # 定义八分之一骨架高度
+        bone_length = skeleton_height * 0.125 
 
         # 定义基本骨骼的属性
         bone_properties = {
 
-            "全ての親": {"head": Vector((0, 0, 0)), "tail": Vector((0, 0, 0.3)), "parent": None, "use_deform": False, "use_connect": False},
-            "センター": {"head": Vector((0, 0, 0.3)), "tail": Vector((0, 0, 0.6)), "parent": "全ての親", "use_deform": False, "use_connect": False},
-            "グルーブ": {"head": Vector((0, 0, 0.8)), "tail": Vector((0, 0, 0.7)), "parent": "センター", "use_deform": False, "use_connect": False},
-            "腰": {"head": Vector((0, upper_body_head.y + 0.1, upper_body_head.z - 0.12)), "tail": Vector((0, upper_body_head.y, upper_body_head.z)), 
+            "全ての親": {"head": Vector((0, 0, 0)), "tail": Vector((0, 0, bone_length)), "parent": None, "use_deform": False, "use_connect": False},
+            "センター": {"head": Vector((0, 0, bone_length * 2)), "tail": Vector((0, 0, bone_length)), "parent": "全ての親", "use_deform": False, "use_connect": False},
+            "グルーブ": {"head": Vector((0, 0, bone_length * 3)), "tail": Vector((0, 0, bone_length * 4)), "parent": "センター", "use_deform": False, "use_connect": False},
+            "腰": {"head": Vector((0, upper_body_head.y + bone_length * 0.5, upper_body_head.z - bone_length * 0.5)), "tail": Vector((0, upper_body_head.y, upper_body_head.z)), 
                 "parent": "グルーブ", "use_deform": False, "use_connect": False},
-            "上半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_tail.y, upper_body_head.z+0.15)), "parent": "腰", "use_connect": False},
-            "上半身2": {"head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), "tail": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z+0.15)),
+            "上半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_tail.y, upper_body_head.z+bone_length)), "parent": "腰", "use_connect": False},
+            "上半身2": {"head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), "tail": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z+bone_length)),
                 "parent": "上半身", "use_connect": False},
             # 上肢骨骼链
             "左肩": {
@@ -160,7 +170,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "use_connect": True
             }, 
             
-            "下半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_head.y, upper_body_head.z - 0.15)), "parent": "腰", "use_connect": False},
+            "下半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_head.y, upper_body_head.z - bone_length)), "parent": "腰", "use_connect": False},
             "左足": {
                 "head": edit_bones["左足"].head,
                 "tail": edit_bones["左ひざ"].head,
