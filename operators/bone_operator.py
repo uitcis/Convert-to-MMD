@@ -128,9 +128,21 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "グルーブ": {"head": Vector((0, 0, bone_length * 3)), "tail": Vector((0, 0, bone_length * 4)), "parent": "センター", "use_deform": False, "use_connect": False},
             "腰": {"head": Vector((0, upper_body_head.y + bone_length * 0.5, upper_body_head.z - bone_length * 0.5)), "tail": Vector((0, upper_body_head.y, upper_body_head.z)), 
                 "parent": "グルーブ", "use_deform": False, "use_connect": False},
-            "上半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_tail.y, upper_body_head.z+bone_length)), "parent": "腰", "use_connect": False},
-            "上半身2": {"head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), "tail": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z+bone_length)),
-                "parent": "上半身", "use_connect": False},
+            "上半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)),
+                "tail": Vector((0, upper_body_tail.y, upper_body_head.z+bone_length)), 
+                "parent": "腰", "use_connect": False},
+            "首": {
+                "head": edit_bones["首"].head,
+                "tail": edit_bones["頭"].head,
+                "parent": "上半身2" if edit_bones.get("上半身2") else "上半身",
+                "use_connect": False
+            },
+            "頭": {
+                "head": edit_bones["頭"].head,
+                "tail": Vector((0, edit_bones["頭"].head.y, edit_bones["頭"].head.z+bone_length * 0.25)),
+                "parent": "首",
+                "use_connect": False
+            },                                  
             # 上肢骨骼链
             "左肩": {
                 "head": edit_bones["左肩"].head,
@@ -208,6 +220,14 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "use_connect": False
             }
         }
+
+        # 检查上半身2骨骼是否存在，如果存在则添加到属性字典
+        if edit_bones.get("上半身2"):
+            bone_properties["上半身2"] = {
+                "head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), 
+                "tail": Vector((0, edit_bones["首"].head.y, edit_bones["首"].head.z)),
+                "parent": "上半身", "use_connect": False
+            }
 
         # 按顺序检查并创建或更新骨骼
         for bone_name, properties in bone_properties.items():
