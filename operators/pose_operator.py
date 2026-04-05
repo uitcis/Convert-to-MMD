@@ -12,8 +12,8 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
             self.report({'ERROR'}, "未选择骨架对象")
-            return {'CANCELLED'}
-        if not apply_armature_transforms(context):
+            return {'CANCELLED'} 
+        if not apply_armature_transforms(context, obj):
             self.report({'ERROR'}, "应用骨架变换失败")
             return {'CANCELLED'}
         scene = context.scene
@@ -33,19 +33,16 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         # 2. 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
         bpy.ops.object.mode_set(mode='EDIT')
         edit_bones = obj.data.edit_bones
-
-        # 连接左上肢和左下肢
-        if arm_bones["left_upper_arm"] and arm_bones["left_lower_arm"]:
-            if arm_bones["left_upper_arm"] in edit_bones and arm_bones["left_lower_arm"] in edit_bones:
-                # 将左上肢的尾部设置为左下肢的头部
-                edit_bones[arm_bones["left_upper_arm"]].tail = edit_bones[arm_bones["left_lower_arm"]].head
         
-        # 连接右上肢和右下肢
-        if arm_bones["right_upper_arm"] and arm_bones["right_lower_arm"]:
-            if arm_bones["right_upper_arm"] in edit_bones and arm_bones["right_lower_arm"] in edit_bones:
-                # 将右上肢的尾部设置为右下肢的头部
-                edit_bones[arm_bones["right_upper_arm"]].tail = edit_bones[arm_bones["right_lower_arm"]].head
-
+        # 获取骨骼位置
+        left_upper_arm = edit_bones[arm_bones["left_upper_arm"]]
+        left_lower_arm = edit_bones[arm_bones["left_lower_arm"]]
+        right_upper_arm = edit_bones[arm_bones["right_upper_arm"]]
+        right_lower_arm = edit_bones[arm_bones["right_lower_arm"]]
+        
+        # 调整尾部位置
+        left_upper_arm.tail = left_lower_arm.head
+        right_upper_arm.tail = right_lower_arm.head
 
         # 3. 确保在对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -134,15 +131,22 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 # 计算角度差（左右两侧使用相同的计算逻辑）
                 angle_diff = current_angle - target_angle
                 
-                # 应用旋转（绕Y轴，根据骨骼类型区分方向）
-                if bone_type == "left_upper_arm":
-                    # 左上肢：顺时针旋转（向外）
-                    rotation_matrix = Matrix.Rotation(math.radians(angle_diff), 4, 'Y')
-                elif bone_type == "right_upper_arm":
-                    # 右上肢：逆时针旋转（向外）
-                    rotation_matrix = Matrix.Rotation(math.radians(-angle_diff), 4, 'Y')
+                # 重置旋转，确保从默认状态开始
+                bone.rotation_euler = (0, 0, 0)
                 
-                bone.matrix = rotation_matrix @ bone.matrix
+                # 绕全局空间Y轴旋转
+                if bone_type == "left_upper_arm":
+                    # 左上肢：绕全局Y轴旋转angle_diff角度
+                    # 计算全局旋转矩阵
+                    global_rotation = Matrix.Rotation(math.radians(angle_diff), 4, 'Y')
+                    # 应用全局旋转
+                    bone.matrix = global_rotation @ bone.matrix
+                elif bone_type == "right_upper_arm":
+                    # 右上肢：绕全局Y轴旋转-angle_diff角度
+                    # 计算全局旋转矩阵
+                    global_rotation = Matrix.Rotation(math.radians(-angle_diff), 4, 'Y')
+                    # 应用全局旋转
+                    bone.matrix = global_rotation @ bone.matrix
                 
                 converted_bones.append(bone_name)
 

@@ -33,14 +33,28 @@ def set_roll_values(edit_bones, bone_roll_mapping):
             edit_bones[bone_name].roll = radians(roll_value)
 
 
-def apply_armature_transforms(context):
+def apply_armature_transforms(context, armature_obj=None):
     """自动应用骨架和网格对象的变换"""
     try:
         # 确保在对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
         
-        # 获取当前选中的骨架对象
-        armature_obj = context.active_object
+        # 获取骨架对象
+        if not armature_obj:
+            armature_obj = context.active_object
+        if not armature_obj or armature_obj.type != 'ARMATURE':
+            print("未找到骨架对象")
+            return False
+        
+        # 保存当前选中的对象和活动对象
+        original_selection = bpy.context.selected_objects
+        original_active = bpy.context.view_layer.objects.active
+        
+        # 选择并激活骨架对象
+        bpy.ops.object.select_all(action='DESELECT')
+        armature_obj.select_set(True)
+        bpy.context.view_layer.objects.active = armature_obj
         
         # 应用骨架对象的变换
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
@@ -48,11 +62,19 @@ def apply_armature_transforms(context):
         # 应用所有作为骨架子对象的网格对象的变换
         for mesh_obj in bpy.context.scene.objects:
             if mesh_obj.type == 'MESH' and mesh_obj.parent == armature_obj:
+                bpy.ops.object.select_all(action='DESELECT')
+                mesh_obj.select_set(True)
                 bpy.context.view_layer.objects.active = mesh_obj
                 bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
         
-        # 重新激活骨架对象
-        bpy.context.view_layer.objects.active = armature_obj
+        # 恢复原始选择和活动对象
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in original_selection:
+            obj.select_set(True)
+        if original_active:
+            bpy.context.view_layer.objects.active = original_active
+        else:
+            bpy.context.view_layer.objects.active = armature_obj
         
         return True
     except Exception as e:

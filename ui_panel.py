@@ -271,11 +271,11 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         elif scene.my_enum == 'option2':
             row = layout.row()
             row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            
-            # 添加腿部D骨骼按钮
-            row = layout.row()
-            row.operator("object.add_leg_d_bones", text="添加腿部D骨骼", icon='BONE_DATA')
-            
             # 添加合并足部骨骼链按钮
             row = layout.row()
-            row.operator("object.merge_leg_bones", text="合并足部骨骼链", icon='CONSTRAINT')            
+            row.operator("object.merge_leg_bones", text="1.合并足部骨骼链", icon='CONSTRAINT')              
+            # 添加腿部D骨骼按钮
+            row = layout.row()
+            row.operator("object.add_leg_d_bones", text="2.添加腿部D骨骼", icon='BONE_DATA')
+            
+          
