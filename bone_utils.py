@@ -34,14 +34,41 @@ def set_roll_values(edit_bones, bone_roll_mapping):
 
 
 def apply_armature_transforms(context):
-    """自动应用骨架的旋转和缩放变换"""
+    """自动应用骨架和网格对象的变换"""
     try:
         # 确保在对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
         
-        # 应用变换
+        # 获取当前选中的骨架对象
+        armature_obj = context.active_object
+        
+        # 应用骨架对象的变换
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        
+        # 应用所有作为骨架子对象的网格对象的变换
+        for mesh_obj in bpy.context.scene.objects:
+            if mesh_obj.type == 'MESH' and mesh_obj.parent == armature_obj:
+                bpy.context.view_layer.objects.active = mesh_obj
+                bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        
+        # 重新激活骨架对象
+        bpy.context.view_layer.objects.active = armature_obj
+        
         return True
     except Exception as e:
         print(f"应用变换时出错: {str(e)}")
         return False
+
+
+def calculate_bone_length(edit_bones):
+    """计算骨架高度并返回八分之一骨架高度作为bone_length"""
+    # 计算骨架高度
+    min_z = float('inf')
+    max_z = -float('inf')
+    for bone in edit_bones:
+        min_z = min(min_z, bone.head.z, bone.tail.z)
+        max_z = max(max_z, bone.head.z, bone.tail.z)
+    skeleton_height = max_z - min_z
+    # 定义八分之一骨架高度
+    bone_length = skeleton_height * 0.125
+    return bone_length

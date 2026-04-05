@@ -89,20 +89,41 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         # 6. 为骨骼设置A-Pose旋转
         pose_bones = obj.pose.bones
+        edit_bones = obj.data.bones
         converted_bones = []
+        target_angle = 36  # 目标角度36度
 
         for bone_type, bone_name in arm_bones.items():
-            if bone_name and bone_name in pose_bones:
+            if bone_name and bone_name in pose_bones and bone_name in edit_bones:
                 bone = pose_bones[bone_name]
+                edit_bone = edit_bones[bone_name]
                 bone.rotation_mode = 'XYZ'
                 
-                # 根据骨骼类型设置不同的旋转角度
-                if bone_type == "left_upper_arm":
-                    rotation_matrix = Matrix.Rotation(math.radians(37), 4, 'Y')
-                elif bone_type == "right_upper_arm":
-                    rotation_matrix = Matrix.Rotation(math.radians(-37), 4, 'Y')
+                # 获取骨骼的头部和尾部坐标
+                head = edit_bone.head_local
+                tail = edit_bone.tail_local
                 
-                # 应用旋转矩阵
+                # 计算方向向量（从尾指向头）
+                vec = head - tail
+                
+                # 使用四元数转换得到欧拉角
+                quat = vec.to_track_quat('Z', 'Y')
+                euler = quat.to_euler('XYZ')
+                
+                # 获取当前X轴旋转角度
+                current_angle = math.degrees(euler.x)
+                
+                # 计算角度差（左右两侧使用相同的计算逻辑）
+                angle_diff = current_angle - target_angle
+                
+                # 应用旋转（绕Y轴，根据骨骼类型区分方向）
+                if bone_type == "left_upper_arm":
+                    # 左上肢：顺时针旋转（向外）
+                    rotation_matrix = Matrix.Rotation(math.radians(angle_diff), 4, 'Y')
+                elif bone_type == "right_upper_arm":
+                    # 右上肢：逆时针旋转（向外）
+                    rotation_matrix = Matrix.Rotation(math.radians(-angle_diff), 4, 'Y')
+                
                 bone.matrix = rotation_matrix @ bone.matrix
                 
                 converted_bones.append(bone_name)

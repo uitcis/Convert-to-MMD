@@ -113,8 +113,7 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             # 调用mmd_tools的转换功能
             bpy.ops.mmd_tools.convert_to_mmd_model()
         except AttributeError as e:
-            # 弹出错误提示窗口
-            self.report({'ERROR'}, "mmd_tools插件未安装")
+            # 弹出错误提示窗口（包含下载按钮）
             bpy.context.window_manager.popup_menu(
                 self.draw_error_menu,
                 title="MMD Tools未安装",
@@ -129,7 +128,6 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
 
     def draw_error_menu(self, menu, context):
         layout = menu.layout
-        layout.label(text="mmd_tools 插件未安装", icon='ERROR')
         layout.separator()
         layout.operator(
             "wm.url_open",
@@ -141,4 +139,3 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             text="查看使用文档",
             icon='HELP'
         ).url = "https://mmd-blender.fandom.com/wiki/MMD_Tools_Documentation"
-        obj.select_set(True)

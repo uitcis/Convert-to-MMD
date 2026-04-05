@@ -56,6 +56,9 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             head_pos = original_bone.head.copy()
             tail_pos = original_bone.tail.copy()
             
+            # 保存原骨骼的父级（在重命名前保存）
+            original_parent = original_bone.parent
+            
             # 获取D骨骼的父级骨骼
             d_parent_bone = None
             if d_parent_name:
@@ -82,7 +85,7 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             new_bone = edit_bones.new(new_name)
             new_bone.head = head_pos
             new_bone.tail = tail_pos
-            new_bone.parent = original_bone.parent  # 新骨骼的父级与D骨骼相同
+            new_bone.parent = original_parent  # 新骨骼的父级保持与原骨骼重命名前一致
             new_bone.use_connect = False
             
             # 切换到物体模式以添加约束

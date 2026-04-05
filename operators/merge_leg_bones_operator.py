@@ -18,14 +18,15 @@ class OBJECT_OT_merge_leg_bones(bpy.types.Operator):
         return mmd_bones
     
     def find_all_children(self, start_bone, mmd_bones):
-        """找到起始骨骼的所有子级骨骼（排除MMD骨骼）"""
+        """找到起始骨骼的所有子级骨骼（排除MMD骨骼及其子级）"""
         bones_to_merge = []
         
         def recursive_find_children(bone):
             for child in bone.children:
                 if child.name not in mmd_bones:
                     bones_to_merge.append(child)
-                recursive_find_children(child)
+                    # 只有当子级不是MMD骨骼时，才继续递归遍历它的子级
+                    recursive_find_children(child)
         
         recursive_find_children(start_bone)
         return bones_to_merge
@@ -96,11 +97,12 @@ class OBJECT_OT_merge_leg_bones(bpy.types.Operator):
         
         total_merged = 0
         
-        left_merged = self.merge_bone_chain(armature, "左足", mmd_bones)
-        total_merged += left_merged
+        # 需要合并子级的目标骨骼列表
+        target_bones = ["左足", "右足", "左ひざ", "右ひざ"]
         
-        right_merged = self.merge_bone_chain(armature, "右足", mmd_bones)
-        total_merged += right_merged
+        for bone_name in target_bones:
+            merged = self.merge_bone_chain(armature, bone_name, mmd_bones)
+            total_merged += merged
         
         bpy.ops.object.mode_set(mode='OBJECT')
         
