@@ -8,6 +8,35 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
     bl_idname = "object.complete_missing_bones"
     bl_label = "Complete Missing Bones"
 
+    def connect_finger_bones(self, edit_bones):
+        """连接手指骨骼的头尾"""
+        # 定义手指骨骼链
+        finger_chains = [
+            # 左手手指
+            ["左親指０", "左親指１", "左親指２"],
+            ["左人指１", "左人指２", "左人指３"],
+            ["左中指１", "左中指２", "左中指３"],
+            ["左薬指１", "左薬指２", "左薬指３"],
+            ["左小指１", "左小指２", "左小指３"],
+            # 右手手指
+            ["右親指０", "右親指１", "右親指２"],
+            ["右人指１", "右人指２", "右人指３"],
+            ["右中指１", "右中指２", "右中指３"],
+            ["右薬指１", "右薬指２", "右薬指３"],
+            ["右小指１", "右小指２", "右小指３"]
+        ]
+        
+        # 连接每个手指骨骼链
+        for chain in finger_chains:
+            # 检查链中的所有骨骼是否都存在
+            if all(bone in edit_bones for bone in chain):
+                # 依次连接手指骨骼的头尾
+                for i in range(len(chain) - 1):
+                    current_bone = edit_bones[chain[i]]
+                    next_bone = edit_bones[chain[i + 1]]
+                    # 将当前骨骼的尾部设置为下一个骨骼的头部
+                    current_bone.tail = next_bone.head
+
     def execute(self, context):
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
@@ -92,7 +121,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "parent": "左腕",
                 "use_connect": True
             },
-       
+        
             "右肩": {
                 "head": edit_bones["右肩"].head,
                 "tail": edit_bones["右腕"].head,
@@ -178,6 +207,9 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # 调用函数设置 roll 値
         bone_utils.set_roll_values(edit_bones, bone_utils.DEFAULT_ROLL_VALUES)               
+
+        # 连接手指骨骼的头尾
+        self.connect_finger_bones(edit_bones)
 
         return {'FINISHED'}
 

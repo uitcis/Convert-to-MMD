@@ -22,17 +22,35 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         arm_bones = {
             "left_upper_arm": getattr(scene, "left_upper_arm_bone", ""),
             "right_upper_arm": getattr(scene, "right_upper_arm_bone", ""),
+            "left_lower_arm": getattr(scene, "left_lower_arm_bone", ""),
+            "right_lower_arm": getattr(scene, "right_lower_arm_bone", ""),          
         }
 
-        # 检查是否有设置骨骼
+        #1. 检查是否有设置骨骼
         if not any(arm_bones.values()):
             self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
             return {'CANCELLED'}
+        # 2. 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
+        bpy.ops.object.mode_set(mode='EDIT')
+        edit_bones = obj.data.edit_bones
 
-        # 1. 确保在对象模式
+        # 连接左上肢和左下肢
+        if arm_bones["left_upper_arm"] and arm_bones["left_lower_arm"]:
+            if arm_bones["left_upper_arm"] in edit_bones and arm_bones["left_lower_arm"] in edit_bones:
+                # 将左上肢的尾部设置为左下肢的头部
+                edit_bones[arm_bones["left_upper_arm"]].tail = edit_bones[arm_bones["left_lower_arm"]].head
+        
+        # 连接右上肢和右下肢
+        if arm_bones["right_upper_arm"] and arm_bones["right_lower_arm"]:
+            if arm_bones["right_upper_arm"] in edit_bones and arm_bones["right_lower_arm"] in edit_bones:
+                # 将右上肢的尾部设置为右下肢的头部
+                edit_bones[arm_bones["right_upper_arm"]].tail = edit_bones[arm_bones["right_lower_arm"]].head
+
+
+        # 3. 确保在对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        # 2. 找到所有使用这个骨骼的网格对象，并检查形态键
+        # 4. 找到所有使用这个骨骼的网格对象，并检查形态键
         meshes_with_armature = []
         for mesh_obj in bpy.data.objects:
             if mesh_obj.type == 'MESH':
@@ -65,7 +83,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 self.report({'ERROR'}, f"创建临时网格失败：{str(e)}")
                 return {'CANCELLED'}
 
-        # 3. 为每个网格复制骨骼修改器，但保留原始修改器
+        # 5. 为每个网格复制骨骼修改器，但保留原始修改器
         for mesh_obj in meshes_with_armature:
             for modifier in mesh_obj.modifiers:
                 if modifier.type == 'ARMATURE' and modifier.object == obj:
@@ -76,18 +94,18 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                     new_modifier.use_bone_envelopes = modifier.use_bone_envelopes
                     break
 
-        # 4. 切换到姿态模式设置A-Pose
+        # 6. 切换到姿态模式设置A-Pose
         context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='POSE')
 
-        # 5. 清除所有现有姿态
+        # 7. 清除所有现有姿态
         bpy.ops.pose.select_all(action='SELECT')
         bpy.ops.pose.rot_clear()
         bpy.ops.pose.scale_clear()
         bpy.ops.pose.loc_clear()
         bpy.ops.pose.select_all(action='DESELECT')
 
-        # 6. 为骨骼设置A-Pose旋转
+        # 8. 为骨骼设置A-Pose旋转
         pose_bones = obj.pose.bones
         edit_bones = obj.data.bones
         converted_bones = []
@@ -132,10 +150,10 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
             return {'CANCELLED'}
 
-        # 7. 更新视图以确保姿态已应用
+        # 9. 更新视图以确保姿态已应用
         context.view_layer.update()
 
-        # 8. 应用第二个修改器（复制的修改器）来调整网格姿态
+        # 10. 应用第二个修改器（复制的修改器）来调整网格姿态
         try:
             for mesh_obj in meshes_with_armature:
                 context.view_layer.objects.active = mesh_obj
@@ -147,14 +165,14 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             self.report({'ERROR'}, f"应用修改器时出错：{str(e)}")
             return {'CANCELLED'}
 
-        # 9. 切换回骨骼对象
+        # 11. 切换回骨骼对象
         context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='POSE')
 
-        # 10. 应用当前姿态为新的静置姿态
+        # 12. 应用当前姿态为新的静置姿态
         bpy.ops.pose.armature_apply()
 
-        # 11. 清理临时创建的网格
+        # 13. 清理临时创建的网格
         for mesh_obj in meshes_with_armature:
             if mesh_obj.get("is_temp_mesh"):
                 bpy.data.objects.remove(mesh_obj, do_unlink=True)
