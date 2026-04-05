@@ -44,8 +44,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         left_upper_arm.tail = left_lower_arm.head
         right_upper_arm.tail = right_lower_arm.head
 
-        # 3. 确保在对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+
 
         # 4. 找到所有使用这个骨骼的网格对象，并检查形态键
         meshes_with_armature = []

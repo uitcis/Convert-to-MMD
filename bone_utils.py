@@ -37,8 +37,10 @@ def apply_armature_transforms(context, armature_obj=None):
     """自动应用骨架和网格对象的变换"""
     try:
         # 确保在对象模式
-        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        current_mode = bpy.context.object.mode if bpy.context.object else 'OBJECT'
+        if current_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
+        original_mode = current_mode
         
         # 获取骨架对象
         if not armature_obj:
@@ -59,24 +61,7 @@ def apply_armature_transforms(context, armature_obj=None):
         # 应用骨架对象的变换
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
         
-        # 应用所有作为骨架子对象的网格对象的变换
-        for mesh_obj in bpy.context.scene.objects:
-            if mesh_obj.type == 'MESH' and mesh_obj.parent == armature_obj:
-                bpy.ops.object.select_all(action='DESELECT')
-                mesh_obj.select_set(True)
-                bpy.context.view_layer.objects.active = mesh_obj
-                bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-        
-        # 恢复原始选择和活动对象
-        bpy.ops.object.select_all(action='DESELECT')
-        for obj in original_selection:
-            obj.select_set(True)
-        if original_active:
-            bpy.context.view_layer.objects.active = original_active
-        else:
-            bpy.context.view_layer.objects.active = armature_obj
-        
-        return True
+
     except Exception as e:
         print(f"应用变换时出错: {str(e)}")
         return False
@@ -136,9 +121,13 @@ def check_and_scale_skeleton(obj):
             scale_factor *= 0.1
             temp_height *= 0.1
         
-        # 切换到对象模式并应用缩放
+        # 切换到对象模式并
         bpy.ops.object.mode_set(mode='OBJECT')
+        # 重置缩放
+        obj.scale = (1.0, 1.0, 1.0)
+        # 缩放
         obj.scale *= scale_factor
+        # 应用缩放
         bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
         # 清除父级
         obj.parent = None
