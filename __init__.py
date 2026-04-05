@@ -68,8 +68,8 @@ def register():
         name="模式",
         description="选择操作模式",
         items=[
-            ('option1', "骨骼映射", "进行骨骼映射"),
-            ('option2', "其他操作", "骨骼清理和副骨骼添加")
+            ('option1', "主骨骼转换", "预设管理和主骨骼转换操作"),
+            ('option2', "骨骼清理与D骨骼", "其他可选操作")
         ],
         default='option1'
     )    

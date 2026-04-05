@@ -60,15 +60,71 @@ def apply_armature_transforms(context):
         return False
 
 
-def calculate_bone_length(edit_bones):
-    """计算骨架高度并返回八分之一骨架高度作为bone_length"""
-    # 计算骨架高度
+def calculate_skeleton_height(edit_bones):
+    """计算骨架高度
+    
+    Args:
+        edit_bones: 编辑模式下的骨骼集合
+        
+    Returns:
+        float: 骨架高度
+    """
     min_z = float('inf')
     max_z = -float('inf')
     for bone in edit_bones:
         min_z = min(min_z, bone.head.z, bone.tail.z)
         max_z = max(max_z, bone.head.z, bone.tail.z)
-    skeleton_height = max_z - min_z
+    return max_z - min_z
+
+
+def calculate_bone_length(edit_bones):
+    """计算骨架高度并返回八分之一骨架高度作为bone_length"""
+    # 获取骨架高度
+    skeleton_height = calculate_skeleton_height(edit_bones)
     # 定义八分之一骨架高度
     bone_length = skeleton_height * 0.125
     return bone_length
+
+
+def check_and_scale_skeleton(obj):
+    """检测骨架高度并自动缩放
+    
+    Args:
+        obj: 骨架对象
+        
+    Returns:
+        tuple: (是否进行了缩放, 缩放因子, 原始高度)
+    """
+    # 切换到编辑模式
+    bpy.ops.object.mode_set(mode='EDIT')
+    edit_bones = obj.data.edit_bones
+    
+    # 获取骨架高度
+    skeleton_height = calculate_skeleton_height(edit_bones)
+    
+    scale_factor = 1.0
+    scaled = False
+    
+    # 检查高度并计算缩放因子
+    if skeleton_height > 10:
+        # 计算缩放因子：10m→0.1，100m→0.01，类推
+        scale_factor = 1.0
+        temp_height = skeleton_height
+        while temp_height > 10:
+            scale_factor *= 0.1
+            temp_height *= 0.1
+        
+        # 切换到对象模式并应用缩放
+        bpy.ops.object.mode_set(mode='OBJECT')
+        obj.scale *= scale_factor
+        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        # 清除父级
+        obj.parent = None
+        bpy.ops.object.mode_set(mode='EDIT')
+        
+        scaled = True
+    
+    # 切换回对象模式
+    bpy.ops.object.mode_set(mode='OBJECT')
+    
+    return scaled, scale_factor, skeleton_height

@@ -1,6 +1,7 @@
 import bpy
 from .. import bone_map_and_group
 from .. import preset_operator
+from .. import bone_utils
 
 
 class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
@@ -15,6 +16,12 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         if not obj or obj.type != 'ARMATURE':
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
+
+        # 检测骨架高度并自动缩放
+        scaled, scale_factor, skeleton_height = bone_utils.check_and_scale_skeleton(obj)
+        
+        if scaled:
+            self.report({'INFO'}, f"骨架高度为 {skeleton_height:.2f}m，已缩放 {scale_factor:.3f} 倍")
 
         scene = context.scene
         # 检查选择框里是否有骨骼设置
