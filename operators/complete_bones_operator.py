@@ -202,7 +202,22 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # 按顺序检查并创建或更新骨骼
         for bone_name, properties in bone_properties.items():
+            # 如果是足先EX且已经存在，保持其头位置不变
+            if bone_name in ["左足先EX", "右足先EX"] and bone_name in edit_bones:
+                # 保持原有的头位置，只更新尾部和其他属性
+                original_head = edit_bones[bone_name].head.copy()
+                bone_utils.create_or_update_bone(edit_bones, bone_name, original_head, properties["tail"], properties.get("use_connect", False), properties["parent"], properties.get("use_deform", True))
+            else:
+                # 正常创建或更新骨骼
                 bone_utils.create_or_update_bone(edit_bones, bone_name, properties["head"], properties["tail"], properties.get("use_connect", False), properties["parent"], properties.get("use_deform", True))
+        
+        # 如果存在足先EX骨骼，将足首的尾部指向足先EX的头部
+        if "左足先EX" in edit_bones:
+            # 更新左足首的尾部到左足先EX的头部
+            edit_bones["左足首"].tail = edit_bones["左足先EX"].head
+        if "右足先EX" in edit_bones:
+            # 更新右足首的尾部到右足先EX的头部
+            edit_bones["右足首"].tail = edit_bones["右足先EX"].head
 
 
         # 调用函数设置 roll 値

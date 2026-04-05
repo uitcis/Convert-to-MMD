@@ -37,27 +37,26 @@ def apply_armature_transforms(context, armature_obj=None):
     """自动应用骨架和网格对象的变换"""
     try:
         # 确保在对象模式
-        current_mode = bpy.context.object.mode if bpy.context.object else 'OBJECT'
-        if current_mode != 'OBJECT':
+        if bpy.context.object and bpy.context.object.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
+        
         # 获取骨架对象
-        if not armature_obj:
-            armature_obj = context.active_object
-        if not armature_obj or armature_obj.type != 'ARMATURE':
+        armature = armature_obj or context.active_object
+        if not armature or armature.type != 'ARMATURE':
             print("未找到骨架对象")
             return False
-        # 选择骨架并选择整个层级
+
+        # 选择骨架层级并应用变换
         bpy.ops.object.select_all(action='DESELECT')
-        armature_obj.select_set(True)
-        bpy.context.view_layer.objects.active = armature_obj
-        # 选择整个层级（包括所有子对象）
+        armature.select_set(True)
+        bpy.context.view_layer.objects.active = armature
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=True)
-        # 对选中的所有对象应用变换
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        
         # 选择回骨架
         bpy.ops.object.select_all(action='DESELECT')
-        armature_obj.select_set(True)
-        bpy.context.view_layer.objects.active = armature_obj
+        armature.select_set(True)
+        bpy.context.view_layer.objects.active = armature
         
         return True
 
@@ -101,6 +100,11 @@ def check_and_scale_skeleton(obj):
     Returns:
         tuple: (是否进行了缩放, 缩放因子, 原始高度)
     """
+    # 切换到对象模式应用当前旋转
+    bpy.ops.object.mode_set(mode='OBJECT')
+    # 应用当前旋转
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=False)
+    
     # 切换到编辑模式
     bpy.ops.object.mode_set(mode='EDIT')
     edit_bones = obj.data.edit_bones
@@ -114,7 +118,6 @@ def check_and_scale_skeleton(obj):
     # 检查高度并计算缩放因子
     if skeleton_height > 10:
         # 计算缩放因子：10m→0.1，100m→0.01，类推
-        scale_factor = 1.0
         temp_height = skeleton_height
         while temp_height > 10:
             scale_factor *= 0.1
