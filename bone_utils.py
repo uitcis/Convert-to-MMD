@@ -40,27 +40,26 @@ def apply_armature_transforms(context, armature_obj=None):
         current_mode = bpy.context.object.mode if bpy.context.object else 'OBJECT'
         if current_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
-        original_mode = current_mode
-        
         # 获取骨架对象
         if not armature_obj:
             armature_obj = context.active_object
         if not armature_obj or armature_obj.type != 'ARMATURE':
             print("未找到骨架对象")
             return False
-        
-        # 保存当前选中的对象和活动对象
-        original_selection = bpy.context.selected_objects
-        original_active = bpy.context.view_layer.objects.active
-        
-        # 选择并激活骨架对象
+        # 选择骨架并选择整个层级
+        bpy.ops.object.select_all(action='DESELECT')
+        armature_obj.select_set(True)
+        bpy.context.view_layer.objects.active = armature_obj
+        # 选择整个层级（包括所有子对象）
+        bpy.ops.object.select_hierarchy(direction='CHILD', extend=True)
+        # 对选中的所有对象应用变换
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        # 选择回骨架
         bpy.ops.object.select_all(action='DESELECT')
         armature_obj.select_set(True)
         bpy.context.view_layer.objects.active = armature_obj
         
-        # 应用骨架对象的变换
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-        
+        return True
 
     except Exception as e:
         print(f"应用变换时出错: {str(e)}")
@@ -121,21 +120,19 @@ def check_and_scale_skeleton(obj):
             scale_factor *= 0.1
             temp_height *= 0.1
         
-        # 切换到对象模式并
+        # 切换到对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
         # 重置缩放
         obj.scale = (1.0, 1.0, 1.0)
         # 缩放
         obj.scale *= scale_factor
-        # 应用缩放
-        bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
         # 清除父级
         obj.parent = None
-        bpy.ops.object.mode_set(mode='EDIT')
+        # 使用apply_armature_transforms应用变换
         
-        scaled = True
-    
-    # 切换回对象模式
-    bpy.ops.object.mode_set(mode='OBJECT')
+        context = bpy.context
+        apply_armature_transforms(context, obj)
+
+
     
     return scaled, scale_factor, skeleton_height
