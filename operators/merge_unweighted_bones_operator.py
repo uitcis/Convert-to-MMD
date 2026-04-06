@@ -2,10 +2,13 @@ import bpy
 from .. import bone_map_and_group
 
 
-class OBJECT_OT_merge_leg_bones(bpy.types.Operator):
-    """合并足部骨骼链"""
-    bl_idname = "object.merge_leg_bones"
-    bl_label = "合并足部骨骼链"
+class OBJECT_OT_merge_bones_base(bpy.types.Operator):
+    """合并骨骼链基类"""
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    # 子类需要重写这些属性
+    target_bones = []
+    bone_type = "骨骼"
     
     def get_mmd_bones(self):
         """获取MMD骨骼列表"""
@@ -97,29 +100,46 @@ class OBJECT_OT_merge_leg_bones(bpy.types.Operator):
         
         total_merged = 0
         
-        # 需要合并子级的目标骨骼列表
-        target_bones = ["左足", "右足", "左ひざ", "右ひざ"]
-        
-        for bone_name in target_bones:
+        for bone_name in self.target_bones:
             merged = self.merge_bone_chain(armature, bone_name, mmd_bones)
             total_merged += merged
         
         bpy.ops.object.mode_set(mode='OBJECT')
         
         if total_merged > 0:
-            self.report({'INFO'}, f"已合并 {total_merged} 个足部骨骼")
+            self.report({'INFO'}, f"已合并 {total_merged} 个{self.bone_type}")
         else:
-            self.report({'INFO'}, "没有找到需要合并的足部骨骼")
+            self.report({'INFO'}, f"没有找到需要合并的{self.bone_type}")
         
         return {'FINISHED'}
 
 
+class OBJECT_OT_merge_leg_bones(OBJECT_OT_merge_bones_base):
+    """合并足部骨骼链"""
+    bl_idname = "object.merge_leg_bones"
+    bl_label = "合并足部骨骼链"
+    
+    target_bones = ["左足", "右足", "左ひざ", "右ひざ"]
+    bone_type = "足部骨骼"
+
+
+class OBJECT_OT_merge_arm_bones(OBJECT_OT_merge_bones_base):
+    """合并手臂骨骼链"""
+    bl_idname = "object.merge_arm_bones"
+    bl_label = "合并手臂骨骼链"
+    
+    target_bones = ["左腕", "右腕", "左ひじ", "右ひじ"]
+    bone_type = "手臂骨骼"
+
+
 def register():
     bpy.utils.register_class(OBJECT_OT_merge_leg_bones)
+    bpy.utils.register_class(OBJECT_OT_merge_arm_bones)
 
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_merge_leg_bones)
+    bpy.utils.unregister_class(OBJECT_OT_merge_arm_bones)
 
 
 if __name__ == "__main__":

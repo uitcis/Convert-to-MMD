@@ -21,7 +21,8 @@ from .operators import ik_operator
 from .operators import pose_operator
 from .operators import clear_unweighted_bones_operator
 from .operators import add_leg_d_bones_operator
-from .operators import merge_leg_bones_operator
+from .operators import merge_unweighted_bones_operator
+from .operators import add_twist_bone_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -52,7 +53,9 @@ def register():
     bpy.utils.register_class(collection_operator.OBJECT_OT_create_bone_group)
     bpy.utils.register_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
     bpy.utils.register_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
-    bpy.utils.register_class(merge_leg_bones_operator.OBJECT_OT_merge_leg_bones)
+    bpy.utils.register_class(merge_unweighted_bones_operator.OBJECT_OT_merge_leg_bones)
+    bpy.utils.register_class(merge_unweighted_bones_operator.OBJECT_OT_merge_arm_bones)
+    bpy.utils.register_class(add_twist_bone_operator.OBJECT_OT_add_twist_bone)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     register_properties(bones)
@@ -88,7 +91,9 @@ def unregister():
     bpy.utils.unregister_class(collection_operator.OBJECT_OT_create_bone_group)
     bpy.utils.unregister_class(clear_unweighted_bones_operator.OBJECT_OT_clear_unweighted_bones)
     bpy.utils.unregister_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
-    bpy.utils.unregister_class(merge_leg_bones_operator.OBJECT_OT_merge_leg_bones)
+    bpy.utils.unregister_class(merge_unweighted_bones_operator.OBJECT_OT_merge_leg_bones)
+    bpy.utils.unregister_class(merge_unweighted_bones_operator.OBJECT_OT_merge_arm_bones)
+    bpy.utils.unregister_class(add_twist_bone_operator.OBJECT_OT_add_twist_bone)
     del bpy.types.Scene.my_enum
     # 注销动态属性
     bones = preset_operator.get_bones_list()
