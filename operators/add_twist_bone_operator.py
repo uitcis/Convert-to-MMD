@@ -160,8 +160,8 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
                     child.head = original_head
                     child.tail = original_tail
 
-        # 切换到对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+        # 对创建的骨骼进行分组，直接调用collection_operator中的操作符
+        bpy.ops.object.create_bone_group()
 
         # 添加约束
         self.setup_constraints(obj)
@@ -395,12 +395,26 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
             # 切换回对象模式
             bpy.ops.object.mode_set(mode='OBJECT')
     
+
+
     def setup_constraints(self, obj):
         """为腕捩和手捩骨骼添加约束"""
         # 切换到姿态模式
         bpy.ops.object.mode_set(mode='POSE')
         
         pose_bones = obj.pose.bones
+        
+        # 锁定腕捩和手捩骨骼的移动以及X和Z轴的旋转
+        for bone in pose_bones:
+            if "腕捩" in bone.name or "手捩" in bone.name:
+                # 锁定移动
+                bone.lock_location[0] = True
+                bone.lock_location[1] = True
+                bone.lock_location[2] = True
+                # 锁定X和Z轴的旋转，只允许Y轴旋转
+                bone.lock_rotation[0] = True
+                bone.lock_rotation[1] = False
+                bone.lock_rotation[2] = True
         
         # 为腕捩骨骼添加约束
         for side in ['左', '右']:
