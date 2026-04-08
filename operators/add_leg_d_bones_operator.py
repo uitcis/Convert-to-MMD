@@ -31,33 +31,33 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             return {'CANCELLED'}
         
-        # 定义腿部骨骼映射 (原骨骼名, D骨骼名, 新骨骼名, D骨骼父级, shadow父级)
+        # 定义腿部骨骼映射 (标准骨骼名, D骨骼名, D骨骼父级, shadow父级)
         # D骨骼父级为None表示保持原父级，为字符串表示指定父级骨骼名
         leg_bones_config = [
             # 右侧
-            ("右足", "右足D", "右足", "下半身", "下半身"),  # 足D的父级是下半身，shadow的父级也是下半身
-            ("右ひざ", "右ひざD", "右ひざ", "右足D", "右足"),  # ひざD的父级是足D，shadow的父级是原骨骼的父级
-            ("右足首", "右足首D", "右足首", "右ひざD", "右ひざ"),  # 足首D的父级是ひざD，shadow的父级是原骨骼的父级
-            ("右足先EX", "右足先EX", None, "右足首D", None),  # 足先EX的父级是足首D（如果存在）
+            ("右足", "右足D", "下半身", "下半身"),  # 足D的父级是下半身，shadow的父级也是下半身，dummy的父级是标准骨骼
+            ("右ひざ", "右ひざD", "右足D", "右足"),  # ひざD的父级是足D，shadow的父级是标准骨骼的父级，dummy的父级是标准骨骼
+            ("右足首", "右足首D", "右ひざD", "右ひざ"),  # 足首D的父级是ひざD，shadow的父级是标准骨骼的父级，dummy的父级是标准骨骼
+            ("右足先EX", "右足先EX", "右足首D", None),  # 足先EX的父级是足首D（如果存在）
             # 左侧
-            ("左足", "左足D", "左足", "下半身", "下半身"),
-            ("左ひざ", "左ひざD", "左ひざ", "左足D", "左足"),
-            ("左足首", "左足首D", "左足首", "左ひざD", "左ひざ"),
-            ("左足先EX", "左足先EX", None, "左足首D", None),
+            ("左足", "左足D", "下半身", "下半身"),
+            ("左ひざ", "左ひざD", "左足D", "左足"),
+            ("左足首", "左足首D", "左ひざD", "左ひざ"),
+            ("左足先EX", "左足先EX", "左足首D", None),
         ]
         
         bones_added = 0
         
-        for original_name, d_name, new_name, d_parent_name, shadow_parent_name in leg_bones_config:
+        for original_name, d_name, d_parent_name, shadow_parent_name in leg_bones_config:
             original_bone = edit_bones.get(original_name)
             if not original_bone:
                 continue
             
-            # 保存原骨骼的位置信息
+            # 保存标准骨骼的位置信息
             head_pos = original_bone.head.copy()
             tail_pos = original_bone.tail.copy()
             
-            # 保存原骨骼的父级（在重命名前保存）
+            # 保存标准骨骼的父级
             original_parent = original_bone.parent
             
             # 获取D骨骼的父级骨骼
@@ -65,17 +65,20 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             if d_parent_name:
                 d_parent_bone = edit_bones.get(d_parent_name)
             
-            # 将原骨骼重命名为D骨骼
-            original_bone.name = d_name
-            
+            # 直接创建D骨骼
+            d_bone = edit_bones.new(d_name)
+            d_bone.head = head_pos
             # 调整D骨骼的尾端到头部上方（保持头部位置，向上延伸）
             up_vector = Vector((0, 0, 0.1))  # 向上延伸0.1个单位
-            original_bone.tail = head_pos + up_vector
+            d_bone.tail = head_pos + up_vector
             
             # 设置D骨骼的父级
             if d_parent_bone:
-                original_bone.parent = d_parent_bone
-                original_bone.use_connect = False  # D骨骼不连接，保持独立控制
+                d_bone.parent = d_parent_bone
+                d_bone.use_connect = False  # D骨骼不连接，保持独立控制
+            else:
+                d_bone.parent = original_parent
+                d_bone.use_connect = False
             
             # 创建dummy骨骼
             dummy_bone_name = f"_dummy_{d_name}"
@@ -83,7 +86,9 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             dummy_bone.head = head_pos
             dummy_bone.tail = head_pos + Vector((0, 0, 0.08))  # 向上延伸0.08个单位
             
-
+            # 设置dummy骨骼的父级为标准骨骼）
+            dummy_bone.parent = original_bone
+            dummy_bone.use_connect = False
             
             # 创建shadow骨骼
             shadow_bone_name = f"_shadow_{d_name}"
@@ -100,53 +105,24 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
                 shadow_bone.parent = original_parent
             shadow_bone.use_connect = False
             
-            # 如果new_name为None，表示不需要创建新骨骼（如足先EX）
-            if new_name is None:
+            # 对于足先EX等特殊情况，直接跳过约束设置
+            if original_name.endswith('EX'):
                 bones_added += 1
                 continue
             
-            # 创建新的骨骼（与原来位置相同）
-            new_bone = edit_bones.new(new_name)
-            new_bone.head = head_pos
-            new_bone.tail = tail_pos
-            new_bone.parent = original_parent  # 新骨骼的父级保持与原骨骼重命名前一致
-            new_bone.use_connect = False
-
-            # 设置dummy骨骼的父级（与原骨骼相同）
-            dummy_bone.parent = new_bone
-            dummy_bone.use_connect = False
-            
-            # 切换到物体模式以添加约束
+            # 切换到物体模式以添加约束和修改顶点组
             bpy.ops.object.mode_set(mode='OBJECT')
             
-            # 获取D骨骼和新骨骼的骨骼对象
-            d_bone = armature.pose.bones[d_name]
-            new_pose_bone = armature.pose.bones[new_name]
+            # 获取D骨骼的骨骼对象
+            d_pose_bone = armature.pose.bones[d_name]
             
-            # 复制D骨骼上的所有约束到新骨骼（包括IK约束）
-            for constraint in list(d_bone.constraints):
-                # 为新骨骼创建相同类型的约束
-                new_constraint = new_pose_bone.constraints.new(constraint.type)
-                
-                # 复制约束的属性
-                for attr in dir(constraint):
-                    if not attr.startswith('_') and attr != 'type' and attr != 'bl_rna' and attr != 'rna_type':
-                        try:
-                            value = getattr(constraint, attr)
-                            setattr(new_constraint, attr, value)
-                        except:
-                            pass
-            
-            # 清除D骨骼上的现有约束
-            for constraint in list(d_bone.constraints):
-                d_bone.constraints.remove(constraint)
-            
-            # 锁定腿部D骨骼的移动
-            d_bone.lock_location[0] = True
-            d_bone.lock_location[1] = True
-            d_bone.lock_location[2] = True
+            # 锁定腿部D骨骼的移动以及X和Z轴的旋转
+            # 锁定移动
+            d_pose_bone.lock_location[0] = True
+            d_pose_bone.lock_location[1] = True
+            d_pose_bone.lock_location[2] = True
             # 为D骨骼添加TRANSFORM约束
-            transform_constraint = d_bone.constraints.new('TRANSFORM')
+            transform_constraint = d_pose_bone.constraints.new('TRANSFORM')
             transform_constraint.name = "mmd_additional_rotation"
             transform_constraint.target = armature
             transform_constraint.subtarget = f"_shadow_{d_name}"
@@ -199,17 +175,19 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
                 # 移除目标剪切
                 shadow_constraint.remove_target_shear = False
             
+            # 把标准骨骼对应的顶点组名字改成D骨骼的名字
+            for mesh in bpy.context.scene.objects:
+                if mesh.type == 'MESH' and mesh.parent == armature:
+                    if original_name in mesh.vertex_groups:
+                        # 重命名顶点组
+                        vg = mesh.vertex_groups[original_name]
+                        vg.name = d_name
+            
             # 切换回编辑模式继续操作
             bpy.ops.object.mode_set(mode='EDIT')
             
-            # 重新获取编辑模式下的骨骼
-            original_bone = edit_bones[d_name]
-            new_bone = edit_bones[new_name]
-            
-            # 更新子骨骼的父级（连接到新骨骼而不是D骨骼）
-            for child in list(original_bone.children):
-                if child != new_bone and not child.name.endswith('D'):
-                    child.parent = new_bone
+            # 更新子骨骼的父级（如果需要）
+            # 注意：标准骨骼保持不变，所以不需要更新子骨骼的父级
             
             bones_added += 1
         
