@@ -110,6 +110,7 @@ mmd_bone_group = [
         "bones": [
             "左肩P",
             "左肩",
+            "左肩C",
             "左腕",
             "左腕捩",
             "左腕捩1",
@@ -124,6 +125,7 @@ mmd_bone_group = [
             "左ダミー",
             "右肩P",
             "右肩",
+            "右肩C",
             "右腕",
             "右腕捩",
             "右腕捩1",
@@ -158,7 +160,9 @@ mmd_bone_group = [
             "_dummy_左足首D",
             "_dummy_右足D",
             "_dummy_右ひざD",
-            "_dummy_右足首D"
+            "_dummy_右足首D",
+            "_dummy_左肩C",
+            "_dummy_右肩C"
         ] 
     },
     {
@@ -181,7 +185,9 @@ mmd_bone_group = [
             "_shadow_左足首D",
             "_shadow_右足D",
             "_shadow_右ひざD",
-            "_shadow_右足首D"
+            "_shadow_右足首D",
+            "_shadow_左肩C",
+            "_shadow_右肩C"
         ]
     },
     {

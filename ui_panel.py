@@ -283,3 +283,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             #添加捩骨骼按钮
             row = layout.row()
             row.operator("object.add_twist_bone", text="2.添加捩骨骼", icon='BONE_DATA')
+            #添加肩P骨骼按钮
+            row = layout.row()
+            row.operator("object.add_shoulder_p_bones", text="3.添加肩P骨骼", icon='BONE_DATA')
+

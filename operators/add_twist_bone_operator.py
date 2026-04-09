@@ -394,7 +394,8 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
 
             # 切换回对象模式
             bpy.ops.object.mode_set(mode='OBJECT')
-    
+            #仅选择骨架对象
+            bpy.context.view_layer.objects.active = obj
 
 
     def setup_constraints(self, obj):
@@ -583,12 +584,7 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
                     # 设置为姿态空间
                     copy_constraint.owner_space = 'POSE'
                     copy_constraint.target_space = 'POSE'
-        
-        # 切换回对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
-        
-        # 选择回骨架对象
-        bpy.context.view_layer.objects.active = obj
+
 
 def register():
     bpy.utils.register_class(OBJECT_OT_add_twist_bone)
