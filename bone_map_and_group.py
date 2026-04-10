@@ -61,6 +61,7 @@ mmd_bone_map = {
 mmd_bone_group = [
     {
         "name": "センター",
+        "visible": True,
         "bones": [
             "全ての親",
             "センター",
@@ -71,6 +72,7 @@ mmd_bone_group = [
     },
     {
         "name": "ＩＫ",
+        "visible": True,
         "bones": [
             "右足IK親",
             "右足ＩＫ",
@@ -82,6 +84,7 @@ mmd_bone_group = [
     },
     {
         "name": "体(上)",
+        "visible": True,
         "bones": [
             "上半身",
             "上半身1",
@@ -107,6 +110,7 @@ mmd_bone_group = [
     },
     {
         "name": "腕",
+        "visible": True,
         "bones": [
             "左肩P",
             "左肩",
@@ -140,58 +144,10 @@ mmd_bone_group = [
             "右ダミー"
         ]
     },
-    {
-        "name": "mmd_dummy",
-        "bones": [
-            "_dummy_左腕捩1",
-            "_dummy_左腕捩2",
-            "_dummy_左腕捩3",
-            "_dummy_左手捩1",
-            "_dummy_左手捩2",
-            "_dummy_左手捩3",
-            "_dummy_右腕捩1",
-            "_dummy_右腕捩2",
-            "_dummy_右腕捩3",
-            "_dummy_右手捩1",
-            "_dummy_右手捩2",
-            "_dummy_右手捩3",
-            "_dummy_左足D",
-            "_dummy_左ひざD",
-            "_dummy_左足首D",
-            "_dummy_右足D",
-            "_dummy_右ひざD",
-            "_dummy_右足首D",
-            "_dummy_左肩C",
-            "_dummy_右肩C"
-        ] 
-    },
-    {
-        "name": "mmd_shadow",
-        "bones": [
-            "_shadow_左腕捩1",
-            "_shadow_左腕捩2",
-            "_shadow_左腕捩3",
-            "_shadow_左手捩1",
-            "_shadow_左手捩2",
-            "_shadow_左手捩3",
-            "_shadow_右腕捩1",
-            "_shadow_右腕捩2",
-            "_shadow_右腕捩3",
-            "_shadow_右手捩1",
-            "_shadow_右手捩2",
-            "_shadow_右手捩3",
-            "_shadow_左足D",
-            "_shadow_左ひざD",
-            "_shadow_左足首D",
-            "_shadow_右足D",
-            "_shadow_右ひざD",
-            "_shadow_右足首D",
-            "_shadow_左肩C",
-            "_shadow_右肩C"
-        ]
-    },
+
     {
         "name": "指",
+        "visible": True,
         "bones": [
             "左親指０",
             "左親指１",
@@ -227,12 +183,14 @@ mmd_bone_group = [
     },
     {
         "name": "体(下)",
+        "visible": True,
         "bones": [
             "下半身"
         ]
     },
     {
         "name": "足",
+        "visible": True,
         "bones": [
             "左足",
             "左ひざ",
@@ -254,9 +212,62 @@ mmd_bone_group = [
     },
     {
         "name": "その他",
+        "visible": True,
         "bones": [
             "右目先",
             "左目先"
         ]
-    }
+    },
+    {
+        "name": "mmd_dummy",
+        "visible": False,
+        "bones": [
+            "_dummy_左腕捩1",
+            "_dummy_左腕捩2",
+            "_dummy_左腕捩3",
+            "_dummy_左手捩1",
+            "_dummy_左手捩2",
+            "_dummy_左手捩3",
+            "_dummy_右腕捩1",
+            "_dummy_右腕捩2",
+            "_dummy_右腕捩3",
+            "_dummy_右手捩1",
+            "_dummy_右手捩2",
+            "_dummy_右手捩3",
+            "_dummy_左足D",
+            "_dummy_左ひざD",
+            "_dummy_左足首D",
+            "_dummy_右足D",
+            "_dummy_右ひざD",
+            "_dummy_右足首D",
+            "_dummy_左肩C",
+            "_dummy_右肩C"
+        ] 
+    },
+    {
+        "name": "mmd_shadow",
+        "visible": False,
+        "bones": [
+            "_shadow_左腕捩1",
+            "_shadow_左腕捩2",
+            "_shadow_左腕捩3",
+            "_shadow_左手捩1",
+            "_shadow_左手捩2",
+            "_shadow_左手捩3",
+            "_shadow_右腕捩1",
+            "_shadow_右腕捩2",
+            "_shadow_右腕捩3",
+            "_shadow_右手捩1",
+            "_shadow_右手捩2",
+            "_shadow_右手捩3",
+            "_shadow_左足D",
+            "_shadow_左ひざD",
+            "_shadow_左足首D",
+            "_shadow_右足D",
+            "_shadow_右ひざD",
+            "_shadow_右足首D",
+            "_shadow_左肩C",
+            "_shadow_右肩C"
+        ]
+    }    
 ]

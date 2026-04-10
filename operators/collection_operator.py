@@ -21,17 +21,19 @@ def load_bone_presets():
             raise ValueError("bone_map_and_group.py中未找到有效的骨骼分组配置")
 
         preset_dict = {}
+        group_visibility = {}
         for p in valid_groups:
             if p['name'] not in preset_dict:
                 cleaned_bones = list({b.strip() for b in p['bones'] if b.strip()})
                 preset_dict[p['name']] = cleaned_bones
+                group_visibility[p['name']] = p.get('visible', True)
         all_bones.update(*(p['bones'] for p in valid_groups))
-        return preset_dict, all_bones
+        return preset_dict, all_bones, group_visibility
     except Exception as e:
         print(f"加载骨骼分组配置失败: {str(e)}")
-    return {}, set()
+    return {}, set(), {}
 
-BONE_GROUP_PRESETS, PRESET_BONES = load_bone_presets()
+BONE_GROUP_PRESETS, PRESET_BONES, GROUP_VISIBILITY = load_bone_presets()
 
 class OBJECT_OT_create_bone_group(bpy.types.Operator):
     bl_idname = "object.create_bone_group"
@@ -83,6 +85,8 @@ class OBJECT_OT_create_bone_group(bpy.types.Operator):
         for group_name, bones in BONE_GROUP_PRESETS.items():
             if valid_bones := [b for b in bones if b in bone_dict]:
                 coll = armature.collections.new(group_name)
+                # 设置集合可见性
+                coll.is_visible = GROUP_VISIBILITY.get(group_name, True)
                 for b in valid_bones:
                     coll.assign(bone_dict[b])
                 remaining_bones -= set(valid_bones)
@@ -91,6 +95,7 @@ class OBJECT_OT_create_bone_group(bpy.types.Operator):
         # 优化other分组处理
         if remaining_bones:
             coll = armature.collections.new('other')
+            coll.is_visible = True
             for b in remaining_bones:
                 coll.assign(bone_dict[b])
 
