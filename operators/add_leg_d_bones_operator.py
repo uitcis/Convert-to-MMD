@@ -1,6 +1,11 @@
 import bpy
 import math
 from mathutils import Vector
+from ..bone_utils import create_or_update_bone
+
+# 足D相关骨骼配置字典（按创建顺序排序）
+# 注意：head_position和tail_position会在运行时根据原始骨骼位置动态计算
+
 
 
 class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
@@ -19,7 +24,171 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = armature.data.edit_bones
-        
+        D_bone_properties = {
+            # 右侧骨骼
+            "右足D": {
+                "original_bone": "右足",
+                "head_position": edit_bones["右足"].head,
+                "tail_position": edit_bones["右足"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "下半身",
+                "use_deform": True
+            },
+            "_dummy_右足D": {
+                "original_bone": "右足",
+                "head_position": edit_bones["右足"].head,
+                "tail_position": edit_bones["右足"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "右足",
+                "use_deform": False
+            },
+            "_shadow_右足D": {
+                "original_bone": "右足",
+                "head_position": edit_bones["右足"].head,    
+                "tail_position": edit_bones["右足"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "下半身",
+                "use_deform": False
+            },
+            "右ひざD": {
+                "original_bone": "右ひざ",
+                "head_position": edit_bones["右ひざ"].head,
+                "tail_position": edit_bones["右ひざ"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "右足D",
+                "use_deform": True
+            },
+            "_dummy_右ひざD": {
+                "original_bone": "右ひざ",
+                "head_position": edit_bones["右ひざ"].head,
+                "tail_position": edit_bones["右ひざ"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "右ひざ",
+                "use_deform": False
+            },
+            "_shadow_右ひざD": {
+                "original_bone": "右ひざ",
+                "head_position": edit_bones["右ひざ"].head,
+                "tail_position": edit_bones["右ひざ"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "右足",
+                "use_deform": False
+            },
+            "右足首D": {
+                "original_bone": "右足首",
+                "head_position": edit_bones["右足首"].head,
+                "tail_position": edit_bones["右足首"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "右ひざD",
+                "use_deform": True
+            },
+            "_dummy_右足首D": {
+                "original_bone": "右足首",
+                "head_position": edit_bones["右足首"].head,
+                "tail_position": edit_bones["右足首"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "右足首",
+                "use_deform": False
+            },
+            "_shadow_右足首D": {
+                "original_bone": "右足首",
+                "head_position": edit_bones["右足首"].head,
+                "tail_position": edit_bones["右足首"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "右ひざ",
+                "use_deform": False
+            },
+            "右足先EX": {
+                "original_bone": "右足先EX",
+                "head_position": edit_bones["右足先EX"].head,
+                "tail_position": edit_bones["右足先EX"].tail,
+                "use_connect": False,
+                "parent_name": "右足首D",
+                "use_deform": True
+            },
+            
+            # 左侧骨骼
+            "左足D": {
+                "original_bone": "左足",
+                "head_position": edit_bones["左足"].head,
+                "tail_position": edit_bones["左足"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "下半身",
+                "use_deform": True
+            },
+            "_dummy_左足D": {
+                "original_bone": "左足",
+                "head_position": edit_bones["左足"].head,
+                "tail_position": edit_bones["左足"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "左足",
+                "use_deform": False
+            },
+            "_shadow_左足D": {
+                "original_bone": "左足",
+                "head_position": edit_bones["左足"].head,
+                "tail_position": edit_bones["左足"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "下半身",
+                "use_deform": False
+            },
+            "左ひざD": {
+                "original_bone": "左ひざ",
+                "head_position": edit_bones["左ひざ"].head,
+                "tail_position": edit_bones["左ひざ"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "左足D",
+                "use_deform": True
+            },
+            "_dummy_左ひざD": {
+                "original_bone": "左ひざ",
+                "head_position": edit_bones["左ひざ"].head,
+                "tail_position": edit_bones["左ひざ"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "左ひざ",
+                "use_deform": False
+            },
+            "_shadow_左ひざD": {
+                "original_bone": "左ひざ",
+                "head_position": edit_bones["左ひざ"].head,
+                "tail_position": edit_bones["左ひざ"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "左足",
+                "use_deform": False
+            },
+            "左足首D": {
+                "original_bone": "左足首",
+                "head_position": edit_bones["左足首"].head,
+                "tail_position": edit_bones["左足首"].head+Vector((0, 0, 0.1)),
+                "use_connect": False,
+                "parent_name": "左ひざD",
+                "use_deform": True
+            },
+            "_dummy_左足首D": {
+                "original_bone": "左足首",
+                "head_position": edit_bones["左足首"].head,
+                "tail_position": edit_bones["左足首"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "左足首",
+                "use_deform": False
+            },
+            "_shadow_左足首D": {
+                "original_bone": "左足首",
+                "head_position": edit_bones["左足首"].head,
+                "tail_position": edit_bones["左足首"].head+Vector((0, 0, 0.08)),
+                "use_connect": False,
+                "parent_name": "左ひざ",
+                "use_deform": False
+            },
+            "左足先EX": {
+                "original_bone": "左足先EX",
+                "head_position": edit_bones["左足先EX"].head,
+                "tail_position": edit_bones["左足先EX"].tail,
+                "use_connect": False,
+                "parent_name": "左足首D",
+                "use_deform": True
+            }
+        }        
         # 检查是否已经存在D骨骼
         existing_d_bones = []
         for bone in edit_bones:
@@ -31,165 +200,109 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             return {'CANCELLED'}
         
-        # 定义腿部骨骼映射 (标准骨骼名, D骨骼名, D骨骼父级, shadow父级)
-        # D骨骼父级为None表示保持原父级，为字符串表示指定父级骨骼名
-        leg_bones_config = [
-            # 右侧
-            ("右足", "右足D", "下半身", "下半身"),  # 足D的父级是下半身，shadow的父级也是下半身，dummy的父级是标准骨骼
-            ("右ひざ", "右ひざD", "右足D", "右足"),  # ひざD的父级是足D，shadow的父级是标准骨骼的父级，dummy的父级是标准骨骼
-            ("右足首", "右足首D", "右ひざD", "右ひざ"),  # 足首D的父级是ひざD，shadow的父级是标准骨骼的父级，dummy的父级是标准骨骼
-            ("右足先EX", "右足先EX", "右足首D", None),  # 足先EX的父级是足首D（如果存在）
-            # 左侧
-            ("左足", "左足D", "下半身", "下半身"),
-            ("左ひざ", "左ひざD", "左足D", "左足"),
-            ("左足首", "左足首D", "左ひざD", "左ひざ"),
-            ("左足先EX", "左足先EX", "左足首D", None),
-        ]
-        
         bones_added = 0
         
-        for original_name, d_name, d_parent_name, shadow_parent_name in leg_bones_config:
-            original_bone = edit_bones.get(original_name)
-            if not original_bone:
-                continue
+        # 保存需要处理约束的原始骨骼名称
+        original_bones_to_process = set()
+        
+        # 创建所有骨骼 
+        for bone_name, properties in D_bone_properties.items():
+            create_or_update_bone(
+                edit_bones, bone_name, 
+                properties["head_position"], 
+                properties["tail_position"], 
+                properties.get("use_connect", False), 
+                properties["parent_name"], 
+                properties.get("use_deform", True)
+            )
+            # 记录需要处理约束的原始骨骼
+            original_bone_name = properties["original_bone"]
             
-            # 保存标准骨骼的位置信息
-            head_pos = original_bone.head.copy()
-            tail_pos = original_bone.tail.copy()
+            if not bone_name.startswith('_') and not bone_name.endswith('EX'):
+                original_bones_to_process.add(original_bone_name)
             
-            # 保存标准骨骼的父级
-            original_parent = original_bone.parent
-            
-            # 获取D骨骼的父级骨骼
-            d_parent_bone = None
-            if d_parent_name:
-                d_parent_bone = edit_bones.get(d_parent_name)
-            
-            # 直接创建D骨骼
-            d_bone = edit_bones.new(d_name)
-            d_bone.head = head_pos
-            # 调整D骨骼的尾端到头部上方（保持头部位置，向上延伸）
-            up_vector = Vector((0, 0, 0.1))  # 向上延伸0.1个单位
-            d_bone.tail = head_pos + up_vector
-            
-            # 设置D骨骼的父级
-            if d_parent_bone:
-                d_bone.parent = d_parent_bone
-                d_bone.use_connect = False  # D骨骼不连接，保持独立控制
-            else:
-                d_bone.parent = original_parent
-                d_bone.use_connect = False
-            
-            # 创建dummy骨骼
-            dummy_bone_name = f"_dummy_{d_name}"
-            dummy_bone = edit_bones.new(dummy_bone_name)
-            dummy_bone.head = head_pos
-            dummy_bone.tail = head_pos + Vector((0, 0, 0.08))  # 向上延伸0.08个单位
-            
-            # 设置dummy骨骼的父级为标准骨骼）
-            dummy_bone.parent = original_bone
-            dummy_bone.use_connect = False
-            
-            # 创建shadow骨骼
-            shadow_bone_name = f"_shadow_{d_name}"
-            shadow_bone = edit_bones.new(shadow_bone_name)
-            shadow_bone.head = head_pos
-            shadow_bone.tail = head_pos + Vector((0, 0, 0.08))  # 向上延伸0.08个单位
-            
-            # 设置shadow骨骼的父级
-            if shadow_parent_name:
-                shadow_parent = edit_bones.get(shadow_parent_name)
-                if shadow_parent:
-                    shadow_bone.parent = shadow_parent
-            else:
-                shadow_bone.parent = original_parent
-            shadow_bone.use_connect = False
-            
-            # 对于足先EX等特殊情况，直接跳过约束设置
-            if original_name.endswith('EX'):
-                bones_added += 1
-                continue
-            
+            bones_added += 1
+        
+        # 处理约束和顶点组
+        if original_bones_to_process:
             # 切换到物体模式以添加约束和修改顶点组
             bpy.ops.object.mode_set(mode='OBJECT')
             
-            # 获取D骨骼的骨骼对象
-            d_pose_bone = armature.pose.bones[d_name]
-            
-            # 锁定腿部D骨骼的移动以及X和Z轴的旋转
-            # 锁定移动
-            d_pose_bone.lock_location[0] = True
-            d_pose_bone.lock_location[1] = True
-            d_pose_bone.lock_location[2] = True
-            # 为D骨骼添加TRANSFORM约束
-            transform_constraint = d_pose_bone.constraints.new('TRANSFORM')
-            transform_constraint.name = "mmd_additional_rotation"
-            transform_constraint.target = armature
-            transform_constraint.subtarget = f"_shadow_{d_name}"
-            transform_constraint.influence = 1.0
-            transform_constraint.use_motion_extrapolate = True
-            # 设置所有者空间为局部空间
-            transform_constraint.owner_space = 'LOCAL'
-            # 设置目标空间为局部空间
-            transform_constraint.target_space = 'LOCAL'
-            # 设置从旋转映射到旋转
-            transform_constraint.map_from = 'ROTATION'
-            transform_constraint.map_to = 'ROTATION'
-            # 设置映射自的模式为XYZ欧拉
-            transform_constraint.from_rotation_mode = 'XYZ'
-            # 设置映射模式为XYZ欧拉
-            transform_constraint.to_euler_order = 'XYZ'
-            # 设置混合选项为初始后
-            transform_constraint.mix_mode_rot = 'AFTER'
-            
-            # 设置旋转范围（将角度转换为弧度）
-            transform_constraint.from_min_x_rot = math.radians(-180.0)
-            transform_constraint.from_min_y_rot = math.radians(-180.0)
-            transform_constraint.from_min_z_rot = math.radians(-180.0)
-            transform_constraint.from_max_x_rot = math.radians(180.0)
-            transform_constraint.from_max_y_rot = math.radians(180.0)
-            transform_constraint.from_max_z_rot = math.radians(180.0)
-            transform_constraint.to_min_x_rot = math.radians(-180.0)
-            transform_constraint.to_min_y_rot = math.radians(-180.0)
-            transform_constraint.to_min_z_rot = math.radians(-180.0)
-            transform_constraint.to_max_x_rot = math.radians(180.0)
-            transform_constraint.to_max_y_rot = math.radians(180.0)
-            transform_constraint.to_max_z_rot = math.radians(180.0)
-            
-            # 为shadow骨骼添加COPY_TRANSFORMS约束
-            shadow_bone_name = f"_shadow_{d_name}"
-            if shadow_bone_name in armature.pose.bones:
-                shadow_bone = armature.pose.bones[shadow_bone_name]
-                # 清除现有约束
-                for constraint in list(shadow_bone.constraints):
-                    shadow_bone.constraints.remove(constraint)
-                # 添加COPY_TRANSFORMS约束
-                shadow_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
-                shadow_constraint.name = "mmd_tools_at_dummy"
-                shadow_constraint.target = armature
-                shadow_constraint.subtarget = f"_dummy_{d_name}"
-                shadow_constraint.influence = 1.0
-                # 设置为姿态空间
-                shadow_constraint.owner_space = 'POSE'
-                shadow_constraint.target_space = 'POSE'
-                # 移除目标剪切
-                shadow_constraint.remove_target_shear = False
-            
-            # 把标准骨骼对应的顶点组名字改成D骨骼的名字
-            for mesh in bpy.context.scene.objects:
-                if mesh.type == 'MESH' and mesh.parent == armature:
-                    if original_name in mesh.vertex_groups:
-                        # 重命名顶点组
-                        vg = mesh.vertex_groups[original_name]
-                        vg.name = d_name
-            
-            # 切换回编辑模式继续操作
-            bpy.ops.object.mode_set(mode='EDIT')
-            
-            # 更新子骨骼的父级（如果需要）
-            # 注意：标准骨骼保持不变，所以不需要更新子骨骼的父级
-            
-            bones_added += 1
+            for original_name in original_bones_to_process:
+                d_name = original_name + 'D'
+                
+                if d_name not in armature.pose.bones:
+                    continue
+                
+                # 获取D骨骼的骨骼对象
+                d_pose_bone = armature.pose.bones[d_name]
+                
+                # 锁定腿部D骨骼的移动以及X和Z轴的旋转
+                # 锁定移动
+                d_pose_bone.lock_location[0] = True
+                d_pose_bone.lock_location[1] = True
+                d_pose_bone.lock_location[2] = True
+                # 为D骨骼添加TRANSFORM约束
+                transform_constraint = d_pose_bone.constraints.new('TRANSFORM')
+                transform_constraint.name = "mmd_additional_rotation"
+                transform_constraint.target = armature
+                transform_constraint.subtarget = f"_shadow_{d_name}"
+                transform_constraint.influence = 1.0
+                transform_constraint.use_motion_extrapolate = True
+                # 设置所有者空间为局部空间
+                transform_constraint.owner_space = 'LOCAL'
+                # 设置目标空间为局部空间
+                transform_constraint.target_space = 'LOCAL'
+                # 设置从旋转映射到旋转
+                transform_constraint.map_from = 'ROTATION'
+                transform_constraint.map_to = 'ROTATION'
+                # 设置映射自的模式为XYZ欧拉
+                transform_constraint.from_rotation_mode = 'XYZ'
+                # 设置映射模式为XYZ欧拉
+                transform_constraint.to_euler_order = 'XYZ'
+                # 设置混合选项为初始后
+                transform_constraint.mix_mode_rot = 'AFTER'
+                
+                # 设置旋转范围（将角度转换为弧度）
+                transform_constraint.from_min_x_rot = math.radians(-180.0)
+                transform_constraint.from_min_y_rot = math.radians(-180.0)
+                transform_constraint.from_min_z_rot = math.radians(-180.0)
+                transform_constraint.from_max_x_rot = math.radians(180.0)
+                transform_constraint.from_max_y_rot = math.radians(180.0)
+                transform_constraint.from_max_z_rot = math.radians(180.0)
+                transform_constraint.to_min_x_rot = math.radians(-180.0)
+                transform_constraint.to_min_y_rot = math.radians(-180.0)
+                transform_constraint.to_min_z_rot = math.radians(-180.0)
+                transform_constraint.to_max_x_rot = math.radians(180.0)
+                transform_constraint.to_max_y_rot = math.radians(180.0)
+                transform_constraint.to_max_z_rot = math.radians(180.0)
+                
+                # 为shadow骨骼添加COPY_TRANSFORMS约束
+                shadow_bone_name = f"_shadow_{d_name}"
+                if shadow_bone_name in armature.pose.bones:
+                    shadow_bone = armature.pose.bones[shadow_bone_name]
+                    # 清除现有约束
+                    for constraint in list(shadow_bone.constraints):
+                        shadow_bone.constraints.remove(constraint)
+                    # 添加COPY_TRANSFORMS约束
+                    shadow_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
+                    shadow_constraint.name = "mmd_tools_at_dummy"
+                    shadow_constraint.target = armature
+                    shadow_constraint.subtarget = f"_dummy_{d_name}"
+                    shadow_constraint.influence = 1.0
+                    # 设置为姿态空间
+                    shadow_constraint.owner_space = 'POSE'
+                    shadow_constraint.target_space = 'POSE'
+                    # 移除目标剪切
+                    shadow_constraint.remove_target_shear = False
+                
+                # 把标准骨骼对应的顶点组名字改成D骨骼的名字
+                for mesh in bpy.context.scene.objects:
+                    if mesh.type == 'MESH' and mesh.parent == armature:
+                        if original_name in mesh.vertex_groups:
+                            # 重命名顶点组
+                            vg = mesh.vertex_groups[original_name]
+                            vg.name = d_name
         
         # 返回物体模式
         bpy.ops.object.mode_set(mode='OBJECT')

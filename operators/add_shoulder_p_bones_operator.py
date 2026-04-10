@@ -122,6 +122,20 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
             original_bone.parent = p_bone
             original_bone.use_connect = False
             
+            # 查找腕骨骼并将其父级设置为肩C
+            wrist_bone_name = "右腕" if original_name == "右肩" else "左腕"
+            if wrist_bone_name in edit_bones:
+                wrist_bone = edit_bones[wrist_bone_name]
+                # 保存腕骨骼的原始头部和尾部位置
+                original_wrist_head = wrist_bone.head.copy()
+                original_wrist_tail = wrist_bone.tail.copy()
+                # 修改父级
+                wrist_bone.parent = c_bone
+                wrist_bone.use_connect = False
+                # 恢复腕骨骼的原始位置
+                wrist_bone.head = original_wrist_head
+                wrist_bone.tail = original_wrist_tail
+            
             # 记录创建的骨骼信息
             created_bones.append((c_name, shadow_bone_name))
             
