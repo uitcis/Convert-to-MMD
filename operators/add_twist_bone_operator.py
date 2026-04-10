@@ -160,17 +160,205 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
                     child.head = original_head
                     child.tail = original_tail
 
-        # 对创建的骨骼进行分组，直接调用collection_operator中的操作符
-        bpy.ops.object.create_bone_group()
-
         # 添加约束
-        self.setup_constraints(obj)
+        self.setup_constraints(obj)#处在姿态模式
 
         # 处理权重
-        self.setup_weights(obj)
-
+        self.setup_weights(obj)#处在网格权重模式
+        # 切换回对象模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+        #仅选择骨架对象
+        bpy.context.view_layer.objects.active = obj
+        # 对创建的骨骼进行分组，直接调用collection_operator中的操作符
+        bpy.ops.object.create_bone_group()
         self.report({'INFO'}, "成功拆分腕捩骨骼并设置权重和约束")
         return {'FINISHED'}
+    def setup_constraints(self, obj):
+        """为腕捩和手捩骨骼添加约束"""
+        # 切换到姿态模式
+        bpy.ops.object.mode_set(mode='POSE')
+        
+        pose_bones = obj.pose.bones
+        
+        # 锁定腕捩和手捩骨骼的移动以及X和Z轴的旋转
+        for bone in pose_bones:
+            if "腕捩" in bone.name or "手捩" in bone.name:
+                # 锁定移动
+                bone.lock_location[0] = True
+                bone.lock_location[1] = True
+                bone.lock_location[2] = True
+                # 锁定X和Z轴的旋转，只允许Y轴旋转
+                bone.lock_rotation[0] = True
+                bone.lock_rotation[1] = False
+                bone.lock_rotation[2] = True
+        
+        # 为腕捩骨骼添加约束
+        for side in ['左', '右']:
+            # 腕捩骨骼约束
+            for i in range(1, 4):  # 腕捩1, 腕捩2, 腕捩3
+                twist_bone_name = f"{side}腕捩{i}"
+                if twist_bone_name in pose_bones:
+                    twist_bone = pose_bones[twist_bone_name]
+                    
+                    # 清除现有约束
+                    for constraint in twist_bone.constraints:
+                        twist_bone.constraints.remove(constraint)
+                    
+                    # 添加TRANSFORM约束
+                    transform_constraint = twist_bone.constraints.new('TRANSFORM')
+                    transform_constraint.name = "mmd_additional_rotation"
+                    transform_constraint.target = obj
+                    transform_constraint.subtarget = f"_shadow_{side}腕捩{i}"
+                    transform_constraint.influence = 1.0
+                    transform_constraint.use_motion_extrapolate = True
+                    # 设置所有者空间为局部空间
+                    transform_constraint.owner_space = 'LOCAL'
+                    # 设置目标空间为局部空间
+                    transform_constraint.target_space = 'LOCAL'
+                    # 设置从旋转映射到旋转
+                    transform_constraint.map_from = 'ROTATION'
+                    transform_constraint.map_to = 'ROTATION'
+                    # 设置映射自的模式为XYZ欧拉
+                    transform_constraint.from_rotation_mode = 'XYZ'
+                    # 设置映射模式为XYZ欧拉
+                    transform_constraint.to_euler_order = 'XYZ'
+                    # 设置混合选项为初始后
+                    transform_constraint.mix_mode_rot = 'AFTER'
+                    
+                    # 设置旋转范围（将角度转换为弧度）
+                    transform_constraint.from_min_x_rot = math.radians(-180.0)
+                    transform_constraint.from_min_y_rot = math.radians(-180.0)
+                    transform_constraint.from_min_z_rot = math.radians(-180.0)
+                    transform_constraint.from_max_x_rot = math.radians(180.0)
+                    transform_constraint.from_max_y_rot = math.radians(180.0)
+                    transform_constraint.from_max_z_rot = math.radians(180.0)
+                    
+                    # 根据骨骼索引设置不同的旋转限制（将角度转换为弧度）
+                    if i == 1:
+                        transform_constraint.to_min_x_rot = math.radians(-45.0)
+                        transform_constraint.to_min_y_rot = math.radians(-45.0)
+                        transform_constraint.to_min_z_rot = math.radians(-45.0)
+                        transform_constraint.to_max_x_rot = math.radians(45.0)
+                        transform_constraint.to_max_y_rot = math.radians(45.0)
+                        transform_constraint.to_max_z_rot = math.radians(45.0)
+                    elif i == 2:
+                        transform_constraint.to_min_x_rot = math.radians(-90.0)
+                        transform_constraint.to_min_y_rot = math.radians(-90.0)
+                        transform_constraint.to_min_z_rot = math.radians(-90.0)
+                        transform_constraint.to_max_x_rot = math.radians(90.0)
+                        transform_constraint.to_max_y_rot = math.radians(90.0)
+                        transform_constraint.to_max_z_rot = math.radians(90.0)
+                    elif i == 3:
+                        transform_constraint.to_min_x_rot = math.radians(-135.0)
+                        transform_constraint.to_min_y_rot = math.radians(-135.0)
+                        transform_constraint.to_min_z_rot = math.radians(-135.0)
+                        transform_constraint.to_max_x_rot = math.radians(135.0)
+                        transform_constraint.to_max_y_rot = math.radians(135.0)
+                        transform_constraint.to_max_z_rot = math.radians(135.0)
+            
+            # 为手捩骨骼添加约束
+            for i in range(1, 4):  # 手捩1, 手捩2, 手捩3
+                twist_bone_name = f"{side}手捩{i}"
+                if twist_bone_name in pose_bones:
+                    twist_bone = pose_bones[twist_bone_name]
+                    
+                    # 清除现有约束
+                    for constraint in twist_bone.constraints:
+                        twist_bone.constraints.remove(constraint)
+                    
+                    # 添加TRANSFORM约束
+                    transform_constraint = twist_bone.constraints.new('TRANSFORM')
+                    transform_constraint.name = "mmd_additional_rotation"
+                    transform_constraint.target = obj
+                    transform_constraint.subtarget = f"_shadow_{side}手捩{i}"
+                    transform_constraint.influence = 1.0
+                    transform_constraint.use_motion_extrapolate = True
+                    # 设置所有者空间为局部空间
+                    transform_constraint.owner_space = 'LOCAL'
+                    # 设置目标空间为局部空间
+                    transform_constraint.target_space = 'LOCAL'
+                    # 设置从旋转映射到旋转
+                    transform_constraint.map_from = 'ROTATION'
+                    transform_constraint.map_to = 'ROTATION'
+                    # 设置映射自的模式为XYZ欧拉
+                    transform_constraint.from_rotation_mode = 'XYZ'
+                    # 设置映射模式为XYZ欧拉
+                    transform_constraint.to_euler_order = 'XYZ'
+                    # 设置混合选项为初始后
+                    transform_constraint.mix_mode_rot = 'AFTER'
+                    
+                    # 设置旋转范围（将角度转换为弧度）
+                    transform_constraint.from_min_x_rot = math.radians(-180.0)
+                    transform_constraint.from_min_y_rot = math.radians(-180.0)
+                    transform_constraint.from_min_z_rot = math.radians(-180.0)
+                    transform_constraint.from_max_x_rot = math.radians(180.0)
+                    transform_constraint.from_max_y_rot = math.radians(180.0)
+                    transform_constraint.from_max_z_rot = math.radians(180.0)
+                    
+                    # 根据骨骼索引设置不同的旋转限制（将角度转换为弧度）
+                    if i == 1:
+                        transform_constraint.to_min_x_rot = math.radians(-45.0)
+                        transform_constraint.to_min_y_rot = math.radians(-45.0)
+                        transform_constraint.to_min_z_rot = math.radians(-45.0)
+                        transform_constraint.to_max_x_rot = math.radians(45.0)
+                        transform_constraint.to_max_y_rot = math.radians(45.0)
+                        transform_constraint.to_max_z_rot = math.radians(45.0)
+                    elif i == 2:
+                        transform_constraint.to_min_x_rot = math.radians(-90.0)
+                        transform_constraint.to_min_y_rot = math.radians(-90.0)
+                        transform_constraint.to_min_z_rot = math.radians(-90.0)
+                        transform_constraint.to_max_x_rot = math.radians(90.0)
+                        transform_constraint.to_max_y_rot = math.radians(90.0)
+                        transform_constraint.to_max_z_rot = math.radians(90.0)
+                    elif i == 3:
+                        transform_constraint.to_min_x_rot = math.radians(-135.0)
+                        transform_constraint.to_min_y_rot = math.radians(-135.0)
+                        transform_constraint.to_min_z_rot = math.radians(-135.0)
+                        transform_constraint.to_max_x_rot = math.radians(135.0)
+                        transform_constraint.to_max_y_rot = math.radians(135.0)
+                        transform_constraint.to_max_z_rot = math.radians(135.0)
+        
+        # 为shadow骨骼添加COPY_TRANSFORMS约束
+        for side in ['左', '右']:
+            # 腕捩shadow骨骼
+            for i in range(1, 4):
+                shadow_bone_name = f"_shadow_{side}腕捩{i}"
+                if shadow_bone_name in pose_bones:
+                    shadow_bone = pose_bones[shadow_bone_name]
+                    
+                    # 清除现有约束
+                    for constraint in shadow_bone.constraints:
+                        shadow_bone.constraints.remove(constraint)
+                    
+                    # 添加COPY_TRANSFORMS约束
+                    copy_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
+                    copy_constraint.name = "mmd_tools_at_dummy"
+                    copy_constraint.target = obj
+                    copy_constraint.subtarget = f"_dummy_{side}腕捩{i}"
+                    copy_constraint.influence = 1.0
+                    # 设置为姿态空间
+                    copy_constraint.owner_space = 'POSE'
+                    copy_constraint.target_space = 'POSE'
+            
+            # 手捩shadow骨骼
+            for i in range(1, 4):
+                shadow_bone_name = f"_shadow_{side}手捩{i}"
+                if shadow_bone_name in pose_bones:
+                    shadow_bone = pose_bones[shadow_bone_name]
+                    
+                    # 清除现有约束
+                    for constraint in shadow_bone.constraints:
+                        shadow_bone.constraints.remove(constraint)
+                    
+                    # 添加COPY_TRANSFORMS约束
+                    copy_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
+                    copy_constraint.name = "mmd_tools_at_dummy"
+                    copy_constraint.target = obj
+                    copy_constraint.subtarget = f"_dummy_{side}手捩{i}"
+                    copy_constraint.influence = 1.0
+                    # 设置为姿态空间
+                    copy_constraint.owner_space = 'POSE'
+                    copy_constraint.target_space = 'POSE'
 
     def setup_weights(self, obj):
         """设置腕捩骨骼的权重"""
@@ -391,200 +579,6 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
                             hand_twist_groups[2].add([v.index], twist2_weight * elbow_weight, 'REPLACE')  # 手捩2
                             hand_twist_groups[3].add([v.index], twist3_weight * elbow_weight, 'REPLACE')  # 手捩3
                             hand_twist_groups[0].add([v.index], main_twist_weight * elbow_weight, 'REPLACE')  # 手捩
-
-            # 切换回对象模式
-            bpy.ops.object.mode_set(mode='OBJECT')
-            #仅选择骨架对象
-            bpy.context.view_layer.objects.active = obj
-
-
-    def setup_constraints(self, obj):
-        """为腕捩和手捩骨骼添加约束"""
-        # 切换到姿态模式
-        bpy.ops.object.mode_set(mode='POSE')
-        
-        pose_bones = obj.pose.bones
-        
-        # 锁定腕捩和手捩骨骼的移动以及X和Z轴的旋转
-        for bone in pose_bones:
-            if "腕捩" in bone.name or "手捩" in bone.name:
-                # 锁定移动
-                bone.lock_location[0] = True
-                bone.lock_location[1] = True
-                bone.lock_location[2] = True
-                # 锁定X和Z轴的旋转，只允许Y轴旋转
-                bone.lock_rotation[0] = True
-                bone.lock_rotation[1] = False
-                bone.lock_rotation[2] = True
-        
-        # 为腕捩骨骼添加约束
-        for side in ['左', '右']:
-            # 腕捩骨骼约束
-            for i in range(1, 4):  # 腕捩1, 腕捩2, 腕捩3
-                twist_bone_name = f"{side}腕捩{i}"
-                if twist_bone_name in pose_bones:
-                    twist_bone = pose_bones[twist_bone_name]
-                    
-                    # 清除现有约束
-                    for constraint in twist_bone.constraints:
-                        twist_bone.constraints.remove(constraint)
-                    
-                    # 添加TRANSFORM约束
-                    transform_constraint = twist_bone.constraints.new('TRANSFORM')
-                    transform_constraint.name = "mmd_additional_rotation"
-                    transform_constraint.target = obj
-                    transform_constraint.subtarget = f"_shadow_{side}腕捩{i}"
-                    transform_constraint.influence = 1.0
-                    transform_constraint.use_motion_extrapolate = True
-                    # 设置所有者空间为局部空间
-                    transform_constraint.owner_space = 'LOCAL'
-                    # 设置目标空间为局部空间
-                    transform_constraint.target_space = 'LOCAL'
-                    # 设置从旋转映射到旋转
-                    transform_constraint.map_from = 'ROTATION'
-                    transform_constraint.map_to = 'ROTATION'
-                    # 设置映射自的模式为XYZ欧拉
-                    transform_constraint.from_rotation_mode = 'XYZ'
-                    # 设置映射模式为XYZ欧拉
-                    transform_constraint.to_euler_order = 'XYZ'
-                    # 设置混合选项为初始后
-                    transform_constraint.mix_mode_rot = 'AFTER'
-                    
-                    # 设置旋转范围（将角度转换为弧度）
-                    transform_constraint.from_min_x_rot = math.radians(-180.0)
-                    transform_constraint.from_min_y_rot = math.radians(-180.0)
-                    transform_constraint.from_min_z_rot = math.radians(-180.0)
-                    transform_constraint.from_max_x_rot = math.radians(180.0)
-                    transform_constraint.from_max_y_rot = math.radians(180.0)
-                    transform_constraint.from_max_z_rot = math.radians(180.0)
-                    
-                    # 根据骨骼索引设置不同的旋转限制（将角度转换为弧度）
-                    if i == 1:
-                        transform_constraint.to_min_x_rot = math.radians(-45.0)
-                        transform_constraint.to_min_y_rot = math.radians(-45.0)
-                        transform_constraint.to_min_z_rot = math.radians(-45.0)
-                        transform_constraint.to_max_x_rot = math.radians(45.0)
-                        transform_constraint.to_max_y_rot = math.radians(45.0)
-                        transform_constraint.to_max_z_rot = math.radians(45.0)
-                    elif i == 2:
-                        transform_constraint.to_min_x_rot = math.radians(-90.0)
-                        transform_constraint.to_min_y_rot = math.radians(-90.0)
-                        transform_constraint.to_min_z_rot = math.radians(-90.0)
-                        transform_constraint.to_max_x_rot = math.radians(90.0)
-                        transform_constraint.to_max_y_rot = math.radians(90.0)
-                        transform_constraint.to_max_z_rot = math.radians(90.0)
-                    elif i == 3:
-                        transform_constraint.to_min_x_rot = math.radians(-135.0)
-                        transform_constraint.to_min_y_rot = math.radians(-135.0)
-                        transform_constraint.to_min_z_rot = math.radians(-135.0)
-                        transform_constraint.to_max_x_rot = math.radians(135.0)
-                        transform_constraint.to_max_y_rot = math.radians(135.0)
-                        transform_constraint.to_max_z_rot = math.radians(135.0)
-            
-            # 为手捩骨骼添加约束
-            for i in range(1, 4):  # 手捩1, 手捩2, 手捩3
-                twist_bone_name = f"{side}手捩{i}"
-                if twist_bone_name in pose_bones:
-                    twist_bone = pose_bones[twist_bone_name]
-                    
-                    # 清除现有约束
-                    for constraint in twist_bone.constraints:
-                        twist_bone.constraints.remove(constraint)
-                    
-                    # 添加TRANSFORM约束
-                    transform_constraint = twist_bone.constraints.new('TRANSFORM')
-                    transform_constraint.name = "mmd_additional_rotation"
-                    transform_constraint.target = obj
-                    transform_constraint.subtarget = f"_shadow_{side}手捩{i}"
-                    transform_constraint.influence = 1.0
-                    transform_constraint.use_motion_extrapolate = True
-                    # 设置所有者空间为局部空间
-                    transform_constraint.owner_space = 'LOCAL'
-                    # 设置目标空间为局部空间
-                    transform_constraint.target_space = 'LOCAL'
-                    # 设置从旋转映射到旋转
-                    transform_constraint.map_from = 'ROTATION'
-                    transform_constraint.map_to = 'ROTATION'
-                    # 设置映射自的模式为XYZ欧拉
-                    transform_constraint.from_rotation_mode = 'XYZ'
-                    # 设置映射模式为XYZ欧拉
-                    transform_constraint.to_euler_order = 'XYZ'
-                    # 设置混合选项为初始后
-                    transform_constraint.mix_mode_rot = 'AFTER'
-                    
-                    # 设置旋转范围（将角度转换为弧度）
-                    transform_constraint.from_min_x_rot = math.radians(-180.0)
-                    transform_constraint.from_min_y_rot = math.radians(-180.0)
-                    transform_constraint.from_min_z_rot = math.radians(-180.0)
-                    transform_constraint.from_max_x_rot = math.radians(180.0)
-                    transform_constraint.from_max_y_rot = math.radians(180.0)
-                    transform_constraint.from_max_z_rot = math.radians(180.0)
-                    
-                    # 根据骨骼索引设置不同的旋转限制（将角度转换为弧度）
-                    if i == 1:
-                        transform_constraint.to_min_x_rot = math.radians(-45.0)
-                        transform_constraint.to_min_y_rot = math.radians(-45.0)
-                        transform_constraint.to_min_z_rot = math.radians(-45.0)
-                        transform_constraint.to_max_x_rot = math.radians(45.0)
-                        transform_constraint.to_max_y_rot = math.radians(45.0)
-                        transform_constraint.to_max_z_rot = math.radians(45.0)
-                    elif i == 2:
-                        transform_constraint.to_min_x_rot = math.radians(-90.0)
-                        transform_constraint.to_min_y_rot = math.radians(-90.0)
-                        transform_constraint.to_min_z_rot = math.radians(-90.0)
-                        transform_constraint.to_max_x_rot = math.radians(90.0)
-                        transform_constraint.to_max_y_rot = math.radians(90.0)
-                        transform_constraint.to_max_z_rot = math.radians(90.0)
-                    elif i == 3:
-                        transform_constraint.to_min_x_rot = math.radians(-135.0)
-                        transform_constraint.to_min_y_rot = math.radians(-135.0)
-                        transform_constraint.to_min_z_rot = math.radians(-135.0)
-                        transform_constraint.to_max_x_rot = math.radians(135.0)
-                        transform_constraint.to_max_y_rot = math.radians(135.0)
-                        transform_constraint.to_max_z_rot = math.radians(135.0)
-        
-        # 为shadow骨骼添加COPY_TRANSFORMS约束
-        for side in ['左', '右']:
-            # 腕捩shadow骨骼
-            for i in range(1, 4):
-                shadow_bone_name = f"_shadow_{side}腕捩{i}"
-                if shadow_bone_name in pose_bones:
-                    shadow_bone = pose_bones[shadow_bone_name]
-                    
-                    # 清除现有约束
-                    for constraint in shadow_bone.constraints:
-                        shadow_bone.constraints.remove(constraint)
-                    
-                    # 添加COPY_TRANSFORMS约束
-                    copy_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
-                    copy_constraint.name = "mmd_tools_at_dummy"
-                    copy_constraint.target = obj
-                    copy_constraint.subtarget = f"_dummy_{side}腕捩{i}"
-                    copy_constraint.influence = 1.0
-                    # 设置为姿态空间
-                    copy_constraint.owner_space = 'POSE'
-                    copy_constraint.target_space = 'POSE'
-            
-            # 手捩shadow骨骼
-            for i in range(1, 4):
-                shadow_bone_name = f"_shadow_{side}手捩{i}"
-                if shadow_bone_name in pose_bones:
-                    shadow_bone = pose_bones[shadow_bone_name]
-                    
-                    # 清除现有约束
-                    for constraint in shadow_bone.constraints:
-                        shadow_bone.constraints.remove(constraint)
-                    
-                    # 添加COPY_TRANSFORMS约束
-                    copy_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
-                    copy_constraint.name = "mmd_tools_at_dummy"
-                    copy_constraint.target = obj
-                    copy_constraint.subtarget = f"_dummy_{side}手捩{i}"
-                    copy_constraint.influence = 1.0
-                    # 设置为姿态空间
-                    copy_constraint.owner_space = 'POSE'
-                    copy_constraint.target_space = 'POSE'
-
 
 def register():
     bpy.utils.register_class(OBJECT_OT_add_twist_bone)
