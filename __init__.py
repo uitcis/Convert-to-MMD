@@ -29,17 +29,7 @@ from .tools import merge_unweighted_bones_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
-def register_properties(properties_dict):
-    """Registers properties dynamically using a dictionary."""
-    for prop_name, prop_value in properties_dict.items():
-        setattr(bpy.types.Scene, prop_name, bpy.props.StringProperty(default=prop_value))
-
-
-def unregister_properties(properties_list):
-    """Unregisters properties dynamically using a list of property names."""
-    for prop_name in properties_list:
-        if hasattr(bpy.types.Scene, prop_name):
-            delattr(bpy.types.Scene, prop_name)
+from . import properties
 
 def register():
     # 注册所有类
@@ -64,7 +54,7 @@ def register():
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
-    register_properties(bones)
+    properties.register_properties(bones)
 
     # 注册 EnumProperty
     bpy.types.Scene.preset_enum = bpy.props.EnumProperty(
@@ -103,10 +93,9 @@ def unregister():
     bpy.utils.unregister_class(add_twist_bone_operator.OBJECT_OT_add_twist_bone)
     bpy.utils.unregister_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
-    del bpy.types.Scene.my_enum
     # 注销动态属性
     bones = preset_operator.get_bones_list()
-    unregister_properties(bones)
+    properties.unregister_properties(bones)
 
     # 注销 EnumProperty
     if hasattr(bpy.types.Scene, "preset_enum"):
