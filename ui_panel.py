@@ -267,23 +267,38 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
             # 添加“使用mmdtools转换格式”按钮到最下方
             layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
-        # 骨骼清理选项卡
+        # 其他工具选项卡
         elif scene.my_enum == 'option2':
-            row = layout.row()
-            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
+            # 上部分：次标准骨骼
+            secondary_bones_box = layout.box()
+            secondary_bones_box.label(text="次标准骨骼", icon='BONE_DATA')
+            
             # 添加合并足部骨骼链按钮
-            row = layout.row()
-            row.operator("object.merge_leg_bones", text="1.合并足部骨骼链", icon='CONSTRAINT')
+            row = secondary_bones_box.row()
+            row.operator("object.merge_leg_bones", text="1.合并足部骨骼链", icon='MOD_VERTEX_WEIGHT')
             # 添加腿部D骨骼按钮
-            row = layout.row()
+            row = secondary_bones_box.row()
             row.operator("object.add_leg_d_bones", text="2.添加腿部D骨骼", icon='BONE_DATA')
             # 添加合并手臂骨骼链按钮
-            row = layout.row()
-            row.operator("object.merge_arm_bones", text="1.合并手臂骨骼链", icon='CONSTRAINT')
+            row = secondary_bones_box.row()
+            row.operator("object.merge_arm_bones", text="1.合并手臂骨骼链", icon='MOD_VERTEX_WEIGHT')
             #添加捩骨骼按钮
-            row = layout.row()
+            row = secondary_bones_box.row()
             row.operator("object.add_twist_bone", text="2.添加捩骨骼", icon='BONE_DATA')
             #添加肩P骨骼按钮
-            row = layout.row()
+            row = secondary_bones_box.row()
             row.operator("object.add_shoulder_p_bones", text="3.添加肩P骨骼", icon='BONE_DATA')
+            
+            # 下部分：通用工具
+            general_tools_box = layout.box()
+            general_tools_box.label(text="通用工具", icon='TOOL_SETTINGS')
+            
+            row = general_tools_box.row()
+            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
+            # 添加导出骨骼信息按钮
+            row = general_tools_box.row()
+            row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
+            # 添加导出骨骼约束关系按钮
+            row = general_tools_box.row()
+            row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
 
