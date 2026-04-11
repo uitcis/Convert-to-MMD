@@ -17,6 +17,20 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
+        # 创建骨架备份
+        # 使用直接的方式复制对象，避免上下文问题
+        backup_data = obj.data.copy()
+        backup_data.name = f"{obj.data.name}_backup"
+        backup_obj = bpy.data.objects.new(f"{obj.name}_backup", backup_data)
+        bpy.context.collection.objects.link(backup_obj)
+        
+        # 设置备份对象的属性
+        backup_obj.matrix_world = obj.matrix_world
+        backup_obj.hide_viewport = True
+        backup_obj.hide_render = True
+        
+        self.report({'INFO'}, f"已创建骨架备份: {backup_obj.name} (数据块: {backup_obj.data.name})")
+
         # 检测骨架高度并自动缩放
         scaled, scale_factor, skeleton_height = bone_utils.check_and_scale_skeleton(obj)
         
