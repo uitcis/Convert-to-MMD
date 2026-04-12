@@ -15,8 +15,9 @@ _finger_bone_props = [
     ('right_pinky_1', 'right_pinky_2', 'right_pinky_3'),
 ]
 
-# 定义左右对称手指的映射关系
+# 定义左右对称骨骼的映射关系（包含所有对称骨骼）
 _left_right_mapping = {
+    # 手指骨骼
     'left_thumb_0': 'right_thumb_0',
     'left_index_1': 'right_index_1',
     'left_middle_1': 'right_middle_1',
@@ -27,15 +28,32 @@ _left_right_mapping = {
     'right_middle_1': 'left_middle_1',
     'right_ring_1': 'left_ring_1',
     'right_pinky_1': 'left_pinky_1',
+    # 身体对称骨骼
+    'left_eye_bone': 'right_eye_bone',
+    'right_eye_bone': 'left_eye_bone',
+    'left_shoulder_bone': 'right_shoulder_bone',
+    'right_shoulder_bone': 'left_shoulder_bone',
+    'left_upper_arm_bone': 'right_upper_arm_bone',
+    'right_upper_arm_bone': 'left_upper_arm_bone',
+    'left_lower_arm_bone': 'right_lower_arm_bone',
+    'right_lower_arm_bone': 'left_lower_arm_bone',
+    'left_hand_bone': 'right_hand_bone',
+    'right_hand_bone': 'left_hand_bone',
+    'left_thigh_bone': 'right_thigh_bone',
+    'right_thigh_bone': 'left_thigh_bone',
+    'left_calf_bone': 'right_calf_bone',
+    'right_calf_bone': 'left_calf_bone',
+    'left_foot_bone': 'right_foot_bone',
+    'right_foot_bone': 'left_foot_bone',
+    'left_toe_bone': 'right_toe_bone',
+    'right_toe_bone': 'left_toe_bone',
 }
 
 
 def auto_fill_finger_bones(scene, armature, first_prop):
     """自动填充手指骨骼链（包括对称侧）"""
-    # 查找这个属性是否是指骨的第一节
     for fp, second_prop, third_prop in _finger_bone_props:
         if fp == first_prop:
-            # 找到对应的手指，尝试自动填充
             mode = bpy.context.mode
             first_bone_value = getattr(scene, first_prop, "")
             
@@ -48,8 +66,7 @@ def auto_fill_finger_bones(scene, armature, first_prop):
                     if second_edit_bone and len(second_edit_bone.children) > 0:
                         third_bone = second_edit_bone.children[0].name
                         setattr(scene, third_prop, third_bone)
-                        # 尝试填充对称侧
-                        try_fill_symmetric_finger(scene, armature, first_prop, mode)
+                        try_fill_symmetric_bones(scene, armature, first_prop, mode)
                         return True
             elif mode == 'POSE':
                 pose_bone = armature.pose.bones.get(first_bone_value)
@@ -60,31 +77,25 @@ def auto_fill_finger_bones(scene, armature, first_prop):
                     if second_pose_bone and len(second_pose_bone.children) > 0:
                         third_bone = second_pose_bone.children[0].name
                         setattr(scene, third_prop, third_bone)
-                        # 尝试填充对称侧
-                        try_fill_symmetric_finger(scene, armature, first_prop, mode)
+                        try_fill_symmetric_bones(scene, armature, first_prop, mode)
                         return True
             return False
     return False
 
 
-def try_fill_symmetric_finger(scene, armature, first_prop, mode):
-    """尝试填充对称侧的手指骨骼"""
-    # 获取对称侧的第一指节属性名
+def try_fill_symmetric_bones(scene, armature, first_prop, mode):
+    """尝试填充对称侧的骨骼（包括手指和其他对称骨骼）"""
     symmetric_prop = _left_right_mapping.get(first_prop)
     if not symmetric_prop:
         return False
     
-    # 检查对称侧是否已经填充
     if getattr(scene, symmetric_prop, ""):
-        return False  # 已经填充，跳过
+        return False
     
-    # 获取当前填充的第一指节骨骼名称
     first_bone_value = getattr(scene, first_prop, "")
     if not first_bone_value:
         return False
     
-    # 尝试通过对称命名规则找到对称骨骼
-    # 将 "左" 替换为 "右"，或将 "右" 替换为 "左"
     symmetric_bone_name = None
     if "左" in first_bone_value:
         symmetric_bone_name = first_bone_value.replace("左", "右")
@@ -98,45 +109,46 @@ def try_fill_symmetric_finger(scene, armature, first_prop, mode):
     if not symmetric_bone_name:
         return False
     
-    # 获取对称侧的第二、三节属性名
+    if mode == 'EDIT_ARMATURE':
+        if symmetric_bone_name not in armature.data.edit_bones:
+            return False
+        symmetric_bone = armature.data.edit_bones.get(symmetric_bone_name)
+    elif mode == 'POSE':
+        if symmetric_bone_name not in armature.pose.bones:
+            return False
+        symmetric_bone = armature.pose.bones.get(symmetric_bone_name)
+    
+    if not symmetric_bone:
+        return False
+    
+    setattr(scene, symmetric_prop, symmetric_bone_name)
+    
+    if '_0' in first_prop or '_1' in first_prop or '_2' in first_prop:
+        fill_symmetric_finger_chain(scene, armature, first_prop, symmetric_prop, symmetric_bone, mode)
+    
+    return True
+
+
+def fill_symmetric_finger_chain(scene, armature, first_prop, symmetric_prop, symmetric_bone, mode):
     symmetric_second_prop = symmetric_prop.replace('_0', '_1') if '_0' in symmetric_prop else symmetric_prop
     symmetric_third_prop = symmetric_prop.replace('_0', '_2') if '_0' in symmetric_prop else symmetric_prop
     
-    # 检查对称骨骼是否存在于骨架中
-    if mode == 'EDIT_ARMATURE':
-        if symmetric_bone_name in armature.data.edit_bones:
-            # 获取对称骨骼的三节指骨
-            symmetric_first_bone = armature.data.edit_bones.get(symmetric_bone_name)
-            if symmetric_first_bone and len(symmetric_first_bone.children) > 0:
-                # 填充第一指节
-                setattr(scene, symmetric_prop, symmetric_bone_name)
-                # 填充第二指节
-                symmetric_second_bone = symmetric_first_bone.children[0].name
-                setattr(scene, symmetric_second_prop, symmetric_second_bone)
-                # 填充第三指节
-                symmetric_second_edit_bone = armature.data.edit_bones.get(symmetric_second_bone)
-                if symmetric_second_edit_bone and len(symmetric_second_edit_bone.children) > 0:
-                    symmetric_third_bone = symmetric_second_edit_bone.children[0].name
-                    setattr(scene, symmetric_third_prop, symmetric_third_bone)
-                    return True
-    elif mode == 'POSE':
-        if symmetric_bone_name in armature.pose.bones:
-            # 获取对称骨骼的三节指骨
-            symmetric_first_bone = armature.pose.bones.get(symmetric_bone_name)
-            if symmetric_first_bone and len(symmetric_first_bone.children) > 0:
-                # 填充第一指节
-                setattr(scene, symmetric_prop, symmetric_bone_name)
-                # 填充第二指节
-                symmetric_second_bone = symmetric_first_bone.children[0].name
-                setattr(scene, symmetric_second_prop, symmetric_second_bone)
-                # 填充第三指节
-                symmetric_second_pose_bone = armature.pose.bones.get(symmetric_second_bone)
-                if symmetric_second_pose_bone and len(symmetric_second_pose_bone.children) > 0:
-                    symmetric_third_bone = symmetric_second_pose_bone.children[0].name
-                    setattr(scene, symmetric_third_prop, symmetric_third_bone)
-                    return True
-    
-    return False
+    if symmetric_bone and len(symmetric_bone.children) > 0:
+        setattr(scene, symmetric_prop, symmetric_bone.name)
+        
+        symmetric_second_bone = symmetric_bone.children[0].name
+        setattr(scene, symmetric_second_prop, symmetric_second_bone)
+        
+        if mode == 'EDIT_ARMATURE':
+            symmetric_second_edit_bone = armature.data.edit_bones.get(symmetric_second_bone)
+            if symmetric_second_edit_bone and len(symmetric_second_edit_bone.children) > 0:
+                symmetric_third_bone = symmetric_second_edit_bone.children[0].name
+                setattr(scene, symmetric_third_prop, symmetric_third_bone)
+        elif mode == 'POSE':
+            symmetric_second_pose_bone = armature.pose.bones.get(symmetric_second_bone)
+            if symmetric_second_pose_bone and len(symmetric_second_pose_bone.children) > 0:
+                symmetric_third_bone = symmetric_second_pose_bone.children[0].name
+                setattr(scene, symmetric_third_prop, symmetric_third_bone)
 
 
 class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
@@ -169,6 +181,23 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
 
         # 将第一个选定的骨骼填充到指定属性中
         setattr(scene, self.bone_property, selected_bones[0])
+        current_bone_name = selected_bones[0]
+        
+        # 检查是否为左右对称骨骼属性，如果是则检测位置
+        print(f"\n当前属性：{self.bone_property}")
+        print(f"是否在映射中：{self.bone_property in _left_right_mapping}")
+        
+        if self.bone_property in _left_right_mapping:
+            # 检测当前骨骼的位置是否正确
+            is_left = self.bone_property.startswith('left_')
+            bone_side = "左侧" if is_left else "右侧"
+            print(f"骨骼类型：{bone_side}骨骼")
+            
+            is_correct, error_msg = check_single_bone_position(obj, current_bone_name, is_left, mode)
+            print(f"检测结果：is_correct={is_correct}, error_msg={error_msg}")
+            if not is_correct:
+                self.report({'WARNING'}, error_msg)
+                print(f"已发送警告：{error_msg}")
         
         # 如果是指骨的第一节，自动填充后续指节
         if auto_fill_finger_bones(scene, obj, self.bone_property):
@@ -233,6 +262,154 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
         # 设置文件过滤器仅显示 JSON 文件
         self.filter_glob = "*.json"
         return {'RUNNING_MODAL'}
+
+def check_single_bone_position(armature, bone_name, is_left, mode):
+    """检测单个骨骼的位置是否正确（相对于骨架原点，使用局部坐标）
+    
+    Args:
+        armature: 骨架对象
+        bone_name: 骨骼名称
+        is_left: 是否为左侧骨骼（True=左侧，False=右侧）
+        mode: 当前模式（'EDIT_ARMATURE' 或 'POSE'）
+    
+    Returns:
+        tuple: (is_correct, error_message)
+            is_correct: 布尔值，表示位置是否正确
+            error_message: 错误信息，如果位置正确则为空字符串
+    """
+    print(f"\n=== 检测单个骨骼位置 ===")
+    print(f"模式：{mode}")
+    print(f"骨骼名称：{bone_name}")
+    print(f"是否为左侧：{is_left}")
+    
+    if mode == 'EDIT_ARMATURE':
+        bone = armature.data.edit_bones.get(bone_name)
+    elif mode == 'POSE':
+        bone = armature.pose.bones.get(bone_name)
+    else:
+        return True, ""
+    
+    if not bone:
+        return True, ""
+    
+    # 获取骨骼的头部位置（局部坐标，相对于骨架原点）
+    if hasattr(bone, 'head'):
+        bone_pos = bone.head
+    else:
+        bone_pos = bone.head
+    
+    # 使用局部坐标的 X 值（骨架原点为 0）
+    bone_x = bone_pos[0]
+    
+    print(f"骨骼局部坐标 X: {bone_x:.2f}")
+    
+    # 检测位置是否正确
+    # 左侧骨骼的 X 坐标应该大于 0，右侧骨骼的 X 坐标应该小于 0
+    is_correct = True
+    error_msg = ""
+    
+    if is_left:
+        # 左侧骨骼应该在骨架中心右边（X 值为正）
+        if bone_x <= 0:
+            error_msg = f"警告：你选择的骨骼可能是右侧骨骼（X={bone_x:.2f} 应为正值）"
+            is_correct = False
+        else:
+            print("骨骼位置正确（左侧）")
+    else:
+        # 右侧骨骼应该在骨架中心左边（X 值为负）
+        if bone_x >= 0:
+            error_msg = f"警告：你选择的骨骼可能是左侧骨骼（X={bone_x:.2f} 应为负值）"
+            is_correct = False
+        else:
+            print("骨骼位置正确（右侧）")
+    
+    if not is_correct:
+        print(error_msg)
+    
+    return is_correct, error_msg
+
+
+def check_bone_position_direction(armature, left_bone_name, right_bone_name, mode):
+    """检测左右骨骼的位置是否在正确的方向（相对于骨架中心）
+    
+    Args:
+        armature: 骨架对象
+        left_bone_name: 左侧骨骼名称
+        right_bone_name: 右侧骨骼名称
+        mode: 当前模式（'EDIT_ARMATURE' 或 'POSE'）
+    
+    Returns:
+        tuple: (is_correct, error_message)
+            is_correct: 布尔值，表示位置是否正确
+            error_message: 错误信息，如果位置正确则为空字符串
+    """
+    print(f"\n=== 开始检测骨骼位置 ===")
+    print(f"模式：{mode}")
+    print(f"左侧骨骼：{left_bone_name}")
+    print(f"右侧骨骼：{right_bone_name}")
+    
+    if mode == 'EDIT_ARMATURE':
+        left_bone = armature.data.edit_bones.get(left_bone_name)
+        right_bone = armature.data.edit_bones.get(right_bone_name)
+    elif mode == 'POSE':
+        left_bone = armature.pose.bones.get(left_bone_name)
+        right_bone = armature.pose.bones.get(right_bone_name)
+    else:
+        return True, ""
+    
+    if not left_bone or not right_bone:
+        return True, ""
+    
+    # 获取骨骼的头部位置（局部坐标，相对于骨架）
+    if hasattr(left_bone, 'head'):
+        left_pos = left_bone.head
+        right_pos = right_bone.head
+    else:
+        left_pos = left_bone.head
+        right_pos = right_bone.head
+    
+    # 获取骨架中心位置（世界坐标）
+    armature_center_x = armature.location[0]
+    
+    # 获取骨骼的世界坐标位置
+    if mode == 'EDIT_ARMATURE':
+        # 编辑模式下，需要将局部坐标转换到世界坐标
+        left_world_pos = armature.matrix_world @ left_pos
+        right_world_pos = armature.matrix_world @ right_pos
+        left_x = left_world_pos[0]
+        right_x = right_world_pos[0]
+    else:
+        # 姿态模式下，需要将骨骼头部位置转换到世界坐标
+        left_world_pos = armature.matrix_world @ left_bone.head
+        right_world_pos = armature.matrix_world @ right_bone.head
+        left_x = left_world_pos[0]
+        right_x = right_world_pos[0]
+    
+    print(f"骨架中心 X: {armature_center_x:.2f}")
+    print(f"骨骼世界坐标：左侧 '{left_bone_name}' X={left_x:.2f}, 右侧 '{right_bone_name}' X={right_x:.2f}")
+    
+    # 检测左右位置是否正确
+    # 左侧骨骼的 X 坐标应该小于骨架中心，右侧骨骼的 X 坐标应该大于骨架中心
+    is_correct = True
+    errors = []
+    
+    if left_x >= armature_center_x:
+        errors.append(f"左侧骨骼 '{left_bone_name}' X={left_x:.2f}（应小于骨架中心 X={armature_center_x:.2f}）")
+        is_correct = False
+    
+    if right_x <= armature_center_x:
+        errors.append(f"右侧骨骼 '{right_bone_name}' X={right_x:.2f}（应大于骨架中心 X={armature_center_x:.2f}）")
+        is_correct = False
+    
+    error_msg = ""
+    if not is_correct:
+        error_msg = "警告：骨骼位置错误 - " + "，".join(errors)
+        print(error_msg)
+    else:
+        print("骨骼位置正确")
+    
+    return is_correct, error_msg
+
 
 def get_bones_list():
     """生成骨骼属性名称列表"""

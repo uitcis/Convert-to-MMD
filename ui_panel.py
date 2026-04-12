@@ -252,9 +252,12 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.import_preset", text="导入预设")
             row.operator("object.export_preset", text="导出预设")
 
+            row = layout.row()
             # 添加T-Pose到A-Pose转换按钮
-            layout.operator("object.convert_to_apose", text="转换为A-Pose")
-
+            row.operator("object.convert_to_apose", text="转换为A-Pose")
+            # 添加第 0 步归正骨骼按钮
+            row.operator("object.correct_bones", text="归正骨架位置")
+            
             # 添加重命名按钮和补全缺失骨骼按钮到同一行
             row = layout.row()
             row.operator("object.rename_to_mmd", text="1.重命名为MMD")

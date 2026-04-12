@@ -19,6 +19,7 @@ from .operators import complete_bones_operator
 from .operators import collection_operator
 from .operators import ik_operator
 from .operators import pose_operator
+from .operators import correct_bones_operator
 from .operators import clear_unweighted_bones_operator
 from .operators import add_leg_d_bones_operator
 from .operators import add_twist_bone_operator
@@ -36,6 +37,7 @@ def register():
     bpy.utils.register_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.register_class(ui_panel.OBJECT_OT_load_preset)
     bpy.utils.register_class(export_bones_info_operator.OBJECT_OT_export_selected_bones_info)
+    bpy.utils.register_class(correct_bones_operator.OBJECT_OT_correct_bones)
     bpy.utils.register_class(rename_bones_operator.OBJECT_OT_rename_to_mmd)
     bpy.utils.register_class(complete_bones_operator.OBJECT_OT_complete_missing_bones)
     bpy.utils.register_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
@@ -77,6 +79,7 @@ def unregister():
     bpy.utils.unregister_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.unregister_class(ui_panel.OBJECT_OT_load_preset)
     bpy.utils.unregister_class(export_bones_info_operator.OBJECT_OT_export_selected_bones_info)
+    bpy.utils.unregister_class(correct_bones_operator.OBJECT_OT_correct_bones)
     bpy.utils.unregister_class(rename_bones_operator.OBJECT_OT_rename_to_mmd)
     bpy.utils.unregister_class(complete_bones_operator.OBJECT_OT_complete_missing_bones)
     bpy.utils.unregister_class(preset_operator.OBJECT_OT_fill_from_selection_specific)
