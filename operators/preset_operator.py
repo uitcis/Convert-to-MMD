@@ -15,6 +15,27 @@ _finger_bone_props = [
     ('right_pinky_1', 'right_pinky_2', 'right_pinky_3'),
 ]
 
+# 定义对称骨骼名称替换规则（按顺序匹配，先匹配先替换）
+# 格式：(原始字符串, 替换字符串)
+_symmetric_bone_rules = [
+
+    ('Left', 'Right'),
+    ('Right', 'Left'),
+    ('L_', 'R_'),
+    ('R_', 'L_'),
+    ('-L', '-R'),
+    ('-R', '-L'),
+    ('.L', '.R'),
+    ('.R', '.L'),
+    ('_L', '_R'),
+    ('_R', '_L'),
+    ('左', '右'),
+    ('右', '左'),
+    # 可以在这里添加更多规则，例如：
+    # ('left_', 'right_'),
+    # ('right_', 'left_'),
+]
+
 # 定义左右对称骨骼的映射关系（包含所有对称骨骼）
 _left_right_mapping = {
     # 手指骨骼
@@ -97,14 +118,10 @@ def try_fill_symmetric_bones(scene, armature, first_prop, mode):
         return False
     
     symmetric_bone_name = None
-    if "左" in first_bone_value:
-        symmetric_bone_name = first_bone_value.replace("左", "右")
-    elif "右" in first_bone_value:
-        symmetric_bone_name = first_bone_value.replace("右", "左")
-    elif "Left" in first_bone_value or "L_" in first_bone_value:
-        symmetric_bone_name = first_bone_value.replace("Left", "Right").replace("L_", "R_")
-    elif "Right" in first_bone_value or "R_" in first_bone_value:
-        symmetric_bone_name = first_bone_value.replace("Right", "Left").replace("R_", "L_")
+    for old_str, new_str in _symmetric_bone_rules:
+        if old_str in first_bone_value:
+            symmetric_bone_name = first_bone_value.replace(old_str, new_str)
+            break
     
     if not symmetric_bone_name:
         return False
