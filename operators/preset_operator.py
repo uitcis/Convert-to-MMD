@@ -130,8 +130,15 @@ def try_fill_symmetric_bones(scene, armature, first_prop, mode):
 
 
 def fill_symmetric_finger_chain(scene, armature, first_prop, symmetric_prop, symmetric_bone, mode):
-    symmetric_second_prop = symmetric_prop.replace('_0', '_1') if '_0' in symmetric_prop else symmetric_prop
-    symmetric_third_prop = symmetric_prop.replace('_0', '_2') if '_0' in symmetric_prop else symmetric_prop
+    if '_0' in symmetric_prop:
+        symmetric_second_prop = symmetric_prop.replace('_0', '_1')
+        symmetric_third_prop = symmetric_prop.replace('_0', '_2')
+    elif '_1' in symmetric_prop:
+        symmetric_second_prop = symmetric_prop.replace('_1', '_2')
+        symmetric_third_prop = symmetric_prop.replace('_1', '_3')
+    else:
+        symmetric_second_prop = symmetric_prop
+        symmetric_third_prop = symmetric_prop
     
     if symmetric_bone and len(symmetric_bone.children) > 0:
         setattr(scene, symmetric_prop, symmetric_bone.name)
