@@ -1,14 +1,23 @@
 import bpy
 import json
-import os
 import math
+from bpy_extras.io_utils import ExportHelper
 
 
-class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator):
+class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelper):
     """导出所选骨骼约束关系"""
     bl_idname = "object.export_selected_bones_constraints"
     bl_label = "导出所选骨骼约束关系"
     bl_options = {'REGISTER', 'UNDO'}
+    
+    filename_ext = ".json"
+    filter_glob: bpy.props.StringProperty(default="*.json", options={'HIDDEN'})
+    
+    def invoke(self, context, event):
+        # 设置默认文件名为活动对象的名称
+        if context.active_object:
+            self.filepath = f"{context.active_object.name}_constraints.json"
+        return super().invoke(context, event)
 
     def execute(self, context):
         obj = context.active_object
@@ -18,9 +27,9 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator):
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
-        if bpy.context.mode != 'POSE':
-            self.report({'WARNING'}, "请切换到姿态模式 (Pose Mode)。")
-            return {'CANCELLED'}
+        # 切换到姿态模式
+        if original_mode != 'POSE':
+            bpy.ops.object.mode_set(mode='POSE')
 
         constraints_data = {}
 
@@ -35,7 +44,7 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator):
 
         for p_bone in obj.pose.bones:
             # 只处理选中的骨骼
-            if p_bone.bone.select:
+            if p_bone.select:
                 if p_bone.constraints:
                     bone_name = p_bone.name
                     constraints_data[bone_name] = []
@@ -95,14 +104,12 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator):
         json_output = json.dumps(constraints_data, indent=4, ensure_ascii=False)
 
         # 保存文件
-        blend_file_path = bpy.data.filepath
-        if blend_file_path:
-            filepath = os.path.join(os.path.dirname(blend_file_path), "constraints_degrees.json")
-            with open(filepath, 'w', encoding='utf-8') as f:
+        try:
+            with open(self.filepath, 'w', encoding='utf-8') as f:
                 f.write(json_output)
-            self.report({'INFO'}, f"导出成功！文件已保存至: {filepath}")
-        else:
-            self.report({'WARNING'}, "请先保存 .blend 文件。")
+            self.report({'INFO'}, f"导出成功！文件已保存至: {self.filepath}")
+        except Exception as e:
+            self.report({'ERROR'}, f"导出失败: {str(e)}")
             return {'CANCELLED'}
 
         return {'FINISHED'}

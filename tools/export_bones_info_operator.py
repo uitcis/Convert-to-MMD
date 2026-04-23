@@ -23,16 +23,27 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             return {'CANCELLED'}
         
         # 获取选中的骨骼
-        selected_bones = [bone for bone in obj.data.bones if bone.select]
+        selected_bones = []
+        mode = obj.mode
         
-        # 如果没有选中的骨骼，但整个骨架对象被选中，则导出所有骨骼
-        if not selected_bones:
-            # 检查骨架对象是否被选中
+        if mode == 'EDIT':
+            # 在编辑模式下，从edit_bones获取
+            selected_bones = [edit_bone.bone for edit_bone in obj.data.edit_bones if edit_bone.select]
+        elif mode == 'POSE':
+            # 在姿态模式下，从pose_bones获取
+            selected_bones = [p_bone.bone for p_bone in obj.pose.bones if p_bone.select]
+        else:
+            # 在对象模式下，检查是否选中了整个骨架
             if obj.select:
                 selected_bones = list(obj.data.bones)
             else:
                 self.report({'ERROR'}, "没有选中任何骨骼")
                 return {'CANCELLED'}
+        
+        # 如果没有选中的骨骼，返回错误
+        if not selected_bones:
+            self.report({'ERROR'}, "没有选中任何骨骼")
+            return {'CANCELLED'}
         
         # 收集骨骼信息
         bones_info = []
