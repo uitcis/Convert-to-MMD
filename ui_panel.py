@@ -298,10 +298,20 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             
             row = general_tools_box.row()
             row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            # 添加导出骨骼信息按钮
+            row = general_tools_box.row()
+            row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
             row = general_tools_box.row()
             row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
-            # 添加导出骨骼约束关系按钮
             row = general_tools_box.row()
             row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
+
+            chest_physics_box = layout.box()
+            chest_physics_box.label(text="胸部物理(未完成)", icon='PHYSICS')
+
+            row = chest_physics_box.row()
+            row.prop(scene, "left_chest_bone", text="左胸")
+            row = chest_physics_box.row()
+            row.prop(scene, "right_chest_bone", text="右胸")
+            row = chest_physics_box.row()
+            row.operator("object.auto_physics_builder", text="自动构建胸部物理", icon='PLAY')
 

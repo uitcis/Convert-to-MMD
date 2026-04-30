@@ -132,14 +132,74 @@ class OBJECT_OT_merge_arm_bones(OBJECT_OT_merge_bones_base):
     bone_type = "手臂骨骼"
 
 
+class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_bones_base):
+    """合并所选骨骼权重到活动项骨骼"""
+    bl_idname = "object.merge_selected_bones_weights"
+    bl_label = "合并所选骨骼权重到活动项骨骼"
+    bl_description = "将所选骨骼的权重合并到活动项骨骼"
+    
+    def execute(self, context):
+        armature = context.active_object
+        if not armature or armature.type != 'ARMATURE':
+            self.report({'ERROR'}, "请选择一个骨架")
+            return {'CANCELLED'}
+        
+        # 检查是否在姿态模式
+        if armature.mode != 'POSE':
+            self.report({'ERROR'}, "请切换到姿态模式并选择骨骼")
+            return {'CANCELLED'}
+        
+        # 获取活动骨骼
+        active_bone = context.active_pose_bone
+        if not active_bone:
+            self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
+            return {'CANCELLED'}
+        
+        target_bone_name = active_bone.name
+        
+        # 获取所选骨骼
+        selected_bones = [p_bone for p_bone in armature.pose.bones if p_bone.select]
+        # 移除活动骨骼本身
+        selected_bones = [p_bone for p_bone in selected_bones if p_bone.name != target_bone_name]
+        
+        if not selected_bones:
+            self.report({'ERROR'}, "请选择要合并的骨骼")
+            return {'CANCELLED'}
+        
+        # 合并权重
+        merged_count = 0
+        
+        for p_bone in selected_bones:
+            source_bone_name = p_bone.name
+            
+            # 合并顶点组
+            for obj in bpy.context.scene.objects:
+                if obj.type == 'MESH':
+                    for modifier in obj.modifiers:
+                        if modifier.type == 'ARMATURE' and modifier.object == armature:
+                            self.merge_vertex_groups(obj, target_bone_name, source_bone_name)
+                            break
+            
+            merged_count += 1
+        
+        if merged_count > 0:
+            self.report({'INFO'}, f"已将 {merged_count} 个骨骼的权重合并到 {target_bone_name}")
+        else:
+            self.report({'INFO'}, "没有骨骼权重被合并")
+        
+        return {'FINISHED'}
+
+
 def register():
     bpy.utils.register_class(OBJECT_OT_merge_leg_bones)
     bpy.utils.register_class(OBJECT_OT_merge_arm_bones)
+    bpy.utils.register_class(OBJECT_OT_merge_selected_bones_weights)
 
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_merge_leg_bones)
     bpy.utils.unregister_class(OBJECT_OT_merge_arm_bones)
+    bpy.utils.unregister_class(OBJECT_OT_merge_selected_bones_weights)
 
 
 if __name__ == "__main__":

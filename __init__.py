@@ -28,6 +28,7 @@ from .tools import export_bones_info_operator
 from .tools import export_constraints_operator
 from .tools import merge_bones_operator
 from .tools import clear_unweighted_bones_operator
+from .tools import auto_physics_builder
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -52,9 +53,11 @@ def register():
     bpy.utils.register_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
     bpy.utils.register_class(merge_bones_operator.OBJECT_OT_merge_leg_bones)
     bpy.utils.register_class(merge_bones_operator.OBJECT_OT_merge_arm_bones)
+    bpy.utils.register_class(merge_bones_operator.OBJECT_OT_merge_selected_bones_weights)
     bpy.utils.register_class(add_twist_bone_operator.OBJECT_OT_add_twist_bone)
     bpy.utils.register_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
+    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
@@ -94,9 +97,11 @@ def unregister():
     bpy.utils.unregister_class(add_leg_d_bones_operator.OBJECT_OT_add_leg_d_bones)
     bpy.utils.unregister_class(merge_bones_operator.OBJECT_OT_merge_leg_bones)
     bpy.utils.unregister_class(merge_bones_operator.OBJECT_OT_merge_arm_bones)
+    bpy.utils.unregister_class(merge_bones_operator.OBJECT_OT_merge_selected_bones_weights)
     bpy.utils.unregister_class(add_twist_bone_operator.OBJECT_OT_add_twist_bone)
     bpy.utils.unregister_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
+    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)

@@ -27,6 +27,8 @@ mmd_bone_map = {
     "control_center_bone": "操作中心",
     "left_eye_bone": "左目",
     "right_eye_bone": "右目",
+    "left_chest_bone": "左胸",
+    "right_chest_bone": "右胸",
     "left_thumb_0": "左親指０",
     "left_thumb_1": "左親指１",
     "left_thumb_2": "左親指２",
