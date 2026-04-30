@@ -137,56 +137,71 @@ class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_bones_base):
     bl_idname = "object.merge_selected_bones_weights"
     bl_label = "合并所选骨骼权重到活动项骨骼"
     bl_description = "将所选骨骼的权重合并到活动项骨骼"
-    
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return obj and obj.type == 'ARMATURE' and obj.mode in {'POSE', 'EDIT'}
+
     def execute(self, context):
         armature = context.active_object
-        if not armature or armature.type != 'ARMATURE':
-            self.report({'ERROR'}, "请选择一个骨架")
-            return {'CANCELLED'}
-        
-        # 检查是否在姿态模式
-        if armature.mode != 'POSE':
-            self.report({'ERROR'}, "请切换到姿态模式并选择骨骼")
-            return {'CANCELLED'}
-        
-        # 获取活动骨骼
-        active_bone = context.active_pose_bone
-        if not active_bone:
-            self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
-            return {'CANCELLED'}
-        
-        target_bone_name = active_bone.name
-        
-        # 获取所选骨骼
-        selected_bones = [p_bone for p_bone in armature.pose.bones if p_bone.select]
-        # 移除活动骨骼本身
-        selected_bones = [p_bone for p_bone in selected_bones if p_bone.name != target_bone_name]
-        
-        if not selected_bones:
+        original_mode = armature.mode
+
+        if original_mode == 'EDIT':
+            active_bone = context.active_bone
+            if not active_bone:
+                self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
+                return {'CANCELLED'}
+            target_bone_name = active_bone.name
+            selected_bone_names = [b.name for b in armature.data.edit_bones if b.select and b.name != target_bone_name]
+        else:
+            active_bone = context.active_pose_bone
+            if not active_bone:
+                self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
+                return {'CANCELLED'}
+            target_bone_name = active_bone.name
+            selected_bone_names = [p_bone.name for p_bone in armature.pose.bones if p_bone.select and p_bone.name != target_bone_name]
+
+        if not selected_bone_names:
             self.report({'ERROR'}, "请选择要合并的骨骼")
             return {'CANCELLED'}
-        
-        # 合并权重
+
         merged_count = 0
-        
-        for p_bone in selected_bones:
-            source_bone_name = p_bone.name
-            
-            # 合并顶点组
+        for source_bone_name in selected_bone_names:
             for obj in bpy.context.scene.objects:
                 if obj.type == 'MESH':
                     for modifier in obj.modifiers:
                         if modifier.type == 'ARMATURE' and modifier.object == armature:
                             self.merge_vertex_groups(obj, target_bone_name, source_bone_name)
                             break
-            
             merged_count += 1
-        
+
         if merged_count > 0:
             self.report({'INFO'}, f"已将 {merged_count} 个骨骼的权重合并到 {target_bone_name}")
         else:
             self.report({'INFO'}, "没有骨骼权重被合并")
-        
+
+        merge_bones_also = context.scene.merge_bones_also
+        if merge_bones_also:
+            if original_mode != 'EDIT':
+                bpy.ops.object.mode_set(mode='EDIT')
+            edit_bones = armature.data.edit_bones
+            target_edit_bone = edit_bones.get(target_bone_name)
+            if target_edit_bone:
+                bones_to_remove = []
+                for bone_name in selected_bone_names:
+                    edit_bone = edit_bones.get(bone_name)
+                    if edit_bone and edit_bone.name != target_bone_name:
+                        bones_to_remove.append(edit_bone)
+                        for child in edit_bone.children:
+                            child.parent = target_edit_bone
+                for edit_bone in bones_to_remove:
+                    edit_bones.remove(edit_bone)
+                self.report({'INFO'}, f"已合并 {len(bones_to_remove)} 个骨骼")
+            if original_mode != 'EDIT':
+                bpy.ops.object.mode_set(mode=original_mode)
+
         return {'FINISHED'}
 
 

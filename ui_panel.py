@@ -298,8 +298,9 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             
             row = general_tools_box.row()
             row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            row = general_tools_box.row()
+            row = general_tools_box.row(align=True)
             row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
+            row.prop(scene, "merge_bones_also", text="合并骨骼")
             row = general_tools_box.row()
             row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
             row = general_tools_box.row()

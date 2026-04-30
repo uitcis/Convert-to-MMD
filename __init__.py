@@ -77,6 +77,11 @@ def register():
             ('option2', "次标准骨骼管理", "次标准骨骼追加和开发工具")
         ],
         default='option1'
+    )
+    bpy.types.Scene.merge_bones_also = bpy.props.BoolProperty(
+        name="同时合并骨骼",
+        description="勾选后，合并权重时同时将所选骨骼合并到活动项骨骼",
+        default=False
     )    
 def unregister():
     # 注销所有类
@@ -109,6 +114,8 @@ def unregister():
     # 注销 EnumProperty
     if hasattr(bpy.types.Scene, "preset_enum"):
         delattr(bpy.types.Scene, "preset_enum")
+    if hasattr(bpy.types.Scene, "merge_bones_also"):
+        delattr(bpy.types.Scene, "merge_bones_also")
 
 # 新增 EnumProperty 定义
 def get_preset_enum(self, context):
