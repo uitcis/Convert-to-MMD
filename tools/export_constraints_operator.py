@@ -28,7 +28,7 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelp
             return {'CANCELLED'}
 
         # 切换到姿态模式
-        if original_mode != 'POSE':
+        if obj.mode != 'POSE':
             bpy.ops.object.mode_set(mode='POSE')
 
         constraints_data = {}

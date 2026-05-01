@@ -307,12 +307,28 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
 
             chest_physics_box = layout.box()
-            chest_physics_box.label(text="胸部物理(未完成)", icon='PHYSICS')
+            chest_physics_box.label(text="胸部物理（GENERIC_SPRING）", icon='PHYSICS')
 
+            col = chest_physics_box.column(align=True)
+            row = col.row(align=True)
+            row.label(text="左胸上2（权重骨骼）")
+            row.prop_search(scene, "left_chest_bone", obj.data, "bones", text="")
+
+            row = col.row(align=True)
+            row.label(text="右胸上2（权重骨骼）")
+            row.prop_search(scene, "right_chest_bone", obj.data, "bones", text="")
+
+            chest_physics_box.separator(factor=0.5)
+
+            hint = chest_physics_box.column(align=True)
+            hint.scale_y = 0.75
+            hint.label(text="选中已有权重骨骼，自动构建完整物理：", icon='INFO')
+            hint.label(text="→ 重命名为 左胸上2 / 右胸上2")
+            hint.label(text="→ 创建 左/右胸上 / 左/右胸親 / 左/右胸下 父级骨骼链")
+            hint.label(text="→ 创建 8 个刚体 + 9 个弹簧约束")
+
+            chest_physics_box.separator(factor=0.5)
             row = chest_physics_box.row()
-            row.prop(scene, "left_chest_bone", text="左胸")
-            row = chest_physics_box.row()
-            row.prop(scene, "right_chest_bone", text="右胸")
-            row = chest_physics_box.row()
+            row.scale_y = 1.4
             row.operator("object.auto_physics_builder", text="自动构建胸部物理", icon='PLAY')
 

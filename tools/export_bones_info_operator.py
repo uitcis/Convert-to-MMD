@@ -27,8 +27,8 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
         mode = obj.mode
         
         if mode == 'EDIT':
-            # 在编辑模式下，从edit_bones获取
-            selected_bones = [edit_bone.bone for edit_bone in obj.data.edit_bones if edit_bone.select]
+            # 在编辑模式下，通过EditBone名称获取对应的Bone对象
+            selected_bones = [obj.data.bones[edit_bone.name] for edit_bone in obj.data.edit_bones if edit_bone.select]
         elif mode == 'POSE':
             # 在姿态模式下，从pose_bones获取
             selected_bones = [p_bone.bone for p_bone in obj.pose.bones if p_bone.select]
