@@ -116,10 +116,6 @@ def unregister():
         delattr(bpy.types.Scene, "preset_enum")
     if hasattr(bpy.types.Scene, "merge_bones_also"):
         delattr(bpy.types.Scene, "merge_bones_also")
-    # 注销胸部物理属性
-    for prop in ("left_chest_bone", "right_chest_bone"):
-        if hasattr(bpy.types.Scene, prop):
-            delattr(bpy.types.Scene, prop)
 
 # 新增 EnumProperty 定义
 def get_preset_enum(self, context):

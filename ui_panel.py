@@ -310,13 +310,14 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             chest_physics_box.label(text="胸部物理（GENERIC_SPRING）", icon='PHYSICS')
 
             col = chest_physics_box.column(align=True)
+            
+            # 胸親父级骨骼选择
             row = col.row(align=True)
-            row.label(text="左胸上2（权重骨骼）")
-            row.prop_search(scene, "left_chest_bone", obj.data, "bones", text="")
-
-            row = col.row(align=True)
-            row.label(text="右胸上2（权重骨骼）")
-            row.prop_search(scene, "right_chest_bone", obj.data, "bones", text="")
+            row.label(text="胸親父级骨骼")
+            row.prop_search(scene, "breast_parent_bone", obj.data, "bones", text="")
+            
+            # 胸上 2 骨骼选择（左右对称）
+            add_symmetric_bones_with_buttons(col, "胸上 2（胸部权重骨）", "left_chest_bone", "right_chest_bone")
 
             chest_physics_box.separator(factor=0.5)
 

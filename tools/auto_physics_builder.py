@@ -8,6 +8,7 @@
 import bpy
 import math
 from mathutils import Vector, Euler
+from .. import bone_utils
 
 # 导入 mmd_tools（Blender 5.1+ 扩展系统）
 # Blender 5.1 使用 bl_ext.blender_org 前缀
@@ -25,6 +26,48 @@ except ImportError:
         print("Please install mmd_tools extension from Blender's extension repository")
         print("In Blender: Edit > Preferences > Extensions > Search 'mmd_tools' > Install")
         raise
+
+
+# ---------------------------------------------------------------------------
+# 工具函数
+# ---------------------------------------------------------------------------
+
+def get_vertex_group_y_min(armature, group_name):
+    """获取顶点组中所有顶点的 Y 轴最小值（遍历所有网格对象）"""
+    # 查找所有网格对象
+    mesh_objs = []
+    for obj in bpy.data.objects:
+        if obj.type == 'MESH' and obj.parent == armature:
+            mesh_objs.append(obj)
+    
+    if not mesh_objs:
+        print(f"[调试] 未找到任何网格对象")
+        return None
+    
+    print(f"[调试] 找到 {len(mesh_objs)} 个网格对象：{[m.name for m in mesh_objs]}")
+    
+    all_y_values = []
+    
+    for mesh_obj in mesh_objs:
+        vg = mesh_obj.vertex_groups.get(group_name)
+        if not vg:
+            continue
+        
+        print(f"[调试] 在 {mesh_obj.name} 中找到顶点组：{group_name}，索引：{vg.index}")
+        
+        for vertex in mesh_obj.data.vertices:
+            for group in vertex.groups:
+                if group.group == vg.index and group.weight > 0:
+                    world_pos = mesh_obj.matrix_world @ vertex.co
+                    all_y_values.append(world_pos.y)
+                    break
+    
+    if not all_y_values:
+        print(f"[调试] 所有网格对象中顶点组 {group_name} 都没有权重值 > 0 的顶点")
+        return None
+    
+    print(f"[调试] 总共找到 {len(all_y_values)} 个顶点，Y 最小值：{min(all_y_values)}")
+    return min(all_y_values)
 
 
 # ---------------------------------------------------------------------------
@@ -153,8 +196,8 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 self.report({'ERROR'}, "请先选择左/右胸部骨骼")
                 return {'CANCELLED'}
 
-            # 1. 修改和创建骨骼
-            self._build_chest_bone_chain(armature, left_bone, right_bone)
+            # 1. 创建骨骼链（包含重命名和创建新骨骼）
+            self._build_chest_bone_chain(context, armature, left_bone, right_bone)
 
             # 2. 使用 mmd_tools API 创建刚体
             rb_objects = self._create_rigid_bodies(context, armature)
@@ -177,11 +220,11 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         return {'FINISHED'}
 
     # ------------------------------------------------------------------
-    # 1. 修改和创建骨骼
+    # 1. 创建骨骼链（在 EDIT 模式下）
     # ------------------------------------------------------------------
-    def _build_chest_bone_chain(self, armature, left_user_bone, right_user_bone):
+    def _build_chest_bone_chain(self, context, armature, left_bone, right_bone):
         """
-        1. 将用户选中的骨骼重命名为 左胸上 2 / 右胸上 2
+        1. 在 EDIT 模式下重命名用户选中的骨骼为 左胸上 2 / 右胸上 2
         2. 创建左/右胸上（CAPSULE 的父骨骼）
         3. 创建左/右胸下（下方弹性支撑）
         4. 创建单一胸親（锚点）
@@ -192,14 +235,11 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         - 胸上 2：向下
         - 胸下：向前
         """
-        print(f"[胸部物理] 构建骨骼链，left='{left_user_bone}', right='{right_user_bone}'")
-
-        # 先切换到对象模式，再重新进入编辑模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+        scene = context.scene
         
-        bpy.ops.object.select_all(action='DESELECT')
-        armature.select_set(True)
-        bpy.context.view_layer.objects.active = armature
+        print(f"[胸部物理] 构建骨骼链，left='{left_bone}', right='{right_bone}'")
+
+        # 切换到 EDIT 模式
         bpy.ops.object.mode_set(mode='EDIT')
         eb = armature.data.edit_bones
 
@@ -210,63 +250,49 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         # 获取上半身骨骼的 Y 位置
         up_body_y = eb["上半身"].head.y
         
-        # 查找所有网格对象（用于获取顶点组）
-        mesh_objs = []
-        for obj in bpy.data.objects:
-            if obj.type == 'MESH' and obj.parent == armature:
-                mesh_objs.append(obj)
+        # 获取用户选择的胸親父级骨骼（默认为上半身）
+        chest_parent_name = scene.breast_parent_bone if scene.breast_parent_bone else "上半身"
+        if chest_parent_name not in eb:
+            print(f"[警告] 胸親父级骨骼 '{chest_parent_name}' 不存在，使用'上半身'")
+            chest_parent_name = "上半身"
         
-        print(f"[调试] 找到 {len(mesh_objs)} 个网格对象：{[m.name for m in mesh_objs]}")
+        # 先创建胸親骨骼（向上，与上半身相同方向）
+        # 头部 Y 与上半身相同，Z 与上半身相同
+        # 长度约为 0.08，尾部在头部上方
+        BrP_head = Vector((0, up_body_y, eb["上半身"].head.z))
+        BrP_tail = BrP_head + Vector((0, 0, 0.08))  # 尾部在头部上方 0.08
         
-        # 获取顶点组 Y 轴最小值
-        def get_vertex_group_y_min(group_name):
-            """获取顶点组中所有顶点的 Y 轴最小值（遍历所有网格对象）"""
-            all_y_values = []
-            
-            for mesh_obj in mesh_objs:
-                vg = mesh_obj.vertex_groups.get(group_name)
-                if not vg:
-                    continue
-                
-                print(f"[调试] 在 {mesh_obj.name} 中找到顶点组：{group_name}，索引：{vg.index}")
-                
-                for vertex in mesh_obj.data.vertices:
-                    for group in vertex.groups:
-                        if group.group == vg.index and group.weight > 0:
-                            world_pos = mesh_obj.matrix_world @ vertex.co
-                            all_y_values.append(world_pos.y)
-                            break
-            
-            if not all_y_values:
-                print(f"[调试] 所有网格对象中顶点组 {group_name} 都没有权重值 > 0 的顶点")
-                return None
-            
-            print(f"[调试] 总共找到 {len(all_y_values)} 个顶点，Y 最小值：{min(all_y_values)}")
-            return min(all_y_values)
-
-        BrUp_bones = {}
-        BrDown_bones = {}
-
-        for prefix, user_bone in (("左", left_user_bone), ("右", right_user_bone)):
+        BrP = bone_utils.create_or_update_bone(
+            edit_bones=eb,
+            name="胸親",
+            head_position=BrP_head,
+            tail_position=BrP_tail,
+            use_connect=False,
+            parent_name=chest_parent_name,
+            use_deform=True
+        )
+        
+        print(f"[胸部物理] 胸親骨骼已创建，父级：{chest_parent_name}")
+        
+        for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
             if user_bone not in eb:
                 raise ValueError(f"骨骼 '{user_bone}' 不存在")
 
+            # 在 EDIT 模式下重命名骨骼
             BrUp2_name = f"{prefix}胸上 2"
-            BrUp_name = f"{prefix}胸上"
-            BrDown_name = f"{prefix}胸下"
-
-            # 重命名用户选中的骨骼
             if user_bone != BrUp2_name:
                 eb[user_bone].name = BrUp2_name
 
             BrUp2 = eb[BrUp2_name]
             
             # 获取顶点组 Y 最小值
-            vg_y_min = get_vertex_group_y_min(BrUp2_name)
+            vg_y_min = get_vertex_group_y_min(armature, BrUp2_name)
             
             # 计算胸上 2 的 Y 值（顶点组最小值和上半身 Y 值的平均）
             br_up2_y = (vg_y_min + up_body_y) / 2
-
+            
+            BrUp_name = f"{prefix}胸上"
+            BrDown_name = f"{prefix}胸下"
             
             # 修改 BrUp2 的位置
             # 头部 Z = 原头部 Z + 0.04
@@ -276,53 +302,50 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             BrUp2.tail = Vector((BrUp2.tail.x, br_up2_y, original_z - 0.04))
             
             # 创建胸上骨骼
-            # 头部 Y = 上半身 Y
-            # 尾部 = 胸上 2 的头部位置
-            if BrUp_name not in eb:
-                BrUp = eb.new(BrUp_name)
-                
-                BrUp.tail = BrUp2.head  # 尾部是胸上 2 的头部
-                BrUp.head = Vector((BrUp2.head.x, up_body_y, BrUp2.head.z))  # 头部 Y 是上半身 Y
-                
-                BrUp_bones[prefix] = BrUp
-            else:
-                BrUp_bones[prefix] = eb[BrUp_name]
+            # 头部 Y = 上半身 Y（靠近身体）
+            # 尾部 = 胸上 2 的头部位置（远离身体，向前）
+            BrUp_head = Vector((BrUp2.head.x, up_body_y, BrUp2.head.z))  # 头部靠近身体
+            BrUp_tail = BrUp2.head  # 尾部在胸上 2 头部位置（向前）
+            bone_utils.create_or_update_bone(
+                edit_bones=eb,
+                name=BrUp_name,
+                head_position=BrUp_head,
+                tail_position=BrUp_tail,
+                use_connect=False,
+                parent_name=None,
+                use_deform=True
+            )
             
             # 设置胸上 2 的父级为胸上
             BrUp2.parent = eb[BrUp_name]
 
             # 创建胸下骨骼
-            # Y 值与胸上相同，Z 值与胸上 2 尾部相同
-            if BrDown_name not in eb:
-                BrDown = eb.new(BrDown_name)
-                BrDown.tail = Vector((BrUp2.head.x, up_body_y, BrUp2.tail.z))
-                BrDown.head = BrUp2.tail
-                BrDown_bones[prefix] = BrDown
-            else:
-                BrDown_bones[prefix] = eb[BrDown_name]
+            # 头部 = 胸上 2 尾部位置（远离身体，向前）
+            # 尾部 Y = 上半身 Y（靠近身体）
+            BrDown_head = BrUp2.tail  # 头部在胸上 2 尾部位置（向前）
+            BrDown_tail = Vector((BrUp2.head.x, up_body_y, BrUp2.tail.z))  # 尾部靠近身体
+            bone_utils.create_or_update_bone(
+                edit_bones=eb,
+                name=BrDown_name,
+                head_position=BrDown_head,
+                tail_position=BrDown_tail,
+                use_connect=False,
+                parent_name=None,
+                use_deform=True
+            )
 
-        # 创建胸親骨骼（向上，与上半身相同方向）
-        if "胸親" not in eb:
-            parent = eb.new("胸親")
-            left_head = eb["左胸上"].head.copy()
-            right_head = eb["右胸上"].head.copy()
-            parent.tail = (left_head + right_head) / 2
-            parent.head = parent.tail + Vector((0, 0, 0.1))  # 向上
-        else:
-            parent = eb["胸親"]
-        
-        # 设置胸親的父级为上半身骨骼
-        if "上半身" in eb:
-            parent.parent = eb["上半身"]
-        else:
-            print("[警告] 未找到'上半身'骨骼，胸親将没有父级")
-
-        # 设置父子关系
+        # 设置胸上/胸下的父级为 BrP（胸親）
         for prefix in ("左", "右"):
-            eb[f"{prefix}胸上"].parent = parent
-            eb[f"{prefix}胸下"].parent = parent
+            eb[f"{prefix}胸上"].parent = BrP
+            eb[f"{prefix}胸下"].parent = BrP
 
+        # 更新场景属性
+        scene.left_chest_bone = "左胸上 2"
+        scene.right_chest_bone = "右胸上 2"
+        
+        # 切换回 OBJECT 模式，让骨骼更改生效
         bpy.ops.object.mode_set(mode='OBJECT')
+        
         print("[胸部物理] 骨骼链构建完成")
 
     # ------------------------------------------------------------------

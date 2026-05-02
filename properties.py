@@ -17,8 +17,18 @@ _symmetric_bone_props = [
     'left_thigh_bone', 'right_thigh_bone',
     'left_calf_bone', 'right_calf_bone',
     'left_foot_bone', 'right_foot_bone',
-    'left_toe_bone', 'right_toe_bone'
+    'left_toe_bone', 'right_toe_bone',
+    'left_chest_bone', 'right_chest_bone'  # 胸部物理骨骼
 ]
+
+_chest_physics_props = [
+    'left_chest_bone', 'right_chest_bone', 'breast_parent_bone'
+]
+
+
+def get_chest_physics_props():
+    """获取胸部物理相关属性列表"""
+    return _chest_physics_props.copy()
 
 
 def register_properties(properties_dict):

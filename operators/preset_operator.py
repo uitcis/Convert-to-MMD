@@ -439,6 +439,8 @@ def get_bones_list():
     """生成骨骼属性名称列表"""
     from ..bone_map_and_group import mmd_bone_map
     bone_list = {k: "" for k in mmd_bone_map.keys()}
+    # 添加胸部物理相关属性
+    bone_list['breast_parent_bone'] = ""
     return bone_list
 
 class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
