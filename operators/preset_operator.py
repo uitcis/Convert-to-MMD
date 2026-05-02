@@ -459,16 +459,19 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
 
         try:
-            # 调用mmd_tools的转换功能
-            bpy.ops.mmd_tools.convert_to_mmd_model()
-        except AttributeError as e:
-            # 弹出错误提示窗口（包含下载按钮）
-            bpy.context.window_manager.popup_menu(
-                self.draw_error_menu,
-                title="MMD Tools未安装",
-                icon='ERROR'
+            bpy.ops.mmd_tools.convert_to_mmd_model(
+                convert_material_nodes=False
             )
-            return {'CANCELLED'}
+        except (TypeError, AttributeError):
+            try:
+                bpy.ops.mmd_tools.convert_to_mmd_model()
+            except (TypeError, AttributeError):
+                bpy.context.window_manager.popup_menu(
+                    self.draw_error_menu,
+                    title="MMD Tools 未安装",
+                    icon='ERROR'
+                )
+                return {'CANCELLED'}
 
         # 恢复原始选择状态
         context.view_layer.objects.active = obj
