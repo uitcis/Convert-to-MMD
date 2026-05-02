@@ -3,9 +3,10 @@
 基于 MMD 标准 GENERIC_SPRING 刚体物理体系构建胸部物理，
 参数来源于对真实 MMD 胸部物理参考文件的逆向分析。
 
-使用 mmd_tools API 构建完整的刚体和约束系统。
+使用 mmd_tools API 创建完整的刚体和约束系统。
 """
 import bpy
+import math
 from mathutils import Vector, Euler
 
 # 导入 mmd_tools（Blender 5.1+ 扩展系统）
@@ -27,23 +28,107 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
-# 参考参数常量（来自 spring_result.json 逆向分析）
+# 参考参数常量（来自 body_physics_final_with_size.md 胸部部分）
 # ---------------------------------------------------------------------------
-
-# 刚体参数：shape, mass, friction, lin_damp, ang_damp, is_kinematic
-RB_PARAMS = {
-    "胸親": ("CAPSULE", 1.0, 0.5, 0.04, 0.1, True),    # Kinematic 锚点
-    "左胸上": ("CAPSULE", 0.05, 0.5, 0.8, 0.8, False),
-    "右胸上": ("CAPSULE", 0.05, 0.5, 0.8, 0.8, False),
-    "左胸上 2": ("SPHERE", 0.20, 0.5, 0.8, 0.8, False),  # 碰撞核心
-    "右胸上 2": ("SPHERE", 0.20, 0.5, 0.8, 0.8, False),
-    "左胸下": ("CAPSULE", 0.05, 0.5, 0.8, 0.8, False),
-    "右胸下": ("CAPSULE", 0.05, 0.5, 0.8, 0.8, False),
-}
 
 DEG5 = 0.0872665  # 5 度
 DEG10 = 0.174533  # 10 度
 DEG20 = 0.349066  # 20 度
+
+# 碰撞组掩码设置（16 个碰撞组）
+COLLISION_GROUP_MASK_0 = [True] * 16  # 组 0（躯干）
+COLLISION_GROUP_MASK_2 = [True] * 16  # 组 2（胸部物理）
+
+# 刚体完整参数定义（来自 body_physics_final_with_size.md 第 76-82 行）
+# 格式：{骨骼名：{形状，质量，摩擦，线性阻尼，角阻尼，是否运动学，碰撞组，直径 X, 长度 Y}}
+# CAPSULE: X=直径，Y=长度 | SPHERE: X=Y=Z=直径
+# 注意：胸親需要放在最后，因为它的位置依赖于左右胸上刚体
+CHEST_RIGID_BODIES = {
+    "左胸上": {
+        "shape": "CAPSULE",
+        "mass": 0.05,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,     # PHYSICS 模式
+        "collision_group": 2,
+        "size_x": 0.01,            # 直径
+        "size_y": 0.02,            # 长度
+        "size_z": 0.0,
+    },
+    "右胸上": {
+        "shape": "CAPSULE",
+        "mass": 0.05,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,
+        "collision_group": 2,
+        "size_x": 0.01,
+        "size_y": 0.02,
+        "size_z": 0.0,
+    },
+    "左胸上 2": {
+        "shape": "SPHERE",
+        "mass": 0.20,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,
+        "collision_group": 2,
+        "size_x": 0.06,            # 直径
+        "size_y": 0.06,            # 直径
+        "size_z": 0.06,            # 直径
+    },
+    "右胸上 2": {
+        "shape": "SPHERE",
+        "mass": 0.20,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,
+        "collision_group": 2,
+        "size_x": 0.06,
+        "size_y": 0.06,
+        "size_z": 0.06,
+    },
+    "左胸下": {
+        "shape": "CAPSULE",
+        "mass": 0.05,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,
+        "collision_group": 2,
+        "size_x": 0.01,
+        "size_y": 0.02,
+        "size_z": 0.0,
+    },
+    "右胸下": {
+        "shape": "CAPSULE",
+        "mass": 0.05,
+        "friction": 0.0,
+        "linear_damping": 0.8,
+        "angular_damping": 0.8,
+        "is_kinematic": False,
+        "collision_group": 2,
+        "size_x": 0.01,
+        "size_y": 0.02,
+        "size_z": 0.0,
+    },
+    "胸親": {
+        "shape": "CAPSULE",
+        "mass": 1.0,
+        "friction": 0.5,
+        "linear_damping": 0.5,
+        "angular_damping": 0.5,
+        "is_kinematic": True,      # BONE 模式
+        "collision_group": 0,
+        "size_x": 0.06,            # 直径
+        "size_y": 0.11,            # 长度
+        "size_z": 0.0,
+    },
+}
 
 
 class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
@@ -94,7 +179,6 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
     # ------------------------------------------------------------------
     # 1. 修改和创建骨骼
     # ------------------------------------------------------------------
-
     def _build_chest_bone_chain(self, armature, left_user_bone, right_user_bone):
         """
         1. 将用户选中的骨骼重命名为 左胸上 2 / 右胸上 2
@@ -110,55 +194,120 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         """
         print(f"[胸部物理] 构建骨骼链，left='{left_user_bone}', right='{right_user_bone}'")
 
+        # 先切换到对象模式，再重新进入编辑模式
+        bpy.ops.object.mode_set(mode='OBJECT')
+        
         bpy.ops.object.select_all(action='DESELECT')
         armature.select_set(True)
         bpy.context.view_layer.objects.active = armature
         bpy.ops.object.mode_set(mode='EDIT')
         eb = armature.data.edit_bones
 
-        up1_bones = {}
-        down_bones = {}
+        # 检查上半身骨骼是否存在
+        if "上半身" not in eb:
+            raise ValueError("缺少'上半身'骨骼，无法构建胸部物理系统")
+        
+        # 获取上半身骨骼的 Y 位置
+        up_body_y = eb["上半身"].head.y
+        
+        # 查找所有网格对象（用于获取顶点组）
+        mesh_objs = []
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH' and obj.parent == armature:
+                mesh_objs.append(obj)
+        
+        print(f"[调试] 找到 {len(mesh_objs)} 个网格对象：{[m.name for m in mesh_objs]}")
+        
+        # 获取顶点组 Y 轴最小值
+        def get_vertex_group_y_min(group_name):
+            """获取顶点组中所有顶点的 Y 轴最小值（遍历所有网格对象）"""
+            all_y_values = []
+            
+            for mesh_obj in mesh_objs:
+                vg = mesh_obj.vertex_groups.get(group_name)
+                if not vg:
+                    continue
+                
+                print(f"[调试] 在 {mesh_obj.name} 中找到顶点组：{group_name}，索引：{vg.index}")
+                
+                for vertex in mesh_obj.data.vertices:
+                    for group in vertex.groups:
+                        if group.group == vg.index and group.weight > 0:
+                            world_pos = mesh_obj.matrix_world @ vertex.co
+                            all_y_values.append(world_pos.y)
+                            break
+            
+            if not all_y_values:
+                print(f"[调试] 所有网格对象中顶点组 {group_name} 都没有权重值 > 0 的顶点")
+                return None
+            
+            print(f"[调试] 总共找到 {len(all_y_values)} 个顶点，Y 最小值：{min(all_y_values)}")
+            return min(all_y_values)
+
+        BrUp_bones = {}
+        BrDown_bones = {}
 
         for prefix, user_bone in (("左", left_user_bone), ("右", right_user_bone)):
             if user_bone not in eb:
                 raise ValueError(f"骨骼 '{user_bone}' 不存在")
 
-            up2_name = f"{prefix}胸上 2"
-            up1_name = f"{prefix}胸上"
-            down_name = f"{prefix}胸下"
+            BrUp2_name = f"{prefix}胸上 2"
+            BrUp_name = f"{prefix}胸上"
+            BrDown_name = f"{prefix}胸下"
 
             # 重命名用户选中的骨骼
-            if user_bone != up2_name:
-                eb[user_bone].name = up2_name
+            if user_bone != BrUp2_name:
+                eb[user_bone].name = BrUp2_name
 
-            up2 = eb[up2_name]
+            BrUp2 = eb[BrUp2_name]
             
-            # 创建胸上骨骼（向前）
-            if up1_name not in eb:
-                up1 = eb.new(up1_name)
-                up1.tail = up2.head
-                up1.head = up2.head + Vector((0, 0.1, 0))  # 向前
-                up1_bones[prefix] = up1
-            else:
-                up1_bones[prefix] = eb[up1_name]
+            # 获取顶点组 Y 最小值
+            vg_y_min = get_vertex_group_y_min(BrUp2_name)
+            
+            # 计算胸上 2 的 Y 值（顶点组最小值和上半身 Y 值的平均）
+            br_up2_y = (vg_y_min + up_body_y) / 2
 
-            # 创建胸下骨骼（向前，与胸上相同的 X、Y 轴位置，与胸上 2 尾部相同的 Z 轴位置）
-            if down_name not in eb:
-                down = eb.new(down_name)
-                # 使用胸上的 X、Y 轴位置，胸上 2 尾部的 Z 轴位置，向前延伸
-                down.tail = Vector((up1_bones[prefix].tail.x, up1_bones[prefix].tail.y, up2.tail.z))
-                down.head = Vector((up1_bones[prefix].head.x, up1_bones[prefix].head.y, up2.tail.z))
-                down_bones[prefix] = down
+            
+            # 修改 BrUp2 的位置
+            # 头部 Z = 原头部 Z + 0.04
+            # 尾部 Z = 原头部 Z - 0.04
+            original_z = BrUp2.head.z
+            BrUp2.head = Vector((BrUp2.head.x, br_up2_y, original_z + 0.04))
+            BrUp2.tail = Vector((BrUp2.tail.x, br_up2_y, original_z - 0.04))
+            
+            # 创建胸上骨骼
+            # 头部 Y = 上半身 Y
+            # 尾部 = 胸上 2 的头部位置
+            if BrUp_name not in eb:
+                BrUp = eb.new(BrUp_name)
+                
+                BrUp.tail = BrUp2.head  # 尾部是胸上 2 的头部
+                BrUp.head = Vector((BrUp2.head.x, up_body_y, BrUp2.head.z))  # 头部 Y 是上半身 Y
+                
+                BrUp_bones[prefix] = BrUp
             else:
-                down_bones[prefix] = eb[down_name]
+                BrUp_bones[prefix] = eb[BrUp_name]
+            
+            # 设置胸上 2 的父级为胸上
+            BrUp2.parent = eb[BrUp_name]
+
+            # 创建胸下骨骼
+            # Y 值与胸上相同，Z 值与胸上 2 尾部相同
+            if BrDown_name not in eb:
+                BrDown = eb.new(BrDown_name)
+                BrDown.tail = Vector((BrUp2.head.x, up_body_y, BrUp2.tail.z))
+                BrDown.head = BrUp2.tail
+                BrDown_bones[prefix] = BrDown
+            else:
+                BrDown_bones[prefix] = eb[BrDown_name]
 
         # 创建胸親骨骼（向上，与上半身相同方向）
         if "胸親" not in eb:
             parent = eb.new("胸親")
             left_head = eb["左胸上"].head.copy()
             right_head = eb["右胸上"].head.copy()
-            parent.head = (left_head + right_head) / 2
-            parent.tail = parent.head + Vector((0, 0, 0.1))  # 向上
+            parent.tail = (left_head + right_head) / 2
+            parent.head = parent.tail + Vector((0, 0, 0.1))  # 向上
         else:
             parent = eb["胸親"]
         
@@ -194,34 +343,14 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         rigid_grp_obj = FnModel.ensure_rigid_group_object(context, root)
         
         rb_objects = {}
-        
-        bone_idx_map = {
-            "胸親": 51,
-            "左胸上": 52,
-            "右胸上": 53,
-            "左胸上 2": 54,
-            "右胸上 2": 55,
-            "左胸下": 56,
-            "右胸下": 57
-        }
-        
-        bone_to_size = {
-            "胸親": (0.1, 0.2, 0.0),
-            "左胸上": (0.1, 0.2, 0.0),
-            "右胸上": (0.1, 0.2, 0.0),
-            "左胸上 2": (0.05, 0.05, 0.05),
-            "右胸上 2": (0.05, 0.05, 0.05),
-            "左胸下": (0.1, 0.2, 0.0),
-            "右胸下": (0.1, 0.2, 0.0)
-        }
 
-        for bone_name, (shape, mass, friction, lin_damp, ang_damp, is_kinematic) in RB_PARAMS.items():
+        for bone_name, params in CHEST_RIGID_BODIES.items():
             if bone_name not in armature.data.bones:
                 print(f"[胸部物理] 跳过刚体 '{bone_name}'（骨骼不存在）")
                 continue
 
-            idx = bone_idx_map.get(bone_name, 55)
-            rb_name = f"{idx:03d}_{bone_name}"
+            # 使用骨骼名作为刚体名（与 mmd_tools 面板一致）
+            rb_name = bone_name
             
             if rb_name in bpy.data.objects:
                 rb_obj = bpy.data.objects[rb_name]
@@ -239,31 +368,27 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             
             bone = pbone.bone
             
-            # 计算尺寸
-            size = Vector(bone_to_size.get(bone_name, (0.1, 0.2, 0.0)))
-            if shape == "CAPSULE":
-                bl = max(bone.length, 0.02)
-                size = Vector((bl * 0.25, bl, 0.0))
-            elif shape == "SPHERE":
-                bl = max(bone.length, 0.02)
-                size = Vector((bl * 0.3, bl * 0.3, bl * 0.3))
+            # 构建尺寸向量（CAPSULE: X=直径，Y=长度 | SPHERE: X=Y=Z=直径）
+            size = Vector((params["size_x"], params["size_y"], params["size_z"]))
             
             # 计算位置（骨骼中心点，使用 head_local/tail_local，与面板一致）
             bone_loc = (bone.head_local + bone.tail_local) / 2
             
             # 计算旋转（与面板一致）
-            import math
             bone_rot = bone.matrix_local.to_euler("YXZ")
             bone_rot.rotate_axis("X", math.pi / 2)
             
             # 设置刚体参数
             rb_obj.location = bone_loc
             rb_obj.rotation_euler = bone_rot
-            rb_obj.mmd_rigid.shape = shape
+            rb_obj.mmd_rigid.shape = params["shape"]
             rb_obj.mmd_rigid.size = size
-            rb_obj.mmd_rigid.type = "0" if is_kinematic else "1"
-            rb_obj.mmd_rigid.collision_group_number = 0
-            rb_obj.mmd_rigid.collision_group_mask = [True]*16
+            rb_obj.mmd_rigid.type = "0" if params["is_kinematic"] else "1"
+            rb_obj.mmd_rigid.collision_group_number = params["collision_group"]
+            
+            # 设置碰撞组掩码
+            collision_mask = COLLISION_GROUP_MASK_0 if params["collision_group"] == 0 else COLLISION_GROUP_MASK_2
+            rb_obj.mmd_rigid.collision_group_mask = collision_mask
             rb_obj.name = rb_name
             rb_obj.mmd_rigid.name_j = rb_name
             rb_obj.mmd_rigid.name_e = rb_name
@@ -272,14 +397,28 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             
             # 设置物理参数
             rb = rb_obj.rigid_body
-            rb.friction = friction
-            rb.mass = mass
-            rb.angular_damping = ang_damp
-            rb.linear_damping = lin_damp
+            rb.friction = params["friction"]
+            rb.mass = params["mass"]
+            rb.angular_damping = params["angular_damping"]
+            rb.linear_damping = params["linear_damping"]
             rb.restitution = 0.0
             
             rb_objects[bone_name] = rb_obj
-            print(f"[胸部物理] 创建：{rb_name}, type={shape}, mass={mass}")
+            print(f"[胸部物理] 创建：{rb_name}, type={params['shape']}, mass={params['mass']}")
+
+        # 创建完成后，调整胸親的位置和旋转
+        rb_parent = rb_objects.get("胸親")
+        if rb_parent:
+            left_up2_rb = rb_objects.get("左胸上 2")
+            right_up2_rb = rb_objects.get("右胸上 2")
+            
+            if left_up2_rb and right_up2_rb:
+                # 胸親位置 = 左右胸上 2 位置的中间
+                rb_parent.location = (left_up2_rb.location + right_up2_rb.location) / 2
+                
+                # 胸親旋转：Y 轴 -90 度
+                rb_parent.rotation_euler = Euler((0, -math.pi/2, 0), 'YXZ')
+                print(f"[胸部物理] 调整胸親位置到中心，Y 旋转 -90 度")
 
         return rb_objects
 
@@ -307,39 +446,40 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 print(f"[胸部物理] 跳过约束（刚体不存在）: {sd['joint']}")
                 continue
 
-            joint_name = sd["joint"]
+            # joint 名字使用第二个刚体的名字（与 mmd_tools 面板一致）
+            # 第 434-435 行：name_j = rigid_b.mmd_rigid.name_j or rigid_b.name
+            joint_name = rb2.name
+            
+            # 检查是否存在同名的关节对象（需要检查 mmd_type）
             if joint_name in bpy.data.objects:
-                joint_obj = bpy.data.objects[joint_name]
-                print(f"[胸部物理] 跳过已存在的约束：{joint_name}")
-                continue
-
+                obj = bpy.data.objects[joint_name]
+                if obj.mmd_type == "JOINT":
+                    joint_obj = obj
+                    print(f"[胸部物理] 跳过已存在的约束：{joint_name}")
+                    continue
+            
             # 创建关节（使用 ensure_joint_group_object，与面板一致）
             joint_obj = FnRigidBody.new_joint_object(context, joint_grp_obj, FnModel.get_empty_display_size(root))
             
             # 计算中点位置
             mid = (rb1.location + rb2.location) / 2
             
-            # 设置关节参数
-            joint_obj.location = Vector(mid)
-            joint_obj.rotation_euler = Euler((0, 0, 0))
-            joint_obj.rigid_body_constraint.object1 = rb1
-            joint_obj.rigid_body_constraint.object2 = rb2
-            joint_obj.rigid_body_constraint.limit_lin_x_upper = sd.get("lin_x_hi", 0)
-            joint_obj.rigid_body_constraint.limit_lin_y_upper = sd.get("lin_y_hi", 0)
-            joint_obj.rigid_body_constraint.limit_lin_z_upper = sd.get("lin_z_hi", 0)
-            joint_obj.rigid_body_constraint.limit_lin_x_lower = sd.get("lin_x_lo", 0)
-            joint_obj.rigid_body_constraint.limit_lin_y_lower = sd.get("lin_y_lo", 0)
-            joint_obj.rigid_body_constraint.limit_lin_z_lower = sd.get("lin_z_lo", 0)
-            joint_obj.rigid_body_constraint.limit_ang_x_upper = sd.get("ang_x_hi", 0)
-            joint_obj.rigid_body_constraint.limit_ang_y_upper = sd.get("ang_y_hi", 0)
-            joint_obj.rigid_body_constraint.limit_ang_z_upper = sd.get("ang_z_hi", 0)
-            joint_obj.rigid_body_constraint.limit_ang_x_lower = sd.get("ang_x_lo", 0)
-            joint_obj.rigid_body_constraint.limit_ang_y_lower = sd.get("ang_y_lo", 0)
-            joint_obj.rigid_body_constraint.limit_ang_z_lower = sd.get("ang_z_lo", 0)
-            joint_obj.mmd_joint.name_j = joint_name.replace("J.", "")
-            joint_obj.mmd_joint.name_e = joint_name.replace("J.", "")
-            joint_obj.mmd_joint.spring_linear = Vector((sd.get("k_lin_x", 0), sd.get("k_lin_y", 0), sd.get("k_lin_z", 0)))
-            joint_obj.mmd_joint.spring_angular = Vector((sd.get("k_ang_x", 0), sd.get("k_ang_y", 0), sd.get("k_ang_z", 0)))
+            # 使用 setup_joint_object 设置关节参数（与面板一致）
+            joint_obj = FnRigidBody.setup_joint_object(
+                obj=joint_obj,
+                name=rb2.name,  # 使用第二个刚体的名字
+                name_e=rb2.name,
+                location=Vector(mid),
+                rotation=Euler((0, 0, 0)),
+                rigid_a=rb1,
+                rigid_b=rb2,
+                maximum_location=Vector((sd.get("lin_x_hi", 0), sd.get("lin_y_hi", 0), sd.get("lin_z_hi", 0))),
+                minimum_location=Vector((sd.get("lin_x_lo", 0), sd.get("lin_y_lo", 0), sd.get("lin_z_lo", 0))),
+                maximum_rotation=Vector((sd.get("ang_x_hi", 0), sd.get("ang_y_hi", 0), sd.get("ang_z_hi", 0))),
+                minimum_rotation=Vector((sd.get("ang_x_lo", 0), sd.get("ang_y_lo", 0), sd.get("ang_z_lo", 0))),
+                spring_linear=Vector((sd.get("k_lin_x", 0), sd.get("k_lin_y", 0), sd.get("k_lin_z", 0))),
+                spring_angular=Vector((sd.get("k_ang_x", 0), sd.get("k_ang_y", 0), sd.get("k_ang_z", 0))),
+            )
             
             # 关闭碰撞
             joint_obj.rigid_body_constraint.disable_collisions = True
@@ -348,10 +488,16 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 
     def _get_spring_definitions(self):
         """
-        返回 6 个核心弹簧约束的参数字典（已排除辅助约束）。
+        返回 6 个核心弹簧约束的参数字典。
         全部为 GENERIC_SPRING，disable_collisions=True，阻尼=0.5。
+        
+        根据 joint_params_report.md：
+        - J.胸上：ang_z ±5°，K_z=100
+        - J.胸上 2：无约束（全 0）
+        - J.胸下：ang_x ±10°，ang_z ±5°，K_x=100, K_z=100
         """
         def s(joint, rb1, rb2, **kw):
+            # 默认值：所有线性/角限位为 0
             for ax in 'xyz':
                 for pre in (f'lin_{ax}', f'ang_{ax}'):
                     if pre not in kw:
@@ -362,21 +508,20 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         defs = []
 
         for prefix in ('左', '右'):
-            # J.胸上：胸親 → 胸上，角度限制 ang_z ±5°，K_z=100
+            # J.胸上：胸親 → 胸上，ang_z ±5°，K_z=100
             defs.append(s(
                 f"J.{prefix}胸上", "胸親", f"{prefix}胸上",
                 ang_z_lo=-DEG5, ang_z_hi=DEG5,
                 k_ang_z=100,
             ))
-            # J.胸上 2：胸上 → 胸上 2，角度限制 ang_x ±10°，K 全 0（纯阻尼）
+            # J.胸上 2：胸上 → 胸上 2，无约束（全 0）
             defs.append(s(
                 f"J.{prefix}胸上 2", f"{prefix}胸上", f"{prefix}胸上 2",
-                ang_x_lo=-DEG10, ang_x_hi=DEG10,
             ))
-            # J.胸下：胸親 → 胸下，角度限制 ang_x ±20° / ang_z ±5°，K_x=K_z=100
+            # J.胸下：胸親 → 胸下，ang_x ±10°，ang_z ±5°，K_x=100, K_z=100
             defs.append(s(
                 f"J.{prefix}胸下", "胸親", f"{prefix}胸下",
-                ang_x_lo=-DEG20, ang_x_hi=DEG20,
+                ang_x_lo=-DEG10, ang_x_hi=DEG10,
                 ang_z_lo=-DEG5, ang_z_hi=DEG5,
                 k_ang_x=100, k_ang_z=100,
             ))
