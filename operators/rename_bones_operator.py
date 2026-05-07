@@ -47,6 +47,10 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         if not has_bone_set:
             self.report({'WARNING'}, "未设置骨骼")
             return {'CANCELLED'}
+        
+        # 自动检测上半身骨骼链（重命名前，用原始名称识别中间骨骼）
+        preset_operator.auto_detect_upper_body_chain(scene, obj)
+        
         for prop_name, new_name in self.mmd_bone_map.items():
             bone_name = getattr(scene, prop_name, None)
             if bone_name:
@@ -61,6 +65,9 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
                         self.report({'INFO'}, f"骨骼 '{bone_name}' 已经重命名为 {new_name}")
                 else:
                     self.report({'WARNING'}, f"未找到骨骼 '{bone_name}' 以重命名为 {new_name}")
+        
+        # 用MMD名称重新检测上半身骨骼链，确保属性与重命名后的骨骼一致
+        preset_operator.auto_detect_upper_body_chain(scene, obj)
 
         # 打开骨骼名称显示
         bpy.context.object.data.show_names = True

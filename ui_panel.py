@@ -21,6 +21,12 @@ class OBJECT_OT_load_preset(bpy.types.Operator):
                 if hasattr(context.scene, prop_name):
                     setattr(context.scene, prop_name, bone_name)
         
+        # 自动检测上半身骨骼链
+        obj = context.active_object
+        if obj and obj.type == 'ARMATURE':
+            from .operators.preset_operator import auto_detect_upper_body_chain
+            auto_detect_upper_body_chain(context.scene, obj)
+        
         return {'FINISHED'}
 
 class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
@@ -197,9 +203,11 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         row.prop(scene, "my_enum", expand=True)
         if scene.my_enum == 'option1':
 
-            # 新增 EnumProperty 下拉菜单
-            row = layout.row()
+            row = layout.row(align=True)
             row.prop(scene, "preset_enum", text="")
+            row.operator("object.import_preset", text="导入预设")
+            row.operator("object.export_preset", text="导出预设")
+            row.operator("object.clear_bone_selection", text="", icon='X')
         
             main_col = layout.column(align=True)
             # 全ての親到腰部分
@@ -215,7 +223,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             upper_body_box = main_col.box()
             col = upper_body_box.column()
             add_bone_row_with_button(col, "上半身*", "upper_body_bone")
-            add_bone_row_with_button(col, "上半身2", "upper_body2_bone")
+            # 上半身2~5由系统根据上半身和首骨骼自动检测
             add_bone_row_with_button(col, "首*", "neck_bone")
             add_bone_row_with_button(col, "頭*", "head_bone")
             add_symmetric_bones_with_buttons(col, "目", "left_eye_bone", "right_eye_bone")
@@ -245,12 +253,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             add_finger_bones_with_buttons(col, "右人指", "right_index_1", "right_index_2", "right_index_3")
             add_finger_bones_with_buttons(col, "右中指", "right_middle_1", "right_middle_2", "right_middle_3")
             add_finger_bones_with_buttons(col, "右薬指", "right_ring_1", "right_ring_2", "right_ring_3")
-            add_finger_bones_with_buttons(col, "右小指", "right_pinky_1", "right_pinky_2", "right_pinky_3")    
-                
-            # 添加导入/导出预设按钮
-            row = layout.row()
-            row.operator("object.import_preset", text="导入预设")
-            row.operator("object.export_preset", text="导出预设")
+            add_finger_bones_with_buttons(col, "右小指", "right_pinky_1", "right_pinky_2", "right_pinky_3")
 
             row = layout.row()
             # 添加T-Pose到A-Pose转换按钮

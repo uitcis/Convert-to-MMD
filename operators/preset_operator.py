@@ -192,7 +192,7 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
         mode = context.mode
 
         if mode == 'POSE':
-            selected_bones = [bone.name for bone in obj.pose.bones if bone.bone.select]
+            selected_bones = [bone.name for bone in context.selected_pose_bones] if context.selected_pose_bones else []
         elif mode == 'EDIT_ARMATURE':
             selected_bones = [bone.name for bone in obj.data.edit_bones if bone.select]
         else:
@@ -231,6 +231,10 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
                 self.report({'INFO'}, f"已自动填充指骨链及其对称侧")
             else:
                 self.report({'INFO'}, f"已自动填充指骨链")
+        
+        # 填充上半身或首骨骼时，自动检测上半身骨骼链
+        if self.bone_property in ('upper_body_bone', 'neck_bone'):
+            auto_detect_upper_body_chain(scene, obj)
         
         return {'FINISHED'}
 
@@ -443,6 +447,58 @@ def get_bones_list():
     bone_list['breast_parent_bone'] = ""
     return bone_list
 
+
+def get_upper_body_chain_props():
+    """获取上半身骨骼链属性名称列表（从上半身2开始）"""
+    return ['upper_body2_bone', 'upper_body3_bone', 'upper_body4_bone', 'upper_body5_bone']
+
+
+def auto_detect_upper_body_chain(scene, armature):
+    """根据上半身骨骼和首骨骼自动检测中间的骨骼链
+    
+    从首骨骼开始沿 parent 链向上查找，直到找到上半身骨骼，
+    将中间的所有骨骼依次设置为 upper_body2_bone, upper_body3_bone, ...
+    """
+    upper_body_name = getattr(scene, "upper_body_bone", "")
+    neck_name = getattr(scene, "neck_bone", "")
+    
+    if not upper_body_name or not neck_name:
+        return False
+    
+    if armature.type != 'ARMATURE':
+        return False
+    
+    bones = armature.data.bones
+    upper_body = bones.get(upper_body_name)
+    neck = bones.get(neck_name)
+    
+    if not upper_body or not neck:
+        return False
+    
+    chain = []
+    current = neck.parent
+    while current:
+        if current.name == upper_body_name:
+            break
+        chain.append(current.name)
+        current = current.parent
+    
+    if not current or current.name != upper_body_name:
+        return False
+    
+    chain.reverse()
+    
+    prop_names = get_upper_body_chain_props()
+    for i, bone_name in enumerate(chain):
+        if i < len(prop_names):
+            setattr(scene, prop_names[i], bone_name)
+    
+    for i in range(len(chain), len(prop_names)):
+        setattr(scene, prop_names[i], "")
+    
+    return len(chain) > 0
+
+
 class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
     """调用mmdtools进行格式转换"""
     bl_idname = "object.use_mmd_tools_convert"
@@ -493,3 +549,19 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             text="查看使用文档",
             icon='HELP'
         ).url = "https://mmd-blender.fandom.com/wiki/MMD_Tools_Documentation"
+
+
+class OBJECT_OT_clear_bone_selection(bpy.types.Operator):
+    """清空所有骨骼选择框中的内容"""
+    bl_idname = "object.clear_bone_selection"
+    bl_label = "清空骨骼选择"
+    bl_description = "清空所有骨骼选择框中的内容"
+
+    def execute(self, context):
+        scene = context.scene
+        bone_props = get_bones_list()
+        for prop_name in bone_props:
+            if hasattr(scene, prop_name):
+                setattr(scene, prop_name, "")
+        self.report({'INFO'}, "已清空所有骨骼选择")
+        return {'FINISHED'}
