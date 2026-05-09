@@ -33,8 +33,11 @@ from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
 from . import properties
+from . import encoding_patch
 
 def register():
+    # 应用中文编码补丁
+    encoding_patch.apply_encoding_patch()
     # 注册所有类
     bpy.utils.register_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.register_class(ui_panel.OBJECT_OT_load_preset)
@@ -86,6 +89,8 @@ def register():
         default=False
     )    
 def unregister():
+    # 移除中文编码补丁
+    encoding_patch.remove_encoding_patch()
     # 注销所有类
     bpy.utils.unregister_class(ui_panel.OBJECT_PT_skeleton_hierarchy)
     bpy.utils.unregister_class(ui_panel.OBJECT_OT_load_preset)
