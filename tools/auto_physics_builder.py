@@ -290,7 +290,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             BrUp2 = eb[BrUp2_name]
             
             bounds = get_bone_vertex_info(armature, BrUp2_name, weight_threshold=0)
-            br_up2_y = (bounds['y_min'] + up_body_y) / 2
+            if bounds is None:
+                # 如果无法获取顶点信息，使用骨骼头部的 Y 坐标作为默认值
+                print(f"[警告] 无法获取骨骼 '{BrUp2_name}' 的顶点信息，使用默认位置")
+                br_up2_y = BrUp2.head.y
+            else:
+                br_up2_y = (bounds['y_min'] + up_body_y) / 2
             
             BrUp_name = f"{prefix}胸上"
             BrDown_name = f"{prefix}胸下"
