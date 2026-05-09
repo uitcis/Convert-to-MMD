@@ -59,6 +59,7 @@ def register():
     bpy.utils.register_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
+    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
@@ -109,6 +110,7 @@ def unregister():
     bpy.utils.unregister_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
+    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)

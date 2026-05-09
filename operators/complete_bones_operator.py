@@ -77,7 +77,16 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         upper_body_tail = upper_body_bone.tail.copy()
         
         # 计算骨架高度和bone_length
-        bone_length = bone_utils.calculate_bone_length(edit_bones) 
+        bone_length = bone_utils.calculate_bone_length(edit_bones)
+
+        # 先检测上半身链骨骼（上半身2, 上半身3, ...）
+        upper_chain_bones = []
+        for i in range(2, 6):
+            name = f"上半身{i}"
+            if edit_bones.get(name):
+                upper_chain_bones.append(name)
+
+        last_upper_body = upper_chain_bones[-1] if upper_chain_bones else "上半身"
 
         # 定义基本骨骼的属性
         bone_properties = {
@@ -93,7 +102,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "首": {
                 "head": edit_bones["首"].head,
                 "tail": edit_bones["頭"].head,
-                "parent": "上半身2" if edit_bones.get("上半身2") else "上半身",
+                "parent": last_upper_body,
                 "use_connect": False
             },
             "頭": {
@@ -106,7 +115,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "左肩": {
                 "head": edit_bones["左肩"].head,
                 "tail": edit_bones["左腕"].head,
-                "parent": edit_bones["左肩"].parent.name if edit_bones["左肩"].parent else None,
+                "parent": last_upper_body,
                 "use_connect": False
             },
             "左腕": {
@@ -125,7 +134,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             "右肩": {
                 "head": edit_bones["右肩"].head,
                 "tail": edit_bones["右腕"].head,
-                "parent": edit_bones["右肩"].parent.name if edit_bones["右肩"].parent else None,
+                "parent": last_upper_body,
                 "use_connect": False
             },
             "右腕": {
@@ -192,13 +201,26 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             }            
         }
 
-        # 检查上半身2骨骼是否存在，如果存在则添加到属性字典
-        if edit_bones.get("上半身2"):
-            bone_properties["上半身2"] = {
-                "head": Vector((0, edit_bones["上半身2"].head.y, edit_bones["上半身2"].head.z)), 
-                "tail": Vector((0, edit_bones["首"].head.y, edit_bones["首"].head.z)),
-                "parent": "上半身", "use_connect": False
-            }
+        if upper_chain_bones:
+            for idx, bone_name in enumerate(upper_chain_bones):
+                next_bone_name = upper_chain_bones[idx + 1] if idx + 1 < len(upper_chain_bones) else None
+
+                if next_bone_name:
+                    # 非最后一节：尾部指向下一节骨骼的头部
+                    bone_properties[bone_name] = {
+                        "head": Vector((0, edit_bones[bone_name].head.y, edit_bones[bone_name].head.z)),
+                        "tail": Vector((0, edit_bones[next_bone_name].head.y, edit_bones[next_bone_name].head.z)),
+                        "parent": upper_chain_bones[idx - 1] if idx > 0 else "上半身",
+                        "use_connect": False
+                    }
+                else:
+                    # 最后一节：尾部指向首骨骼头部
+                    bone_properties[bone_name] = {
+                        "head": Vector((0, edit_bones[bone_name].head.y, edit_bones[bone_name].head.z)),
+                        "tail": Vector((0, edit_bones["首"].head.y, edit_bones["首"].head.z)),
+                        "parent": upper_chain_bones[idx - 1] if idx > 0 else "上半身",
+                        "use_connect": False
+                    }
 
         # 按顺序检查并创建或更新骨骼
         for bone_name, properties in bone_properties.items():

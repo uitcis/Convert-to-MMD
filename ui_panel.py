@@ -336,3 +336,20 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.scale_y = 1.4
             row.operator("object.auto_physics_builder", text="自动构建胸部物理", icon='PLAY')
 
+            # 身体刚体构建
+            body_rigid_box = layout.box()
+            body_rigid_box.label(text="身体刚体（BODY_RIGID）", icon='PHYSICS')
+
+            body_rigid_box.separator(factor=0.3)
+
+            hint = body_rigid_box.column(align=True)
+            hint.scale_y = 0.75
+            hint.label(text="基于 MMD 标准创建 54 个 BONE 模式刚体：", icon='INFO')
+            hint.label(text="→ 头部、颈部、躯干、腿部、手臂、肩甲")
+            hint.label(text="→ 所有刚体均为 BONE 模式，跟随骨骼运动")
+
+            body_rigid_box.separator(factor=0.3)
+            row = body_rigid_box.row()
+            row.scale_y = 1.2
+            row.operator("object.build_body_rigid_bodies", text="构建身体刚体", icon='PLAY')
+
