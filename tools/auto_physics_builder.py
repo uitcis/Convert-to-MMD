@@ -49,14 +49,19 @@ def calculate_breast_sphere_fit(armature, bone_name, weight_threshold=0.001):
             'total_weight': float - 总权重
         } 或 None
     """
+    #print(f"[DEBUG 1/6] 开始球形拟合: bone_name={bone_name}")
+    
     mesh_objs = [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == armature]
+    #print(f"[DEBUG 2/6] 找到网格对象: {[obj.name for obj in mesh_objs]}")
     if not mesh_objs:
+        #print(f"[DEBUG 2/6] 未找到网格对象，返回 None")
         return None
 
     vertices_world = []
     weights = []
     for mesh_obj in mesh_objs:
         vg = mesh_obj.vertex_groups.get(bone_name)
+        #print(f"[DEBUG 3/6] 检查网格 {mesh_obj.name}, 顶点组 {bone_name} 存在: {vg is not None}")
         if not vg:
             continue
         for vertex in mesh_obj.data.vertices:
@@ -66,11 +71,16 @@ def calculate_breast_sphere_fit(armature, bone_name, weight_threshold=0.001):
                     weights.append(group.weight)
                     break
 
-    if not vertices_world or bone_name not in armature.data.bones:
+    bone_exists = bone_name in armature.data.bones or (hasattr(armature.data, 'edit_bones') and bone_name in armature.data.edit_bones)
+    #print(f"[DEBUG 4/6] 收集到顶点数: {len(vertices_world)}, 骨骼存在(数据模式): {bone_name in armature.data.bones}, 骨骼存在(编辑模式): {hasattr(armature.data, 'edit_bones') and bone_name in armature.data.edit_bones}")
+    if not vertices_world or not bone_exists:
+        #print(f"[DEBUG 4/6] 顶点为空或骨骼不存在，返回 None")
         return None
 
     total_weight = sum(weights)
+    #print(f"[DEBUG 5/6] 总权重: {total_weight}")
     if total_weight == 0:
+        #print(f"[DEBUG 5/6] 总权重为 0，返回 None")
         return None
 
     center_x = sum(v.x * w for v, w in zip(vertices_world, weights)) / total_weight
@@ -81,7 +91,7 @@ def calculate_breast_sphere_fit(armature, bone_name, weight_threshold=0.001):
     total_distance = sum((v - center).length * w for v, w in zip(vertices_world, weights))
     radius = total_distance / total_weight
 
-    print(f"[乳房物理] 球形拟合: {bone_name}, 球心=({center_x:.4f}, {center_y:.4f}, {center_z:.4f}), 半径={radius:.4f}")
+    #print(f"[DEBUG 6/6] 球形拟合完成: {bone_name}, 球心=({center_x:.4f}, {center_y:.4f}, {center_z:.4f}), 半径={radius:.4f}")
 
     return {
         'center': center,
@@ -101,7 +111,8 @@ DEG20 = 0.349066
 
 COLLISION_GROUP_MASK_0 = [True] * 16
 COLLISION_GROUP_MASK_2 = [True] * 16
-
+# mass 质量 friction 摩擦系数 linear_damping 线性阻尼
+# angular_damping 角度阻尼 is_kinematic 动画 collision_group 碰撞组
 CHEST_RIGID_BODIES = {
     "左胸上": {"shape": "CAPSULE", "mass": 0.05, "friction": 0.0, "linear_damping": 0.8,
                "angular_damping": 0.8, "is_kinematic": False, "collision_group": 2,
@@ -111,10 +122,10 @@ CHEST_RIGID_BODIES = {
                "size_x": 0.01, "size_y": 0.02, "size_z": 0.0},
     "左胸上 2": {"shape": "SPHERE", "mass": 0.20, "friction": 0.0, "linear_damping": 0.8,
                  "angular_damping": 0.8, "is_kinematic": False, "collision_group": 2,
-                 "size_x": 0.06, "size_y": 0.06, "size_z": 0.06},
+                 "size_x": 0.5, "size_y": 1, "size_z": 0.0},
     "右胸上 2": {"shape": "SPHERE", "mass": 0.20, "friction": 0.0, "linear_damping": 0.8,
                  "angular_damping": 0.8, "is_kinematic": False, "collision_group": 2,
-                 "size_x": 0.06, "size_y": 0.06, "size_z": 0.06},
+                 "size_x": 0.5, "size_y": 1, "size_z": 0.0},
     "左胸下": {"shape": "CAPSULE", "mass": 0.05, "friction": 0.0, "linear_damping": 0.8,
                "angular_damping": 0.8, "is_kinematic": False, "collision_group": 2,
                "size_x": 0.01, "size_y": 0.02, "size_z": 0.0},
@@ -123,9 +134,8 @@ CHEST_RIGID_BODIES = {
                "size_x": 0.01, "size_y": 0.02, "size_z": 0.0},
     "胸親": {"shape": "CAPSULE", "mass": 1.0, "friction": 0.5, "linear_damping": 0.5,
              "angular_damping": 0.5, "is_kinematic": True, "collision_group": 0,
-             "size_x": 0.06, "size_y": 0.11, "size_z": 0.0},
+             "size_x":0.5, "size_y": 1, "size_z": 0.0},
 }
-
 
 class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
     """自动构建乳房物理系统"""
@@ -149,8 +159,10 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 self.report({'ERROR'}, "请先选择左/右胸部骨骼")
                 return {'CANCELLED'}
 
-            self._build_breast_bone_chain(context, armature, left_bone, right_bone)
-            rb_objects = self._create_rigid_bodies(context, armature)
+            breast_data = self._build_breast_bone_chain(context, armature, left_bone, right_bone)
+            if breast_data == {'CANCELLED'}:
+                return {'CANCELLED'}
+            rb_objects = self._create_rigid_bodies(context, armature, breast_data)
             if rb_objects is None:
                 return {'CANCELLED'}
             self._create_spring_joints(context, armature, rb_objects)
@@ -167,24 +179,18 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             return {'CANCELLED'}
 
         return {'FINISHED'}
-
+    #乳房骨骼链构建
     def _build_breast_bone_chain(self, context, armature, left_bone, right_bone):
         scene = context.scene
         bpy.ops.object.mode_set(mode='EDIT')
         eb = armature.data.edit_bones
-
+        #胸親骨骼
         breast_parent_name = scene.breast_parent_bone if scene.breast_parent_bone else None
         if breast_parent_name and breast_parent_name not in eb:
-            breast_parent_name = None
 
-        if breast_parent_name is None:
             reference_bone = eb.get(left_bone) if left_bone else None
-            if reference_bone:
-                reference_y = reference_bone.head.y
-                reference_z = reference_bone.head.z
-            else:
-                reference_y = 0.0
-                reference_z = 0.0
+            reference_y = reference_bone.head.y
+            reference_z = reference_bone.head.z
         else:
             reference_y = eb[breast_parent_name].head.y
             reference_z = eb[breast_parent_name].head.z
@@ -197,7 +203,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             head_position=BrP_head, tail_position=BrP_tail,
             use_connect=False, parent_name=breast_parent_name, use_deform=True
         )
-
+        #作用：胸上2骨骼
         breast_data = {}
         for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
             if user_bone not in eb:
@@ -210,85 +216,62 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             BrUp2 = eb[BrUp2_name]
             sphere_fit = calculate_breast_sphere_fit(armature, BrUp2_name, weight_threshold=0)
 
-            if sphere_fit is not None:
-                breast_data[prefix] = {
-                    'center': sphere_fit['center'],
-                    'radius': sphere_fit['radius'],
-                    'bone': BrUp2
-                }
-            else:
-                breast_data[prefix] = {
-                    'center': None,
-                    'radius': 0.03,
-                    'bone': BrUp2,
-                    'fallback_y': BrUp2.head.y,
-                    'fallback_z_max': BrUp2.head.z,
-                    'fallback_z_min': BrUp2.tail.z
-                }
+            if sphere_fit is None:
+                self.report({'ERROR'}, f"无法计算{prefix}侧乳房球形拟合，请检查顶点权重")
+                bpy.ops.object.mode_set(mode='OBJECT')
+                return {'CANCELLED'}
+
+            breast_data[prefix] = {
+                'center': sphere_fit['center'],
+                'radius': sphere_fit['radius'],
+                'bone': BrUp2
+            }
 
         if '左' in breast_data and '右' in breast_data:
             left_data = breast_data['左']
             right_data = breast_data['右']
 
-            if left_data['center'] is not None and right_data['center'] is not None:
-                avg_y = (left_data['center'].y + right_data['center'].y) / 2
-                avg_z = (left_data['center'].z + right_data['center'].z) / 2
-                avg_radius = (left_data['radius'] + right_data['radius']) / 2
-                abs_x = max(abs(left_data['center'].x), abs(right_data['center'].x))
-            elif left_data['center'] is not None:
-                avg_y, avg_z, avg_radius = left_data['center'].y, left_data['center'].z, left_data['radius']
-                abs_x = abs(left_data['center'].x)
-            elif right_data['center'] is not None:
-                avg_y, avg_z, avg_radius = right_data['center'].y, right_data['center'].z, right_data['radius']
-                abs_x = abs(right_data['center'].x)
-            else:
-                avg_y = (left_data['fallback_y'] + right_data['fallback_y']) / 2
-                avg_z = (left_data['fallback_z_max'] + right_data['fallback_z_max']) / 2
-                avg_radius = (left_data['radius'] + right_data['radius']) / 2
-                abs_x = 0.05
+            avg_y = (left_data['center'].y + right_data['center'].y) / 2
+            avg_z = (left_data['center'].z + right_data['center'].z) / 2
+            avg_radius = (left_data['radius'] + right_data['radius']) / 2
+            abs_x = max(abs(left_data['center'].x), abs(right_data['center'].x))
 
             for prefix, sign in (("左", 1), ("右", -1)):
                 data = breast_data[prefix]
-                if data['center'] is not None:
-                    data['center'].x = sign * abs_x
-                    data['center'].y = avg_y
-                    data['center'].z = avg_z
-                    data['radius'] = avg_radius
+                data['center'].x = sign * abs_x
+                data['center'].y = avg_y
+                data['center'].z = avg_z
+                data['radius'] = avg_radius
 
         for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
             data = breast_data[prefix]
             BrUp2 = data['bone']
             breast_center = data['center']
             breast_radius = data['radius']
-
+            self.report({'INFO'}, f"{prefix}侧使用球心: {breast_center}, 半径: {breast_radius}")
+            
             BrUp_name = f"{prefix}胸上"
             BrDown_name = f"{prefix}胸下"
-
-            if breast_center is not None:
-                armature_local_center = armature.matrix_world.inverted() @ breast_center
-                br_up2_head_z = armature_local_center.z + breast_radius
-                br_up2_tail_z = armature_local_center.z - breast_radius
-                br_up2_y = armature_local_center.y
-                print(f"[乳房物理] {BrUp2.name}: 球心(世界)=({breast_center.x:.4f}, {breast_center.y:.4f}, {breast_center.z:.4f})")
-                print(f"          球心(局部)=({armature_local_center.x:.4f}, {armature_local_center.y:.4f}, {armature_local_center.z:.4f})")
-            else:
-                br_up2_y = data['fallback_y']
-                br_up2_head_z = data['fallback_z_max']
-                br_up2_tail_z = data['fallback_z_min']
-                armature_local_center = Vector((0, br_up2_y, (br_up2_head_z + br_up2_tail_z) / 2))
-
-            BrUp2.head = Vector((armature_local_center.x, armature_local_center.y, br_up2_head_z))
-            BrUp2.tail = Vector((armature_local_center.x, armature_local_center.y, br_up2_tail_z))
-
-            BrUp_head = Vector((BrUp2.head.x, reference_y, BrUp2.head.z))
+            
+            # 保存原始骨骼坐标（用于胸上/胸下头部位置）
+            original_bone_x = BrUp2.head.x
+            original_bone_y = BrUp2.head.y
+            
+            br_up2_head_z = breast_center.z + breast_radius
+            br_up2_tail_z = breast_center.z - breast_radius
+            # 胸上2骨骼：头部尾部X、Y与球心相同，Z为球心位置加减半径
+            BrUp2.head = Vector((breast_center.x, breast_center.y, br_up2_head_z))
+            BrUp2.tail = Vector((breast_center.x, breast_center.y, br_up2_tail_z))
+            # 胸上骨骼：头部X、Y与原始骨骼相同，Z为球心位置加半径；尾部X、Y与球心相同，Z为球心位置加半径
+            BrUp_head = Vector((original_bone_x, original_bone_y, br_up2_head_z))
             bone_utils.create_or_update_bone(edit_bones=eb, name=BrUp_name,
-                head_position=BrUp_head, tail_position=BrUp2.head,
-                use_connect=False, parent_name=None, use_deform=True)
-
+                                            head_position=BrUp_head, tail_position=BrUp2.head,
+                                            use_connect=False, parent_name=None, use_deform=True)
             BrUp2.parent = eb[BrUp_name]
 
-            BrDown_head = BrUp2.tail
-            BrDown_tail = Vector((BrUp2.head.x, reference_y, BrUp2.tail.z))
+            # 胸下骨骼：头部X、Y与原始骨骼相同，Z为球心位置减半径；尾部X、Y与球心相同，Z为球心位置减半径
+            BrDown_head = Vector((original_bone_x, original_bone_y, br_up2_tail_z))
+            BrDown_tail = BrUp2.tail
             bone_utils.create_or_update_bone(edit_bones=eb, name=BrDown_name,
                 head_position=BrDown_head, tail_position=BrDown_tail,
                 use_connect=False, parent_name=None, use_deform=True)
@@ -301,8 +284,9 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         scene.right_chest_bone = "右胸上 2"
 
         bpy.ops.object.mode_set(mode='OBJECT')
-
-    def _create_rigid_bodies(self, context, armature):
+        return breast_data
+    #乳房刚体构建
+    def _create_rigid_bodies(self, context, armature, breast_data):
         root = FnModel.find_root_object(armature)
         if not root:
             self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
@@ -327,13 +311,9 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             bone = pbone.bone
 
             if params["shape"] == "SPHERE" and bone_name in ("左胸上 2", "右胸上 2"):
-                sphere_fit = calculate_breast_sphere_fit(armature, bone_name, weight_threshold=0)
-                if sphere_fit:
-                    sphere_radius = sphere_fit['radius']
-                    size = Vector((sphere_radius, sphere_radius, sphere_radius))
-                    print(f"[乳房物理] 使用球形拟合: {bone_name}, 半径={sphere_radius:.4f}")
-                else:
-                    size = Vector((params["size_x"], params["size_y"], params["size_z"]))
+                prefix = "左" if "左" in bone_name else "右"
+                sphere_radius = breast_data[prefix]['radius']
+                size = Vector((sphere_radius, sphere_radius, sphere_radius))
             else:
                 size = Vector((params["size_x"], params["size_y"], params["size_z"]))
 
@@ -367,12 +347,14 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         if rb_parent:
             left_rb = rb_objects.get("左胸上 2")
             right_rb = rb_objects.get("右胸上 2")
-            if left_rb and right_rb:
-                rb_parent.location = (left_rb.location + right_rb.location) / 2
-                rb_parent.rotation_euler = Euler((0, -math.pi/2, 0), 'YXZ')
+            if not left_rb or not right_rb:
+                self.report({'ERROR'}, "无法找到左/右胸刚体，胸親刚体位置无法设置")
+                return None
+            rb_parent.location = (left_rb.location + right_rb.location) / 2
+            rb_parent.rotation_euler = Euler((0, -math.pi/2, 0), 'YXZ')
 
         return rb_objects
-
+    #乳房弹簧构建
     def _create_spring_joints(self, context, armature, rb_objects):
         root = FnModel.find_root_object(armature)
         joint_grp_obj = FnModel.ensure_joint_group_object(context, root)
@@ -400,7 +382,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 spring_angular=Vector((sd.get("k_ang_x", 0), sd.get("k_ang_y", 0), sd.get("k_ang_z", 0))),
             )
             joint_obj.rigid_body_constraint.disable_collisions = True
-
+    #乳房弹簧定义
     def _get_spring_definitions(self):
         def s(joint, rb1, rb2, **kw):
             for ax in 'xyz':
@@ -423,7 +405,53 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 # =                        3. 身体专用工具函数                                 =
 # ===========================================================================
 
-def calculate_weighted_center(vertices, weights):
+def calculate_bone_rigid_size(armature, bone_name):
+    """计算骨骼刚体尺寸（主入口）"""
+    mesh_objs = [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == armature]
+    if not mesh_objs:
+        return {'radius': 0.0, 'length': 0.0, 'axis': 'Y', 'count': 0, 'positions': [], 'center': Vector((0, 0, 0)), 'principal_axis': Vector((0, 1, 0)), 'rotation_matrix': None, 'segments': []}
+
+    vertices_world = []
+    weights = []
+    for mesh_obj in mesh_objs:
+        vg = mesh_obj.vertex_groups.get(bone_name)
+        if not vg:
+            continue
+        for vertex in mesh_obj.data.vertices:
+            for group in vertex.groups:
+                if group.group == vg.index and group.weight > 0.001:
+                    vertices_world.append(mesh_obj.matrix_world @ Vector(vertex.co))
+                    weights.append(group.weight)
+                    break
+
+    if not vertices_world or bone_name not in armature.data.bones:
+        return {'radius': 0.0, 'length': 0.0, 'axis': 'Y', 'count': 0, 'positions': [], 'center': Vector((0, 0, 0)), 'principal_axis': Vector((0, 1, 0)), 'rotation_matrix': None, 'segments': []}
+
+    bone = armature.data.bones[bone_name]
+    bone_local_matrix = (armature.matrix_world @ bone.matrix_local).inverted()
+    vertices = [bone_local_matrix @ v for v in vertices_world]
+
+    # 1. 计算加权质心
+    center = _calc_weighted_center(vertices, weights)
+    
+    # 2. 计算主轴方向（PCA）
+    pca_result = _calc_principal_axis(vertices, weights, center)
+    principal_axis, axis = pca_result['principal_axis'], pca_result['axis']
+    
+    # 3. 计算长度和半径
+    size_result = _calc_length_and_radius(vertices, weights, center, principal_axis)
+    
+    # 4. 计算刚体分段
+    segment_result = _calc_rigid_body_segments(vertices, weights, principal_axis)
+
+    count = segment_result['count']
+    segments = segment_result['segments']
+    positions = [0.0] if count == 1 else [(s['center'] - center).dot(principal_axis) for s in segments]
+
+    return {'radius': size_result['radius'], 'length': size_result['length'], 'axis': axis, 'count': count, 'positions': positions, 'center': center, 'principal_axis': principal_axis, 'rotation_matrix': pca_result['rotation_matrix'], 'segments': segments}
+
+
+def _calc_weighted_center(vertices, weights):
     """计算加权质心"""
     total_weight = sum(weights)
     if total_weight < 0.001:
@@ -435,7 +463,7 @@ def calculate_weighted_center(vertices, weights):
     return center
 
 
-def calculate_principal_axis(vertices, weights, center):
+def _calc_principal_axis(vertices, weights, center):
     """通过协方差矩阵计算主轴方向"""
     total_weight = sum(weights)
     if total_weight < 0.001:
@@ -468,7 +496,7 @@ def calculate_principal_axis(vertices, weights, center):
     return {'principal_axis': principal_axis, 'secondary_axis': secondary_axis, 'axis': axis, 'rotation_matrix': None}
 
 
-def calculate_length_and_radius(vertices, weights, center, principal_axis):
+def _calc_length_and_radius(vertices, weights, center, principal_axis):
     """计算长度和半径"""
     centered_vertices = [v - center for v in vertices]
     projections = [cv.dot(principal_axis) for cv in centered_vertices]
@@ -486,7 +514,7 @@ def calculate_length_and_radius(vertices, weights, center, principal_axis):
     return {'length': length, 'radius': radius}
 
 
-def extract_centerline(vertices, weights, principal_axis, slices=20):
+def _extract_centerline(vertices, weights, principal_axis, slices=20):
     """提取中心线"""
     if not vertices or not weights:
         return []
@@ -495,7 +523,7 @@ def extract_centerline(vertices, weights, principal_axis, slices=20):
     min_proj, max_proj = min(projections), max(projections)
 
     if max_proj - min_proj < 0.001:
-        return [calculate_weighted_center(vertices, weights)]
+        return [_calc_weighted_center(vertices, weights)]
 
     step = (max_proj - min_proj) / slices
     centerline = []
@@ -505,12 +533,12 @@ def extract_centerline(vertices, weights, principal_axis, slices=20):
         slice_vertices = [v for v, w, proj in zip(vertices, weights, projections) if slice_start <= proj <= slice_end]
         slice_weights = [w for v, w, proj in zip(vertices, weights, projections) if slice_start <= proj <= slice_end]
         if slice_vertices:
-            centerline.append(calculate_weighted_center(slice_vertices, slice_weights))
+            centerline.append(_calc_weighted_center(slice_vertices, slice_weights))
 
     return centerline
 
 
-def calculate_curvature(centerline):
+def _calc_curvature(centerline):
     """计算中心线曲率"""
     if len(centerline) < 3:
         return []
@@ -524,7 +552,7 @@ def calculate_curvature(centerline):
     return curvature
 
 
-def segment_by_curvature(centerline, curvature, max_length=0.15, curvature_threshold=50.0):
+def _segment_by_curvature(centerline, curvature, max_length=0.15, curvature_threshold=50.0):
     """根据曲率变化和长度阈值分段"""
     if len(centerline) <= 1:
         return [0, len(centerline) - 1] if centerline else []
@@ -557,15 +585,15 @@ def segment_by_curvature(centerline, curvature, max_length=0.15, curvature_thres
     return segments
 
 
-def calculate_rigid_body_segments(vertices, weights, principal_axis, max_length=0.15, curvature_threshold=50.0):
+def _calc_rigid_body_segments(vertices, weights, principal_axis, max_length=0.15, curvature_threshold=50.0):
     """计算刚体分段"""
-    centerline = extract_centerline(vertices, weights, principal_axis)
+    centerline = _extract_centerline(vertices, weights, principal_axis)
 
     if len(centerline) <= 1:
         return {'count': 1, 'segments': [{'start': 0, 'end': 0, 'length': 0.0}]}
 
-    curvature = calculate_curvature(centerline)
-    segment_indices = segment_by_curvature(centerline, curvature, max_length, curvature_threshold)
+    curvature = _calc_curvature(centerline)
+    segment_indices = _segment_by_curvature(centerline, curvature, max_length, curvature_threshold)
 
     segments = []
     for i in range(len(segment_indices) - 1):
@@ -577,45 +605,6 @@ def calculate_rigid_body_segments(vertices, weights, principal_axis, max_length=
         })
 
     return {'count': len(segments), 'segments': segments, 'total_length': sum(s['length'] for s in segments), 'centerline': centerline}
-
-
-def calculate_bone_rigid_size(armature, bone_name):
-    """计算骨骼刚体尺寸"""
-    mesh_objs = [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == armature]
-    if not mesh_objs:
-        return {'radius': 0.0, 'length': 0.0, 'axis': 'Y', 'count': 0, 'positions': [], 'center': Vector((0, 0, 0)), 'principal_axis': Vector((0, 1, 0)), 'rotation_matrix': None, 'segments': []}
-
-    vertices_world = []
-    weights = []
-    for mesh_obj in mesh_objs:
-        vg = mesh_obj.vertex_groups.get(bone_name)
-        if not vg:
-            continue
-        for vertex in mesh_obj.data.vertices:
-            for group in vertex.groups:
-                if group.group == vg.index and group.weight > 0.001:
-                    vertices_world.append(mesh_obj.matrix_world @ Vector(vertex.co))
-                    weights.append(group.weight)
-                    break
-
-    if not vertices_world or bone_name not in armature.data.bones:
-        return {'radius': 0.0, 'length': 0.0, 'axis': 'Y', 'count': 0, 'positions': [], 'center': Vector((0, 0, 0)), 'principal_axis': Vector((0, 1, 0)), 'rotation_matrix': None, 'segments': []}
-
-    bone = armature.data.bones[bone_name]
-    bone_local_matrix = (armature.matrix_world @ bone.matrix_local).inverted()
-    vertices = [bone_local_matrix @ v for v in vertices_world]
-
-    center = calculate_weighted_center(vertices, weights)
-    pca_result = calculate_principal_axis(vertices, weights, center)
-    principal_axis, axis = pca_result['principal_axis'], pca_result['axis']
-    size_result = calculate_length_and_radius(vertices, weights, center, principal_axis)
-    segment_result = calculate_rigid_body_segments(vertices, weights, principal_axis, max_length=0.15, curvature_threshold=50.0)
-
-    count = segment_result['count']
-    segments = segment_result['segments']
-    positions = [0.0] if count == 1 else [(s['center'] - center).dot(principal_axis) for s in segments]
-
-    return {'radius': size_result['radius'], 'length': size_result['length'], 'axis': axis, 'count': count, 'positions': positions, 'center': center, 'principal_axis': principal_axis, 'rotation_matrix': pca_result['rotation_matrix'], 'segments': segments}
 
 
 # ===========================================================================
