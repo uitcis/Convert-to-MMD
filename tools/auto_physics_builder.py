@@ -152,6 +152,8 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 
             bpy.ops.object.use_mmd_tools_convert()
 
+            context.scene.frame_set(context.scene.frame_start)
+
             left_bone = context.scene.left_chest_bone if hasattr(context.scene, "left_chest_bone") else ""
             right_bone = context.scene.right_chest_bone if hasattr(context.scene, "right_chest_bone") else ""
 
