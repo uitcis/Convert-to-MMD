@@ -1,5 +1,8 @@
 # Convert to MMD Addon for Blender
-
+更新渠道Gitee：[Convert to MMD](https://gitee.com/UITCIS/Convert-to-MMD)
+B站小店：[空想幻灵](https://space.bilibili.com/43768997)
+Gitee更新快可能有新功能但是可能有新BUG，建议及时更新版本。
+B站小店更新慢，是打包好的压缩包，稳定一些。
 ## 描述
 该插件用于将Blender中的其他骨骼结构转换为符合MMD（MikuMikuDance）格式的骨骼名称和结构。插件提供了多种功能，包括骨骼重命名、缺失骨骼补全、预设导出与导入以及IK链的添加。
 
