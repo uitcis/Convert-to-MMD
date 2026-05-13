@@ -133,19 +133,18 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 # 重置旋转，确保从默认状态开始
                 bone.rotation_euler = (0, 0, 0)
                 
-                # 绕全局空间Y轴旋转
+                # 选择骨骼
+                bpy.ops.pose.select_all(action='DESELECT')
+                bone.select = True
+                obj.data.bones.active = bone.bone
+                
+                # 绕全局空间 Y 轴旋转
                 if bone_type == "left_upper_arm":
-                    # 左上肢：绕全局Y轴旋转angle_diff角度
-                    # 计算全局旋转矩阵
-                    global_rotation = Matrix.Rotation(math.radians(angle_diff), 4, 'Y')
-                    # 应用全局旋转
-                    bone.matrix = global_rotation @ bone.matrix
+                    # 左上肢：绕全局 Y 轴旋转 angle_diff 角度
+                    bpy.ops.transform.rotate(value=math.radians(-angle_diff), orient_axis='Y', orient_type='GLOBAL')
                 elif bone_type == "right_upper_arm":
-                    # 右上肢：绕全局Y轴旋转-angle_diff角度
-                    # 计算全局旋转矩阵
-                    global_rotation = Matrix.Rotation(math.radians(-angle_diff), 4, 'Y')
-                    # 应用全局旋转
-                    bone.matrix = global_rotation @ bone.matrix
+                    # 右上肢：绕全局 Y 轴旋转 -angle_diff 角度
+                    bpy.ops.transform.rotate(value=math.radians(angle_diff), orient_axis='Y', orient_type='GLOBAL')
                 
                 converted_bones.append(bone_name)
 
