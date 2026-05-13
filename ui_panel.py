@@ -312,6 +312,9 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
             row = general_tools_box.row()
             row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
+            row = general_tools_box.row()
+            row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
+            row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
 
             chest_physics_box = layout.box()
             chest_physics_box.label(text="胸部物理（GENERIC_SPRING）", icon='PHYSICS')
