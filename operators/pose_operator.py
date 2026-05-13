@@ -34,10 +34,14 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         def backup_shape_keys(mesh_obj):
             backup = {}
             if mesh_obj.data.shape_keys and mesh_obj.data.shape_keys.key_blocks:
+                basis = mesh_obj.data.shape_keys.key_blocks[0]
                 for key_block in mesh_obj.data.shape_keys.key_blocks[1:]:
-                    coords = [v.co.copy() for v in key_block.data]
+                    affected = {}
+                    for i, v in enumerate(key_block.data):
+                        if v.co != basis.data[i].co:
+                            affected[i] = v.co - basis.data[i].co
                     backup[key_block.name] = {
-                        'coords': coords,
+                        'affected': affected,
                         'relative_key': key_block.relative_key.name if key_block.relative_key else None,
                         'slider_min': key_block.slider_min,
                         'slider_max': key_block.slider_max,
@@ -49,17 +53,17 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 for key_block in reversed(keys_to_remove):
                     mesh_obj.shape_key_remove(key_block)
             return backup
-        
-        #作用：根据备份数据恢复形态键
+
         def restore_shape_keys(mesh_obj, backup):
             if not backup:
                 return
             context.view_layer.objects.active = mesh_obj
             bpy.ops.object.shape_key_add(from_mix=False)
+            new_basis = mesh_obj.data.shape_keys.key_blocks[0]
             for key_name, key_data in backup.items():
                 new_key = mesh_obj.shape_key_add(name=key_name)
-                for i, co in enumerate(key_data['coords']):
-                    new_key.data[i].co = co
+                for i, delta in key_data['affected'].items():
+                    new_key.data[i].co = new_basis.data[i].co + delta
                 new_key.slider_min = key_data['slider_min']
                 new_key.slider_max = key_data['slider_max']
                 new_key.mute = key_data['mute']
