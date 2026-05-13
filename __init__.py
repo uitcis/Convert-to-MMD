@@ -29,6 +29,7 @@ from .tools import export_constraints_operator
 from .tools import merge_bones_operator
 from .tools import clear_unweighted_bones_operator
 from .tools import auto_physics_builder
+from .tools import clear_constraints_and_drivers_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -63,6 +64,8 @@ def register():
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
+    bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
+    bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
@@ -116,6 +119,8 @@ def unregister():
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
+    bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
+    bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)
