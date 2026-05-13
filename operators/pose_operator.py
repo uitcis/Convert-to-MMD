@@ -26,11 +26,11 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             "right_lower_arm": getattr(scene, "right_lower_arm_bone", ""),          
         }
 
-        #1. 检查是否有设置骨骼
+        # 检查是否有设置骨骼
         if not any(arm_bones.values()):
             self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
             return {'CANCELLED'}
-        # 2. 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
+        # 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
         bpy.ops.object.mode_set(mode='EDIT')
         edit_bones = obj.data.edit_bones
         
@@ -46,7 +46,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
 
 
-        # 4. 找到所有使用这个骨骼的网格对象，并检查形态键
+        # 找到所有使用这个骨骼的网格对象，并检查形态键
         meshes_with_armature = []
         for mesh_obj in bpy.data.objects:
             if mesh_obj.type == 'MESH':
@@ -59,25 +59,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         # 检查是否找到可用的网格
         if not meshes_with_armature:
-            # 创建临时测试网格
-            try:
-                bpy.ops.mesh.primitive_cube_add(size=0.5)
-                temp_mesh = context.active_object
-                temp_mesh.name = "CTMMD_TEMP_MESH"
-                
-                # 添加骨架修改器
-                modifier = temp_mesh.modifiers.new(name="Armature", type='ARMATURE')
-                modifier.object = obj
-                
-                # 添加到可用网格列表
-                meshes_with_armature.append(temp_mesh)
-                
-                # 标记为临时网格
-                temp_mesh["is_temp_mesh"] = True
-                
-            except Exception as e:
-                self.report({'ERROR'}, f"创建临时网格失败：{str(e)}")
-                return {'CANCELLED'}
+            self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
 
         # 5. 为每个网格复制骨骼修改器，但保留原始修改器
         for mesh_obj in meshes_with_armature:
