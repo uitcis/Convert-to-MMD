@@ -30,6 +30,56 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         if not any(arm_bones.values()):
             self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
             return {'CANCELLED'}
+        #作用：备份所有网格的形态键，包括基础键
+        def backup_shape_keys(mesh_obj):
+            backup = {}
+            if mesh_obj.data.shape_keys and mesh_obj.data.shape_keys.key_blocks:
+                for key_block in mesh_obj.data.shape_keys.key_blocks[1:]:
+                    coords = [v.co.copy() for v in key_block.data]
+                    backup[key_block.name] = {
+                        'coords': coords,
+                        'relative_key': key_block.relative_key.name if key_block.relative_key else None,
+                        'slider_min': key_block.slider_min,
+                        'slider_max': key_block.slider_max,
+                        'mute': key_block.mute,
+                        'value': key_block.value
+                    }
+            if mesh_obj.data.shape_keys:
+                keys_to_remove = list(mesh_obj.data.shape_keys.key_blocks)
+                for key_block in reversed(keys_to_remove):
+                    mesh_obj.shape_key_remove(key_block)
+            return backup
+        
+        #作用：根据备份数据恢复形态键
+        def restore_shape_keys(mesh_obj, backup):
+            if not backup:
+                return
+            context.view_layer.objects.active = mesh_obj
+            bpy.ops.object.shape_key_add(from_mix=False)
+            for key_name, key_data in backup.items():
+                new_key = mesh_obj.shape_key_add(name=key_name)
+                for i, co in enumerate(key_data['coords']):
+                    new_key.data[i].co = co
+                new_key.slider_min = key_data['slider_min']
+                new_key.slider_max = key_data['slider_max']
+                new_key.mute = key_data['mute']
+                new_key.value = key_data['value']
+                if key_data['relative_key'] and key_data['relative_key'] in mesh_obj.data.shape_keys.key_blocks:
+                    new_key.relative_key = mesh_obj.data.shape_keys.key_blocks[key_data['relative_key']]
+
+        meshes_with_armature = []
+        shape_key_backups = {}
+        for mesh_obj in bpy.data.objects:
+            if mesh_obj.type == 'MESH':
+                for modifier in mesh_obj.modifiers:
+                    if modifier.type == 'ARMATURE' and modifier.object == obj:
+                        shape_key_backups[mesh_obj.name] = backup_shape_keys(mesh_obj)
+                        meshes_with_armature.append(mesh_obj)
+                        break
+
+        if not meshes_with_armature:
+            self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
+
         # 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
         bpy.ops.object.mode_set(mode='EDIT')
         edit_bones = obj.data.edit_bones
@@ -43,23 +93,6 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         # 调整尾部位置
         left_upper_arm.tail = left_lower_arm.head
         right_upper_arm.tail = right_lower_arm.head
-
-
-
-        # 找到所有使用这个骨骼的网格对象，并检查形态键
-        meshes_with_armature = []
-        for mesh_obj in bpy.data.objects:
-            if mesh_obj.type == 'MESH':
-                for modifier in mesh_obj.modifiers:
-                    if modifier.type == 'ARMATURE' and modifier.object == obj:
-                        # 检查是否有形态键
-                        if not mesh_obj.data.shape_keys:
-                            meshes_with_armature.append(mesh_obj)
-                        break
-
-        # 检查是否找到可用的网格
-        if not meshes_with_armature:
-            self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
 
         # 5. 为每个网格复制骨骼修改器，但保留原始修改器
         for mesh_obj in meshes_with_armature:
@@ -141,10 +174,13 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         try:
             for mesh_obj in meshes_with_armature:
                 context.view_layer.objects.active = mesh_obj
+                bpy.ops.object.mode_set(mode='OBJECT')
                 for modifier in mesh_obj.modifiers:
                     if modifier.type == 'ARMATURE' and modifier.object == obj and "_copy" in modifier.name:
                         bpy.ops.object.modifier_apply(modifier=modifier.name)
                         break
+                if mesh_obj.name in shape_key_backups:
+                    restore_shape_keys(mesh_obj, shape_key_backups[mesh_obj.name])
         except RuntimeError as e:
             self.report({'ERROR'}, f"应用修改器时出错：{str(e)}")
             return {'CANCELLED'}
