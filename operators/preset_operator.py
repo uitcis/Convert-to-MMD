@@ -17,6 +17,7 @@ _finger_bone_props = [
 
 # 定义对称骨骼名称替换规则（按顺序匹配，先匹配先替换）
 # 格式：(原始字符串, 替换字符串)
+# 对称字典
 _symmetric_bone_rules = [
 
     ('Left', 'Right'),
@@ -31,6 +32,7 @@ _symmetric_bone_rules = [
     ('_R', '_L'),
     ('左', '右'),
     ('右', '左'),
+    (' L', ' R')
     # 可以在这里添加更多规则，例如：
     # ('left_', 'right_'),
     # ('right_', 'left_'),

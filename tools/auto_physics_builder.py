@@ -354,6 +354,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 return None
             rb_parent.location = (left_rb.location + right_rb.location) / 2
             rb_parent.rotation_euler = Euler((0, -math.pi/2, 0), 'YXZ')
+            
+            left_radius = breast_data["左"]['radius']
+            right_radius = breast_data["右"]['radius']
+            avg_radius = (left_radius + right_radius) / 2
+            x_distance = abs(left_rb.location.x - right_rb.location.x)
+            rb_parent.mmd_rigid.size = Vector((avg_radius, x_distance, 0.0))
 
         return rb_objects
     #乳房弹簧构建
