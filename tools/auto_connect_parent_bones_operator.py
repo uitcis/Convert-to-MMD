@@ -49,7 +49,7 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
 
 
 class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
-    """解锁所有骨骼的旋转、位置和缩放锁定"""
+    """解锁所有骨骼的旋转、位置锁定"""
     bl_idname = "object.unlock_all_bones"
     bl_label = "解锁所有骨骼"
     bl_options = {'REGISTER', 'UNDO'}
@@ -73,7 +73,7 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        self.report({'INFO'}, f"已解锁 {len(obj.pose.bones)} 个骨骼的所有锁定")
+        self.report({'INFO'}, f"已解锁 {len(obj.pose.bones)} 个骨骼的旋转、位置锁定")
         return {'FINISHED'}
 
 

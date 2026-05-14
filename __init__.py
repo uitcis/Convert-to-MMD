@@ -64,7 +64,8 @@ def register():
     bpy.utils.register_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
-    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
+    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_simple_body_rigid)
+    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_advanced_body_rigid)
     bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
     bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
@@ -93,6 +94,20 @@ def register():
         name="同时合并骨骼",
         description="勾选后，合并权重时同时将所选骨骼合并到活动项骨骼",
         default=False
+    )
+    bpy.types.Scene.body_rigid_min_segment_length = bpy.props.FloatProperty(
+        name="最小段长度",
+        description="刚体段的最小长度（米）",
+        default=0.1,
+        min=0.01,
+        max=0.5
+    )
+    bpy.types.Scene.body_rigid_max_segment_length = bpy.props.FloatProperty(
+        name="最大段长度",
+        description="刚体段的最大长度（米）",
+        default=0.2,
+        min=0.01,
+        max=1.0
     )    
 def unregister():
     # 移除中文编码补丁
@@ -121,7 +136,8 @@ def unregister():
     bpy.utils.unregister_class(add_shoulder_p_bones_operator.OBJECT_OT_add_shoulder_p_bones)
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
-    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_body_rigid_bodies)
+    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_simple_body_rigid)
+    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_advanced_body_rigid)
     bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
     bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
@@ -135,6 +151,10 @@ def unregister():
         delattr(bpy.types.Scene, "preset_enum")
     if hasattr(bpy.types.Scene, "merge_bones_also"):
         delattr(bpy.types.Scene, "merge_bones_also")
+    if hasattr(bpy.types.Scene, "body_rigid_min_segment_length"):
+        delattr(bpy.types.Scene, "body_rigid_min_segment_length")
+    if hasattr(bpy.types.Scene, "body_rigid_max_segment_length"):
+        delattr(bpy.types.Scene, "body_rigid_max_segment_length")
 
 # 新增 EnumProperty 定义
 def get_preset_enum(self, context):

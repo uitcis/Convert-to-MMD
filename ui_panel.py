@@ -298,42 +298,41 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             # 下部分：通用工具
             general_tools_box = layout.box()
             general_tools_box.label(text="通用工具", icon='TOOL_SETTINGS')
-            
-            row = general_tools_box.row()
-            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            row = general_tools_box.row(align=True)
-            row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
-            row.prop(scene, "merge_bones_also", text="合并骨骼")
+
             row = general_tools_box.row()
             row.operator("object.clear_all_bone_constraints", text="清除所有骨骼约束", icon='CONSTRAINT')
-            row = general_tools_box.row()
             row.operator("object.clear_all_bone_drivers", text="清除所有骨骼驱动器", icon='DRIVER')
             row = general_tools_box.row()
-            row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
-            row = general_tools_box.row()
-            row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
+            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
             row = general_tools_box.row()
             row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
             row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
+            row = general_tools_box.row(align=True)
+            row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
+            row.prop(scene, "merge_bones_also", text="合并骨骼")
+
+
+            row = general_tools_box.row()
+            row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
+            row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
+
 
             chest_physics_box = layout.box()
-            chest_physics_box.label(text="胸部物理（GENERIC_SPRING）", icon='PHYSICS')
+            chest_physics_box.label(text="胸物理", icon='PHYSICS')
 
             col = chest_physics_box.column(align=True)
             
             # 胸親父级骨骼选择
-            row = col.row(align=True)
-            row.label(text="胸親父级骨骼")
-            row.prop_search(scene, "breast_parent_bone", obj.data, "bones", text="")
+            add_bone_row_with_button(col, "胸親父级", "breast_parent_bone")
             
             # 胸上 2 骨骼选择（左右对称）
-            add_symmetric_bones_with_buttons(col, "胸上 2（胸部权重骨）", "left_chest_bone", "right_chest_bone")
+            add_symmetric_bones_with_buttons(col, "权重骨（胸上 2）", "left_chest_bone", "right_chest_bone")
 
             chest_physics_box.separator(factor=0.5)
 
             hint = chest_physics_box.column(align=True)
             hint.scale_y = 0.75
-            hint.label(text="选中已有权重骨骼，自动构建完整物理：", icon='INFO')
+            hint.label(text="选中已有权重骨骼，自动构建胸物理：", icon='INFO')
             hint.label(text="→ 重命名为 左胸上2 / 右胸上2")
             hint.label(text="→ 创建 左/右胸上 / 左/右胸親 / 左/右胸下 父级骨骼链")
             hint.label(text="→ 创建 8 个刚体 + 9 个弹簧约束")
@@ -345,18 +344,28 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
             # 身体刚体构建
             body_rigid_box = layout.box()
-            body_rigid_box.label(text="身体刚体（BODY_RIGID）", icon='PHYSICS')
+            body_rigid_box.label(text="身体刚体", icon='PHYSICS')
 
             body_rigid_box.separator(factor=0.3)
 
             hint = body_rigid_box.column(align=True)
             hint.scale_y = 0.75
-            hint.label(text="基于 MMD 标准创建 54 个 BONE 模式刚体：", icon='INFO')
-            hint.label(text="→ 头部、颈部、躯干、腿部、手臂、肩甲")
-            hint.label(text="→ 所有刚体均为 BONE 模式，跟随骨骼运动")
+            hint.label(text="尝试通过计算网格自动设置身体刚体", icon='INFO')
 
             body_rigid_box.separator(factor=0.3)
+
             row = body_rigid_box.row()
             row.scale_y = 1.2
-            row.operator("object.build_body_rigid_bodies", text="构建身体刚体", icon='PLAY')
+            row.operator("object.build_simple_body_rigid", text="构建简易身体刚体", icon='ADD')
+
+            body_rigid_box.separator(factor=0.2)
+
+            col = body_rigid_box.column(align=True)
+            col.scale_y = 1.2
+            col.operator("object.build_advanced_body_rigid", text="构建高级身体刚体（实验性）", icon='SETTINGS')
+
+            body_rigid_box.separator(factor=0.2)
+            col = body_rigid_box.column(align=True)
+            col.prop(scene, "body_rigid_min_segment_length", text="最小段长度")
+            col.prop(scene, "body_rigid_max_segment_length", text="最大段长度")
 
