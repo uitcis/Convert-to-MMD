@@ -617,11 +617,10 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         cov_matrix[2][0] = cov_matrix[0][2]
         cov_matrix[2][1] = cov_matrix[1][2]
         
-        # 2-5. 求解特征值和特征向量（最小特征值对应圆柱轴线方向）
+        # 2-5. 求解特征值和特征向量（最大特征值对应圆柱轴线方向）
         axis_dir = None
-        solve_success = False
         
-        # 检查协方差矩阵是否有效（不包含NaN或Inf）
+        # 检查协方差矩阵是否有效且顶点数量足够
         cov_valid = True
         for i in range(3):
             for j in range(3):
@@ -631,24 +630,10 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             if not cov_valid:
                 break
         
-        # 检查顶点数量是否足够
-        if n < 3:
-            pass
-        elif not cov_valid:
-            pass
-        else:
+        if n >= 3 and cov_valid:
             try:
                 # 使用自定义的对称矩阵特征值求解算法
                 eigenvalues, eigenvectors = _solve_eigen_3x3_sym(cov_matrix)
-                
-                # 验证结果
-                if len(eigenvalues) != 3 or len(eigenvectors) != 3:
-                    raise ValueError(f"特征值/特征向量数量不正确")
-                
-                # 检查是否有NaN或Inf值
-                for i, ev in enumerate(eigenvalues):
-                    if not math.isfinite(ev):
-                        raise ValueError(f"特征值[{i}]包含NaN或Inf: {ev}")
                 
                 # 找到最大特征值对应的特征向量（圆柱轴线方向）
                 max_eigen_idx = 0
@@ -670,20 +655,14 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
                 if axis_dir.dot(bone_dir) < 0:
                     axis_dir = -axis_dir
                 
-                # 如果特征向量与骨骼方向几乎垂直（点积接近0），说明顶点分布不是圆柱形
-                # 此时回退到使用骨骼方向作为轴线方向
-                dot_product = abs(axis_dir.dot(bone_dir))
-                if dot_product < 0.5:
+                # 如果特征向量与骨骼方向几乎垂直，回退到骨骼方向
+                if abs(axis_dir.dot(bone_dir)) < 0.5:
                     axis_dir = bone_dir.copy()
                 
                 # 检查特征向量是否有效
-                if axis_dir.length < 0.0001:
-                    raise ValueError(f"特征向量长度接近零: {axis_dir.length}")
-                
-                axis_dir.normalize()
-                solve_success = True
-                
-            except Exception as e:
+                if axis_dir.length >= 0.0001:
+                    axis_dir.normalize()
+            except Exception:
                 pass
         
         # 如果特征值求解失败，回退到使用骨骼方向
@@ -691,7 +670,6 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             bone_head_world = armature.matrix_world @ bone.head_local
             bone_tail_world = armature.matrix_world @ bone.tail_local
             axis_dir = (bone_tail_world - bone_head_world).normalized()
-            pass
         
         # 2-6. 将所有点投影到垂直于轴线的平面上
         # 创建正交基：u, v 是垂直于轴线的两个正交向量
@@ -739,15 +717,11 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             b_fit = x[1]
             c_fit = x[2]
             
-            # 计算拟合圆的半径
-            r_fit = (a_fit**2 + b_fit**2 + c_fit)**0.5
-            
             # 计算拟合圆心在3D空间中的位置
             C_fit = centroid + a_fit * u + b_fit * v
         except Exception:
             # 如果拟合失败，使用质心作为圆心
             C_fit = centroid
-            r_fit = 0.1
         
         # 2-8. 使用所有点到轴线的最大垂直距离作为半径（确保包住所有顶点）
         max_radius = 0.0
