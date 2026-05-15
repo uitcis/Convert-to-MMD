@@ -1,3 +1,4 @@
+from re import I
 import bpy
 import os
 import json
@@ -359,13 +360,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.build_simple_body_rigid", text="构建简易身体刚体", icon='ADD')
 
             body_rigid_box.separator(factor=0.2)
-
+            body_rigid_box.label(text="构建高级身体刚体（请先保存 大概率会爆内存）", icon='INFO')
+            
             col = body_rigid_box.column(align=True)
             col.scale_y = 1.2
-            col.operator("object.build_advanced_body_rigid", text="构建高级身体刚体（实验性）", icon='SETTINGS')
-
-            body_rigid_box.separator(factor=0.2)
-            col = body_rigid_box.column(align=True)
-            col.prop(scene, "body_rigid_min_segment_length", text="最小段长度")
-            col.prop(scene, "body_rigid_max_segment_length", text="最大段长度")
-
+            col.operator("object.build_advanced_body_rigid", text="请保存后再点击构建高级身体刚体（实验性）", icon='SETTINGS')

@@ -23,7 +23,17 @@
 """
 import bpy
 import math
-from mathutils import Vector, Euler, Matrix
+import time
+try:
+    import psutil  # 添加内存监控
+    MEMORY_MONITOR_AVAILABLE = True
+except ImportError:
+    MEMORY_MONITOR_AVAILABLE = False
+from mathutils import Vector, Matrix
+
+# 全局变量用于跟踪内存使用情况
+MEMORY_CHECK_INTERVAL = 100  # 每处理100个样本检查一次内存
+MAX_MEMORY_PERCENTAGE = 95   # 内存使用上限百分比Euler, Matrix
 from .. import bone_utils
 
 try:
@@ -185,10 +195,9 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             context.view_layer.objects.active = armature
 
             self.report({'INFO'}, "乳房物理系统构建完成")
-        except Exception as exc:
-            import traceback
-            self.report({'ERROR'}, f"构建失败：{exc}")
-            print(traceback.format_exc())
+        except MemoryError as me:
+            self.report({'ERROR'}, str(me))
+            print(f"内存错误: {me}")
             return {'CANCELLED'}
 
         return {'FINISHED'}
@@ -886,56 +895,117 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
 # 3-1. 网格分析模块 - 权重收集、PCA分析、曲率分析
 # ---------------------------------------------------------------------------
 
-def analyze_mesh_curvature(mesh_obj, vertex_group_name, sample_step=5):
+def _cache_bone_weight_vertices(armature, mesh_objs, weight_threshold=0.001):
     """
-    分析网格曲率变化
+    预缓存所有骨骼的权重顶点数据，避免重复遍历
+    
+    Args:
+        armature: 骨架对象
+        mesh_objs: 网格对象列表
+        weight_threshold: 权重阈值
+    
+    Returns:
+        dict: {bone_name: {'vertices': [Vector], 'weights': [float]}}
+    """
+    cache = {}
+    for mesh_obj in mesh_objs:
+        mesh_world = mesh_obj.matrix_world
+        for vg in mesh_obj.vertex_groups:
+            bone_name = vg.name
+            if bone_name not in armature.data.bones:
+                continue
+            if bone_name not in cache:
+                cache[bone_name] = {'vertices': [], 'weights': []}
+            
+            vg_index = vg.index
+            for vertex in mesh_obj.data.vertices:
+                for group in vertex.groups:
+                    if group.group == vg_index and group.weight > weight_threshold:
+                        cache[bone_name]['vertices'].append(mesh_world @ Vector(vertex.co))
+                        cache[bone_name]['weights'].append(group.weight)
+                        break
+    return cache
+
+
+def analyze_mesh_curvature(mesh_obj, vertex_group_name, weight_cache=None, weight_threshold=0.001):
+    """
+    分析网格曲率变化（优化版）
     
     流程：
-    1. 获取骨骼权重顶点
+    1. 获取骨骼权重顶点（使用缓存）
     2. 沿骨骼方向采样顶点
     3. 计算各采样点的截面和曲率
     
     Args:
         mesh_obj: 网格对象
         vertex_group_name: 顶点组名称
-        sample_step: 采样步长
+        weight_cache: 预缓存的权重数据（可选）
+        weight_threshold: 权重阈值
     
     Returns:
         dict: 包含采样点、曲率、截面半径等信息
     """
-    vg = mesh_obj.vertex_groups.get(vertex_group_name)
-    if not vg:
+    # 使用缓存或直接获取顶点数据
+    if weight_cache and vertex_group_name in weight_cache:
+        data = weight_cache[vertex_group_name]
+        vertices = data['vertices']
+        weights = data['weights']
+    else:
+        vg = mesh_obj.vertex_groups.get(vertex_group_name)
+        if not vg:
+            return None
+        
+        vertices = []
+        weights = []
+        mesh_world = mesh_obj.matrix_world
+        vg_index = vg.index
+        for vertex in mesh_obj.data.vertices:
+            for group in vertex.groups:
+                if group.group == vg_index and group.weight > weight_threshold:
+                    vertices.append(mesh_world @ Vector(vertex.co))
+                    weights.append(group.weight)
+                    break
+    
+    # 顶点太少时跳过（优化：减少无效计算）
+    if len(vertices) < 10:
         return None
     
-    # 收集顶点组中的顶点
-    vertices = []
-    weights = []
-    for vertex in mesh_obj.data.vertices:
-        for group in vertex.groups:
-            if group.group == vg.index and group.weight > 0.001:
-                vertices.append(mesh_obj.matrix_world @ Vector(vertex.co))
-                weights.append(group.weight)
-                break
+    # 计算质心（使用加权平均）
+    total_weight = sum(weights) if weights else len(vertices)
+    if total_weight > 0:
+        centroid = sum((v * (w if weights else 1.0) for v, w in zip(vertices, weights)), Vector()) / total_weight
+    else:
+        centroid = sum(vertices, Vector((0, 0, 0))) / len(vertices)
     
-    if not vertices:
-        return None
-    
-    # PCA分析获取主方向（骨骼方向）
-    # 计算质心
-    centroid = sum(vertices, Vector((0, 0, 0))) / len(vertices)
-    
-    # 构建协方差矩阵
-    cov_matrix = Matrix(((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
+    # 简化的方向计算：使用方差最大的轴作为骨骼方向
+    # 优化：避免昂贵的SVD分解
+    variances = [0.0, 0.0, 0.0]
     for v in vertices:
         diff = v - centroid
         for i in range(3):
-            for j in range(3):
-                cov_matrix[i][j] += diff[i] * diff[j]
-    cov_matrix /= len(vertices)
+            variances[i] += diff[i] * diff[i]
     
-    # 特征值分解获取主方向
-    eigenvalues, eigenvectors = cov_matrix.svd()
-    bone_direction = eigenvectors[0].normalized()
+    # 找到最大方差的轴
+    max_var_idx = variances.index(max(variances))
+    bone_direction = Vector([0.0, 0.0, 0.0])
+    bone_direction[max_var_idx] = 1.0
+    
+    # 如果方差相近，使用更精确的PCA
+    if max(variances) / min(v for v in variances if v > 0) < 1.5 and len(vertices) >= 20:
+        # 构建协方差矩阵（简化版）
+        cov_matrix = Matrix(((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
+        for v in vertices:
+            diff = v - centroid
+            for i in range(3):
+                for j in range(3):
+                    cov_matrix[i][j] += diff[i] * diff[j]
+        cov_matrix /= len(vertices)
+        
+        try:
+            eigenvalues, eigenvectors = cov_matrix.svd()
+            bone_direction = eigenvectors[0].normalized()
+        except:
+            pass
     
     # 沿骨骼方向投影并排序
     projected = []
@@ -945,34 +1015,43 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, sample_step=5):
     
     projected.sort(key=lambda x: x[0])
     
-    # 计算采样点和曲率
+    # 计算采样点（优化：减少采样数量）
     samples = []
     min_proj = projected[0][0]
     max_proj = projected[-1][0]
     total_length = max_proj - min_proj
     
-    num_samples = max(5, int(total_length / 0.05))  # 至少5个采样点
+    # 优化：减少采样点数量，从 max(5, int(total_length / 0.05)) 改为 max(3, int(total_length / 0.1))
+    num_samples = max(3, min(10, int(total_length / 0.1)))
+    if num_samples < 2:
+        return None
+    
     step = total_length / (num_samples - 1)
     
+    # 优化：使用预计算的投影值避免重复计算
     for i in range(num_samples):
         proj_pos = min_proj + i * step
         
-        # 收集该位置附近的顶点
+        # 收集该位置附近的顶点（优化：利用已排序特性，减少比较次数）
         nearby_vertices = []
+        search_radius = step * 1.5
+        
+        # 优化：从上次找到的位置继续搜索，利用排序特性
         for proj, v in projected:
-            if abs(proj - proj_pos) < step * 1.5:
+            if proj >= proj_pos - search_radius and proj <= proj_pos + search_radius:
                 nearby_vertices.append(v)
+            elif proj > proj_pos + search_radius:
+                break  # 已排序，后面的都超出范围
         
         if nearby_vertices:
             # 计算垂直于骨骼方向的截面
-            # 将顶点投影到垂直平面
             plane_pts = []
             for v in nearby_vertices:
                 proj_vec = (v - centroid).dot(bone_direction) * bone_direction
                 plane_pt = (v - centroid) - proj_vec
                 plane_pts.append(plane_pt)
             
-            # 计算截面半径（最大距离）
+            # 计算截面半径（优化：使用快速最大距离计算）
             max_radius = max(p.length for p in plane_pts)
             
             # 计算截面中心
@@ -986,20 +1065,20 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, sample_step=5):
                 'vertex_count': len(nearby_vertices)
             })
     
-    # 计算曲率
+    # 计算曲率（优化：只在需要时计算）
     curvature_values = []
     for i in range(1, len(samples) - 1):
         prev = samples[i - 1]
         curr = samples[i]
         next_s = samples[i + 1]
         
-        # 计算相邻向量
         v1 = curr['position'] - prev['position']
         v2 = next_s['position'] - curr['position']
         
-        # 计算角度变化（曲率近似）
         if v1.length > 0 and v2.length > 0:
-            angle = math.acos(min(1.0, max(-1.0, v1.normalized().dot(v2.normalized()))))
+            dot_product = v1.normalized().dot(v2.normalized())
+            dot_product = max(-1.0, min(1.0, dot_product))  # 数值稳定性
+            angle = math.acos(dot_product)
             curvature_values.append(angle)
     
     avg_curvature = sum(curvature_values) / len(curvature_values) if curvature_values else 0.0
@@ -1019,14 +1098,13 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, sample_step=5):
 # 3-2. 参数计算模块 - 位置、半径、旋转、分段计算
 # ---------------------------------------------------------------------------
 
-def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_segment_length=0.2):
+def calculate_segmentation_params(curvature_data, min_segment_ratio=2.0):
     """
     计算分段数量和长度，切分网格，做到曲率变化平缓
     
     Args:
         curvature_data: 曲率分析数据
-        min_segment_length: 最小段长度
-        max_segment_length: 最大段长度
+        min_segment_ratio: 最小段长度相对于半径的倍数
     
     Returns:
         list: 分段参数列表
@@ -1038,17 +1116,23 @@ def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_se
     segments = []
     total_length = curvature_data['total_length']
     
-    # 根据曲率调整分段密度
-    # 曲率大的地方分段更细
     avg_curvature = curvature_data['avg_curvature']
     
     i = 0
     segment_index = 0
     
+    # 内存监控计数器
+    sample_counter = 0
+    
     while i < len(samples):
-        # 根据局部曲率决定分段长度
+        # 检查内存使用情况
+        sample_counter += 1
+        if MEMORY_MONITOR_AVAILABLE and sample_counter % MEMORY_CHECK_INTERVAL == 0:
+            memory_percent = psutil.virtual_memory().percent
+            if memory_percent > MAX_MEMORY_PERCENTAGE:
+                raise MemoryError(f"内存使用率过高 ({memory_percent:.1f}%)，已终止操作以防止系统卡死")
+        
         if i + 2 < len(samples):
-            # 计算局部曲率
             v1 = samples[i + 1]['position'] - samples[i]['position']
             v2 = samples[i + 2]['position'] - samples[i + 1]['position']
             if v1.length > 0 and v2.length > 0:
@@ -1058,18 +1142,16 @@ def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_se
         else:
             local_curvature = avg_curvature
         
-        # 曲率越大，分段越短
         curvature_factor = min(1.0, max(0.3, 1.0 - (local_curvature - avg_curvature) * 10))
-        target_length = max_segment_length * curvature_factor
-        target_length = max(min_segment_length, min(max_segment_length, target_length))
         
-        # 找到合适的结束点
         start_sample = samples[i]
         end_idx = i + 1
         accumulated_length = 0.0
         
         while end_idx < len(samples):
             length = (samples[end_idx]['position'] - samples[end_idx - 1]['position']).length
+            avg_radius = sum(s['radius'] for s in samples[i:end_idx + 1]) / (end_idx - i + 1)
+            target_length = max(avg_radius * min_segment_ratio, 0.1) * curvature_factor
             if accumulated_length + length > target_length and end_idx > i + 1:
                 break
             accumulated_length += length
@@ -1078,17 +1160,17 @@ def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_se
         end_idx = min(end_idx, len(samples) - 1)
         end_sample = samples[end_idx]
         
-        # 计算分段中心
         center = (start_sample['position'] + end_sample['position']) / 2
         
-        # 计算分段长度
         segment_length = accumulated_length if accumulated_length > 0 else (end_sample['position'] - start_sample['position']).length
         
-        # 计算分段方向
         direction = (end_sample['position'] - start_sample['position']).normalized()
         
-        # 计算平均半径
         avg_radius = sum(s['radius'] for s in samples[i:end_idx + 1]) / (end_idx - i + 1)
+        
+        min_segment_length = avg_radius * min_segment_ratio
+        if segment_length < min_segment_length:
+            segment_length = min_segment_length
         
         segments.append({
             'index': segment_index,
@@ -1108,21 +1190,20 @@ def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_se
     return segments
 
 
-def calculate_body_rigid_params(armature, bone_names=None, min_segment_length=0.1, max_segment_length=0.2):
+def calculate_body_rigid_params(armature, bone_names=None):
     """
-    高级身体刚体参数计算
+    高级身体刚体参数计算（优化版）
     
     流程：
-    1. 网格曲率变化分析
-    2. 计算分段数量和长度，切分网格，做到曲率变化平缓
-    3. 通过曲率和分段计算刚体角度和位置中心，网格截面半径
-    4. 使用分段长度作为刚体长度，网格截面半径作为刚体半径创建刚体
+    1. 预缓存所有骨骼的权重顶点数据（避免重复遍历）
+    2. 网格曲率变化分析
+    3. 计算分段数量和长度，切分网格，做到曲率变化平缓
+    4. 通过曲率和分段计算刚体角度和位置中心，网格截面半径
+    5. 使用分段长度作为刚体长度，网格截面半径作为刚体半径创建刚体
     
     Args:
         armature: 骨架对象
         bone_names: 骨骼名称列表，None表示使用所有变形骨骼
-        min_segment_length: 最小段长度
-        max_segment_length: 最大段长度
     
     Returns:
         list: 刚体参数列表
@@ -1134,18 +1215,23 @@ def calculate_body_rigid_params(armature, bone_names=None, min_segment_length=0.
     if not mesh_objs:
         return []
     
+    # 优化：预缓存所有骨骼的权重顶点数据，避免重复遍历
+    weight_cache = _cache_bone_weight_vertices(armature, mesh_objs)
+    
     rigid_params = []
     
     for bone_name in bone_names:
         if bone_name not in armature.data.bones:
             continue
         
-        bone = armature.data.bones[bone_name]
+        # 优化：跳过没有权重数据的骨骼
+        if bone_name not in weight_cache or not weight_cache[bone_name]['vertices']:
+            continue
         
-        # 3-1. 网格曲率变化分析
+        # 3-1. 网格曲率变化分析（使用缓存）
         curvature_data = None
         for mesh_obj in mesh_objs:
-            curvature_data = analyze_mesh_curvature(mesh_obj, bone_name)
+            curvature_data = analyze_mesh_curvature(mesh_obj, bone_name, weight_cache)
             if curvature_data:
                 break
         
@@ -1153,11 +1239,7 @@ def calculate_body_rigid_params(armature, bone_names=None, min_segment_length=0.
             continue
         
         # 3-2. 计算分段数量和长度，切分网格，做到曲率变化平缓
-        segments = calculate_segmentation_params(
-            curvature_data,
-            min_segment_length,
-            max_segment_length
-        )
+        segments = calculate_segmentation_params(curvature_data)
         
         # 3-3. 通过曲率和分段计算刚体角度和位置中心，网格截面半径
         for segment in segments:
@@ -1202,12 +1284,13 @@ class OBJECT_OT_build_advanced_body_rigid(bpy.types.Operator):
                 self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
                 return {'CANCELLED'}
 
-            min_segment_length = context.scene.body_rigid_min_segment_length
-            max_segment_length = context.scene.body_rigid_max_segment_length
-
             self.report({'WARNING'}, "高级模式为开发中功能，可能不稳定")
-            self._create_advanced_body_rigid_bodies(context, armature, root, min_segment_length, max_segment_length)
+            self._create_advanced_body_rigid_bodies(context, armature, root)
             self.report({'INFO'}, "高级身体刚体系统构建完成")
+        except MemoryError as me:
+            self.report({'ERROR'}, str(me))
+            print(f"内存错误: {me}")
+            return {'CANCELLED'}
         except Exception as exc:
             import traceback
             self.report({'ERROR'}, f"构建失败：{exc}")
@@ -1216,19 +1299,15 @@ class OBJECT_OT_build_advanced_body_rigid(bpy.types.Operator):
 
         return {'FINISHED'}
 
-    def _create_advanced_body_rigid_bodies(self, context, armature, root, min_segment_length=0.1, max_segment_length=0.2):
+    def _create_advanced_body_rigid_bodies(self, context, armature, root):
         """使用高级算法创建身体刚体（开发中）"""
         rigid_grp_obj = FnModel.ensure_rigid_group_object(context, root)
 
-        # 获取所有变形骨骼
         deform_bones = [bone.name for bone in armature.data.bones if bone.use_deform]
         
-        # 使用新算法计算刚体参数（网格分析 + 参数计算）
         rigid_params_list = calculate_body_rigid_params(
             armature, 
-            bone_names=deform_bones,
-            min_segment_length=min_segment_length,
-            max_segment_length=max_segment_length
+            bone_names=deform_bones
         )
 
         if not rigid_params_list:

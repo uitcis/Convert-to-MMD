@@ -95,20 +95,7 @@ def register():
         description="勾选后，合并权重时同时将所选骨骼合并到活动项骨骼",
         default=False
     )
-    bpy.types.Scene.body_rigid_min_segment_length = bpy.props.FloatProperty(
-        name="最小段长度",
-        description="刚体段的最小长度（米）",
-        default=0.1,
-        min=0.01,
-        max=0.5
-    )
-    bpy.types.Scene.body_rigid_max_segment_length = bpy.props.FloatProperty(
-        name="最大段长度",
-        description="刚体段的最大长度（米）",
-        default=0.2,
-        min=0.01,
-        max=1.0
-    )    
+
 def unregister():
     # 移除中文编码补丁
     encoding_patch.remove_encoding_patch()
@@ -151,10 +138,7 @@ def unregister():
         delattr(bpy.types.Scene, "preset_enum")
     if hasattr(bpy.types.Scene, "merge_bones_also"):
         delattr(bpy.types.Scene, "merge_bones_also")
-    if hasattr(bpy.types.Scene, "body_rigid_min_segment_length"):
-        delattr(bpy.types.Scene, "body_rigid_min_segment_length")
-    if hasattr(bpy.types.Scene, "body_rigid_max_segment_length"):
-        delattr(bpy.types.Scene, "body_rigid_max_segment_length")
+
 
 # 新增 EnumProperty 定义
 def get_preset_enum(self, context):
