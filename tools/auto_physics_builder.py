@@ -418,7 +418,115 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             defs.append(s(f"J.{prefix}胸下", "胸親", f"{prefix}胸下",
                          ang_x_lo=-DEG10, ang_x_hi=DEG10, ang_z_lo=-DEG5, ang_z_hi=DEG5, k_ang_x=100, k_ang_z=100))
         return defs
+# ===========================================================================
+# =                        #身体刚体通用代码                          =
+# ===========================================================================        
 
+def _solve_eigen_3x3_sym(m):
+    """
+    求解3x3对称矩阵的特征值和特征向量（使用Jacobi迭代法，数值稳定）
+    
+    参数:
+        m: 3x3对称矩阵，列表形式 [[a,b,c],[b,d,e],[c,e,f]]
+    
+    返回:
+        eigenvalues: 特征值列表 [lambda1, lambda2, lambda3]，按升序排列
+        eigenvectors: 特征向量列表 [[x1,y1,z1], [x2,y2,z2], [x3,y3,z3]]
+    """
+    # 复制矩阵
+    a = [[m[i][j] for j in range(3)] for i in range(3)]
+    
+    # 初始化特征向量矩阵为单位矩阵
+    v = [[1.0 if i == j else 0.0 for j in range(3)] for i in range(3)]
+    
+    # Jacobi迭代
+    max_iter = 100
+    for _ in range(max_iter):
+        # 找到最大的非对角元素
+        max_val = 0.0
+        p = 0
+        q = 1
+        for i in range(3):
+            for j in range(i + 1, 3):
+                if abs(a[i][j]) > max_val:
+                    max_val = abs(a[i][j])
+                    p = i
+                    q = j
+        
+        # 如果收敛了
+        if max_val < 1e-10:
+            break
+        
+        # 计算旋转角度
+        if a[p][p] == a[q][q]:
+            theta = math.pi / 4 if a[p][q] > 0 else -math.pi / 4
+        else:
+            theta = 0.5 * math.atan(2 * a[p][q] / (a[p][p] - a[q][q]))
+        
+        c = math.cos(theta)
+        s = math.sin(theta)
+        
+        # 旋转矩阵
+        # 只更新受影响的元素
+        app = a[p][p]
+        aqq = a[q][q]
+        apq = a[p][q]
+        
+        # 更新对角元素
+        a[p][p] = c * c * app - 2 * c * s * apq + s * s * aqq
+        a[q][q] = s * s * app + 2 * c * s * apq + c * c * aqq
+        a[p][q] = 0.0
+        a[q][p] = 0.0
+        
+        # 更新其他元素
+        for r in range(3):
+            if r != p and r != q:
+                apr = a[p][r]
+                aqr = a[q][r]
+                a[p][r] = c * apr - s * aqr
+                a[r][p] = a[p][r]
+                a[q][r] = s * apr + c * aqr
+                a[r][q] = a[q][r]
+        
+        # 更新特征向量矩阵
+        for r in range(3):
+            vpr = v[p][r]
+            vqr = v[q][r]
+            v[p][r] = c * vpr - s * vqr
+            v[q][r] = s * vpr + c * vqr
+    
+    # 提取特征值和特征向量
+    eigenvalues = [a[i][i] for i in range(3)]
+    eigenvectors = [[v[i][j] for i in range(3)] for j in range(3)]
+    
+    # 按特征值排序
+    idx = sorted(range(3), key=lambda i: eigenvalues[i])
+    eigenvalues = [eigenvalues[i] for i in idx]
+    eigenvectors = [eigenvectors[i] for i in idx]
+    
+    return eigenvalues, eigenvectors
+
+
+def _build_rotation_matrix(axis):
+    """构建将世界Z轴旋转到给定轴方向的旋转矩阵"""
+    z_axis = Vector((0, 0, 1))
+    
+    # 如果axis已经平行于Z轴正方向，返回单位矩阵
+    if axis.dot(z_axis) > 0.9999:
+        return Matrix.Identity(3)
+    # 如果axis平行于Z轴负方向，返回绕X轴旋转180度
+    if axis.dot(z_axis) < -0.9999:
+        return Matrix.Rotation(math.pi, 3, 'X')
+    
+    # 计算旋转轴和旋转角度
+    # 需要从Z轴旋转到axis方向，所以用z_axis.cross(axis)
+    rot_axis = z_axis.cross(axis)
+    if rot_axis.length < 0.0001:
+        return Matrix.Identity(3)
+    rot_axis.normalize()
+    angle = math.acos(max(-1.0, min(1.0, axis.dot(z_axis))))
+    
+    return Matrix.Rotation(angle, 3, rot_axis)
 
 # ===========================================================================
 # =                        2. 身体刚体系统（简易模式）                          =
@@ -434,11 +542,11 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
     """
     简易身体刚体参数计算（基于骨骼权重）
     
-    流程：
-    1. 遍历每个骨骼
-    2. 获取骨骼对应顶点组权重顶点
-    3. 依据顶点计算半径（顶点到骨骼中心的最大距离）
-    4. 创建刚体，刚体位置使用骨骼中心，长度使用骨骼长度
+    使用最小二乘法圆柱拟合算法：
+    1. 计算协方差矩阵，通过特征值分解获取圆柱轴线方向
+    2. 将点投影到垂直于轴线的平面上
+    3. 在投影平面上拟合圆，得到圆心和半径
+    4. 使用所有点到轴线的最大距离作为最终半径
     
     Args:
         armature: 骨架对象
@@ -462,8 +570,8 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         
         bone = armature.data.bones[bone_name]
         
-        # 2-1. 获取骨骼对应顶点组权重顶点
-        vertices_world = []
+        # 2-1. 获取骨骼对应顶点组权重顶点（保留权重值）
+        weighted_vertices = []
         
         for mesh_obj in mesh_objs:
             vg = mesh_obj.vertex_groups.get(bone_name)
@@ -472,48 +580,216 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             
             for vertex in mesh_obj.data.vertices:
                 for group in vertex.groups:
-                    if group.group == vg.index and group.weight > 0.5:
-                        vertices_world.append(mesh_obj.matrix_world @ Vector(vertex.co))
+                    if group.group == vg.index and group.weight > 0.4:
+                        v_world = mesh_obj.matrix_world @ Vector(vertex.co)
+                        weighted_vertices.append((v_world, group.weight))
                         break
         
-        if not vertices_world:
+        if not weighted_vertices:
             continue
         
-        # 2-2. 依据顶点计算半径
-        # 使用骨骼中心作为刚体位置
-        bone_head_world = armature.matrix_world @ bone.head_local
-        bone_tail_world = armature.matrix_world @ bone.tail_local
-        center = (bone_head_world + bone_tail_world) / 2
+        # 2-2. 提取顶点和权重
+        vertices_world = [v for v, _ in weighted_vertices]
+        weights = [w for _, w in weighted_vertices]
+        n = len(vertices_world)
         
-        # 计算顶点到骨骼轴线的垂直距离，使用95%分位数作为半径（去除离群点）
-        bone_length = (bone_tail_world - bone_head_world).length
-        bone_axis_dir = (bone_tail_world - bone_head_world).normalized()
-        
-        perp_distances = []
-        for v in vertices_world:
-            v_rel = v - bone_head_world
-            t = v_rel.dot(bone_axis_dir)
-            t = max(0.0, min(bone_length, t))
-            closest = bone_head_world + t * bone_axis_dir
-            perp_distance = (v - closest).length
-            perp_distances.append(perp_distance)
-        
-        # 排序后取95%分位数，去除离群点的影响
-        if perp_distances:
-            perp_distances.sort()
-            idx = int(len(perp_distances) * 0.95)
-            idx = max(idx, len(perp_distances) - 1)  # 确保至少取最后一个
-            radius = perp_distances[idx]
+        # 2-3. 计算加权质心
+        total_weight = sum(weights)
+        if total_weight > 0:
+            centroid = sum((v * w for v, w in weighted_vertices), Vector()) / total_weight
         else:
-            radius = 0.1  # 默认半径
+            centroid = sum((v for v in vertices_world), Vector()) / n
         
-        # 2-3. 创建刚体，刚体位置使用骨骼中心，长度使用骨骼长度
-        # 通过骨骼的世界方向向量计算旋转矩阵
-        rotation_matrix = _build_rotation_matrix(bone_axis_dir).inverted()
+        # 2-4. 计算协方差矩阵（用于确定轴线方向）
+        cov_matrix = [[0.0] * 3 for _ in range(3)]
+        for i, v in enumerate(vertices_world):
+            dx = v.x - centroid.x
+            dy = v.y - centroid.y
+            dz = v.z - centroid.z
+            weight = weights[i] if total_weight > 0 else 1.0 / n
+            cov_matrix[0][0] += dx * dx * weight
+            cov_matrix[0][1] += dx * dy * weight
+            cov_matrix[0][2] += dx * dz * weight
+            cov_matrix[1][1] += dy * dy * weight
+            cov_matrix[1][2] += dy * dz * weight
+            cov_matrix[2][2] += dz * dz * weight
+        cov_matrix[1][0] = cov_matrix[0][1]
+        cov_matrix[2][0] = cov_matrix[0][2]
+        cov_matrix[2][1] = cov_matrix[1][2]
+        
+        # 2-5. 求解特征值和特征向量（最小特征值对应圆柱轴线方向）
+        axis_dir = None
+        solve_success = False
+        
+        # 检查协方差矩阵是否有效（不包含NaN或Inf）
+        cov_valid = True
+        for i in range(3):
+            for j in range(3):
+                if not (isinstance(cov_matrix[i][j], (int, float)) and math.isfinite(cov_matrix[i][j])):
+                    cov_valid = False
+                    break
+            if not cov_valid:
+                break
+        
+        # 检查顶点数量是否足够
+        if n < 3:
+            pass
+        elif not cov_valid:
+            pass
+        else:
+            try:
+                # 使用自定义的对称矩阵特征值求解算法
+                eigenvalues, eigenvectors = _solve_eigen_3x3_sym(cov_matrix)
+                
+                # 验证结果
+                if len(eigenvalues) != 3 or len(eigenvectors) != 3:
+                    raise ValueError(f"特征值/特征向量数量不正确")
+                
+                # 检查是否有NaN或Inf值
+                for i, ev in enumerate(eigenvalues):
+                    if not math.isfinite(ev):
+                        raise ValueError(f"特征值[{i}]包含NaN或Inf: {ev}")
+                
+                # 找到最大特征值对应的特征向量（圆柱轴线方向）
+                max_eigen_idx = 0
+                max_eigen_val = eigenvalues[0]
+                for i in range(1, 3):
+                    if eigenvalues[i] > max_eigen_val:
+                        max_eigen_val = eigenvalues[i]
+                        max_eigen_idx = i
+                
+                # 获取对应的特征向量作为轴线方向
+                axis_dir = Vector(eigenvectors[max_eigen_idx])
+                
+                # 计算骨骼方向作为参考
+                bone_head_world = armature.matrix_world @ bone.head_local
+                bone_tail_world = armature.matrix_world @ bone.tail_local
+                bone_dir = (bone_tail_world - bone_head_world).normalized()
+                
+                # 如果特征向量方向与骨骼方向相反，取反以确保一致性
+                if axis_dir.dot(bone_dir) < 0:
+                    axis_dir = -axis_dir
+                
+                # 如果特征向量与骨骼方向几乎垂直（点积接近0），说明顶点分布不是圆柱形
+                # 此时回退到使用骨骼方向作为轴线方向
+                dot_product = abs(axis_dir.dot(bone_dir))
+                if dot_product < 0.5:
+                    axis_dir = bone_dir.copy()
+                
+                # 检查特征向量是否有效
+                if axis_dir.length < 0.0001:
+                    raise ValueError(f"特征向量长度接近零: {axis_dir.length}")
+                
+                axis_dir.normalize()
+                solve_success = True
+                
+            except Exception as e:
+                pass
+        
+        # 如果特征值求解失败，回退到使用骨骼方向
+        if axis_dir is None:
+            bone_head_world = armature.matrix_world @ bone.head_local
+            bone_tail_world = armature.matrix_world @ bone.tail_local
+            axis_dir = (bone_tail_world - bone_head_world).normalized()
+            pass
+        
+        # 2-6. 将所有点投影到垂直于轴线的平面上
+        # 创建正交基：u, v 是垂直于轴线的两个正交向量
+        if abs(axis_dir.x) < abs(axis_dir.y):
+            if abs(axis_dir.x) < abs(axis_dir.z):
+                u = Vector((1, 0, 0))
+            else:
+                u = Vector((0, 0, 1))
+        else:
+            if abs(axis_dir.y) < abs(axis_dir.z):
+                u = Vector((0, 1, 0))
+            else:
+                u = Vector((0, 0, 1))
+        
+        # 正交化 u
+        u = (u - u.dot(axis_dir) * axis_dir).normalized()
+        v = axis_dir.cross(u).normalized()
+        
+        # 2-7. 在投影平面上拟合圆
+        # 投影坐标
+        proj_x = [v_world.dot(u) for v_world in vertices_world]
+        proj_y = [v_world.dot(v) for v_world in vertices_world]
+        
+        # 使用最小二乘法拟合圆: (x - a)^2 + (y - b)^2 = r^2
+        # 展开得: x^2 + y^2 = 2*a*x + 2*b*y + (r^2 - a^2 - b^2)
+        # 即: Ax = b，其中 A = [2x, 2y, 1], x = [a, b, c], b = x^2 + y^2
+        
+        # 构建线性方程组
+        A = [[0.0] * 3 for _ in range(n)]
+        b = [0.0] * n
+        
+        for i in range(n):
+            A[i][0] = 2 * proj_x[i]
+            A[i][1] = 2 * proj_y[i]
+            A[i][2] = 1.0
+            b[i] = proj_x[i]**2 + proj_y[i]**2
+        
+        # 求解最小二乘问题
+        try:
+            A_mat = Matrix(A)
+            b_vec = Vector(b)
+            # 使用伪逆求解
+            x = A_mat.transposed() @ ((A_mat @ A_mat.transposed()).inverted() @ b_vec)
+            a_fit = x[0]
+            b_fit = x[1]
+            c_fit = x[2]
+            
+            # 计算拟合圆的半径
+            r_fit = (a_fit**2 + b_fit**2 + c_fit)**0.5
+            
+            # 计算拟合圆心在3D空间中的位置
+            C_fit = centroid + a_fit * u + b_fit * v
+        except Exception:
+            # 如果拟合失败，使用质心作为圆心
+            C_fit = centroid
+            r_fit = 0.1
+        
+        # 2-8. 使用所有点到轴线的最大垂直距离作为半径（确保包住所有顶点）
+        max_radius = 0.0
+        for v_world in vertices_world:
+            # 计算点到轴线的垂直距离
+            v_rel = v_world - C_fit
+            proj_len = v_rel.dot(axis_dir)
+            v_rel_proj = proj_len * axis_dir
+            distance = (v_rel - v_rel_proj).length
+            if distance > max_radius:
+                max_radius = distance
+        
+        radius = max_radius
+        
+        # 2-9. 计算圆柱长度（顶点在轴线上的投影范围）
+        projections = [v.dot(axis_dir) for v in vertices_world]
+        min_proj = min(projections)
+        max_proj = max(projections)
+        bone_length = max_proj - min_proj
+        
+        # 2-10. 创建刚体，刚体位置使用拟合圆心，长度使用投影范围
+        rotation_matrix = _build_rotation_matrix(axis_dir)
+        
+        # 打印刚体旋转角度和轴线角度信息
+        x_axis = Vector((1, 0, 0))
+        y_axis = Vector((0, 1, 0))
+        z_axis = Vector((0, 0, 1))
+        
+        # 计算轴线与各坐标轴的夹角（弧度转角度）
+        angle_x = math.degrees(math.acos(max(-1.0, min(1.0, axis_dir.dot(x_axis)))))
+        angle_y = math.degrees(math.acos(max(-1.0, min(1.0, axis_dir.dot(y_axis)))))
+        angle_z = math.degrees(math.acos(max(-1.0, min(1.0, axis_dir.dot(z_axis)))))
+        
+        # 从旋转矩阵提取欧拉角
+        euler = rotation_matrix.to_euler()
+        
+        print(f"[{bone_name}] 轴线角度: X={angle_x:.1f}°, Y={angle_y:.1f}°, Z={angle_z:.1f}°")
+        print(f"[{bone_name}] 旋转欧拉角: X={math.degrees(euler.x):.1f}°, Y={math.degrees(euler.y):.1f}°, Z={math.degrees(euler.z):.1f}°")
         
         rigid_params.append({
             'index': len(rigid_params),
-            'center': center,
+            'center': C_fit,
             'length': bone_length,
             'outer_radius': radius,
             'rotation_matrix': rotation_matrix,
@@ -768,22 +1044,6 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, sample_step=5):
 # ---------------------------------------------------------------------------
 # 3-2. 参数计算模块 - 位置、半径、旋转、分段计算
 # ---------------------------------------------------------------------------
-def _build_rotation_matrix(axis):
-    """构建将向量对齐到Z轴的旋转矩阵"""
-    z_axis = Vector((0, 0, 1))
-    
-    if axis.dot(z_axis) > 0.9999:
-        return Matrix.Identity(3)
-    if axis.dot(z_axis) < -0.9999:
-        return Matrix.Rotation(math.pi, 3, 'X')
-    
-    # 关键：cross积顺序必须是 axis.cross(z_axis)，才能得到正确的旋转轴
-    # 这样旋转后 axis 会转到 z_axis 方向
-    cross = axis.cross(z_axis)
-    cross.normalize()
-    angle = math.acos(axis.dot(z_axis))
-    
-    return Matrix.Rotation(angle, 3, cross)
 
 def calculate_segmentation_params(curvature_data, min_segment_length=0.1, max_segment_length=0.2):
     """
