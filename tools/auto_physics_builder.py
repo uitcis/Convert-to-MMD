@@ -24,16 +24,18 @@
 import bpy
 import math
 import time
+import gc
 try:
-    import psutil  # 添加内存监控
+    import psutil
     MEMORY_MONITOR_AVAILABLE = True
 except ImportError:
     MEMORY_MONITOR_AVAILABLE = False
-from mathutils import Vector, Matrix
+from mathutils import Vector, Euler, Matrix
 
-# 全局变量用于跟踪内存使用情况
-MEMORY_CHECK_INTERVAL = 100  # 每处理100个样本检查一次内存
-MAX_MEMORY_PERCENTAGE = 95   # 内存使用上限百分比Euler, Matrix
+CHUNK_SIZE = 2000
+GC_INTERVAL = 5
+MEMORY_CHECK_INTERVAL = 100
+MAX_MEMORY_PERCENTAGE = 80
 from .. import bone_utils
 
 try:
@@ -47,6 +49,34 @@ except ImportError:
         print(f"导入 mmd_tools 错误 {e}")
         print("请在 Blender 扩展仓库中安装 mmd_tools 扩展")
         raise
+
+
+# ---------------------------------------------------------------------------
+# 内存监控与垃圾回收辅助函数
+# ---------------------------------------------------------------------------
+
+_loop_counter = [0]
+_gc_counter = [0]
+
+def _check_memory_and_gc(force=False):
+    """
+    检查内存使用并在必要时触发垃圾回收
+    
+    每 GC_INTERVAL 次调用触发一次 gc.collect()，
+    如果 psutil 可用且内存超限，返回 False 阻止继续处理。
+    """
+    _loop_counter[0] += 1
+    _gc_counter[0] += 1
+
+    if force or _gc_counter[0] >= GC_INTERVAL:
+        collected = gc.collect()
+        _gc_counter[0] = 0
+        if MEMORY_MONITOR_AVAILABLE and _loop_counter[0] % MEMORY_CHECK_INTERVAL == 0:
+            memory_percent = psutil.virtual_memory().percent
+            if memory_percent > MAX_MEMORY_PERCENTAGE:
+                print(f"内存使用率过高 ({memory_percent:.1f}%)，正在终止操作...")
+                return False
+    return True
 
 
 # ===========================================================================
@@ -573,7 +603,10 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
     
     rigid_params = []
     
-    for bone_name in bone_names:
+    for bone_idx, bone_name in enumerate(bone_names):
+        if not _check_memory_and_gc():
+            break
+        
         if bone_name not in armature.data.bones:
             continue
         
@@ -779,6 +812,9 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             'nearest_bone': bone_name,
             'vertex_count': len(vertices_world)
         })
+        
+        del weighted_vertices, vertices_world, weights
+        _check_memory_and_gc(force=True)
     
     return rigid_params
 
@@ -821,10 +857,8 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
         """使用简易模式创建身体刚体（基于骨骼权重）"""
         rigid_grp_obj = FnModel.ensure_rigid_group_object(context, root)
 
-        # 获取所有变形骨骼
         deform_bones = [bone.name for bone in armature.data.bones if bone.use_deform]
         
-        # 使用简易算法计算刚体参数
         rigid_params_list = calculate_simple_body_rigid_params(
             armature, 
             bone_names=deform_bones
@@ -834,20 +868,21 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
             self.report({'WARNING'}, "未找到足够的顶点数据来生成刚体")
             return
 
-        # 创建每个刚体
-        for params in rigid_params_list:
-            # 生成刚体名称
+        total = len(rigid_params_list)
+        created_count = 0
+
+        for rb_idx, params in enumerate(rigid_params_list):
+            if not _check_memory_and_gc():
+                break
+            
             bone_name = params['nearest_bone']
             rb_name = f"{bone_name}"
             
-            # 如果已存在则跳过
             if rb_name in bpy.data.objects:
                 continue
 
-            # 创建刚体对象
             rb_obj = FnRigidBody.new_rigid_body_object(context, rigid_grp_obj)
 
-            # 转换世界坐标和旋转到刚体组对象的本地坐标
             local_center = rigid_grp_obj.matrix_world.inverted() @ params['center']
             rb_obj.location = local_center
 
@@ -855,36 +890,46 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
             local_rotation = parent_rot_inv @ params['rotation_matrix']
             rb_obj.rotation_euler = local_rotation.to_euler('YXZ')
             
-            # 设置胶囊体尺寸（MMD胶囊体格式：X=半径, Y=长度, Z=0）
             rb_obj.mmd_rigid.shape = "CAPSULE"
             rb_obj.mmd_rigid.size = Vector((params['outer_radius'], params['length'], 0.0))
             
-            # 设置刚体属性
-            rb_obj.mmd_rigid.type = "0"  # 运动学刚体
+            rb_obj.mmd_rigid.type = "0"
             rb_obj.mmd_rigid.collision_group_number = 1
             rb_obj.mmd_rigid.collision_group_mask = [False] * 16
             rb_obj.mmd_rigid.collision_group_mask[0] = True
             rb_obj.mmd_rigid.collision_group_mask[1] = True
             
-            # 设置名称
             rb_obj.name = rb_name
             rb_obj.mmd_rigid.name_j = rb_name
             rb_obj.mmd_rigid.name_e = rb_name
             rb_obj.data.name = rb_name
             
-            # 设置关联骨骼
             if params['nearest_bone']:
                 rb_obj.mmd_rigid.bone = params['nearest_bone']
             
-            # 设置物理属性
             rb = rb_obj.rigid_body
             rb.friction = 0.5
-            rb.mass = 1.0 / len(rigid_params_list)
+            rb.mass = 1.0 / total
             rb.angular_damping = 0.5
             rb.linear_damping = 0.5
             rb.restitution = 0.0
 
-            print(f"[简易身体刚体] 创建: {rb_name}, 位置={local_center}, 尺寸=(半径:{params['outer_radius']:.4f}, 长度:{params['length']:.4f}), 关联骨骼={params['nearest_bone']}")
+            created_count += 1
+            print(f"[简易身体刚体] 创建: {rb_name} ({created_count}/{total}), 尺寸=(半径:{params['outer_radius']:.4f}, 长度:{params['length']:.4f})")
+
+            if created_count % 20 == 0:
+                context.view_layer.update()
+                try:
+                    bpy.ops.ed.undo_push(message=f"简易刚体 {created_count}/{total}")
+                except:
+                    pass
+
+        del rigid_params_list
+        _check_memory_and_gc(force=True)
+        context.view_layer.update()
+
+        if created_count < total:
+            self.report({'WARNING'}, f"内存不足，已提前终止（创建 {created_count}/{total} 个刚体）")
 
 
 # ===========================================================================
@@ -898,6 +943,7 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
 def _cache_bone_weight_vertices(armature, mesh_objs, weight_threshold=0.001):
     """
     预缓存所有骨骼的权重顶点数据，避免重复遍历
+    使用分块处理+垃圾回收防止内存爆炸
     
     Args:
         armature: 骨架对象
@@ -918,12 +964,19 @@ def _cache_bone_weight_vertices(armature, mesh_objs, weight_threshold=0.001):
                 cache[bone_name] = {'vertices': [], 'weights': []}
             
             vg_index = vg.index
-            for vertex in mesh_obj.data.vertices:
-                for group in vertex.groups:
-                    if group.group == vg_index and group.weight > weight_threshold:
-                        cache[bone_name]['vertices'].append(mesh_world @ Vector(vertex.co))
-                        cache[bone_name]['weights'].append(group.weight)
-                        break
+            vertices_data = mesh_obj.data.vertices
+            num_vertices = len(vertices_data)
+            
+            for start in range(0, num_vertices, CHUNK_SIZE):
+                end = min(start + CHUNK_SIZE, num_vertices)
+                for vertex in vertices_data[start:end]:
+                    for group in vertex.groups:
+                        if group.group == vg_index and group.weight > weight_threshold:
+                            cache[bone_name]['vertices'].append(mesh_world @ Vector(vertex.co))
+                            cache[bone_name]['weights'].append(group.weight)
+                            break
+                if not _check_memory_and_gc():
+                    return cache
     return cache
 
 
@@ -965,6 +1018,9 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, weight_cache=None, weigh
                     vertices.append(mesh_world @ Vector(vertex.co))
                     weights.append(group.weight)
                     break
+            if len(vertices) % CHUNK_SIZE == 0:
+                if not _check_memory_and_gc():
+                    return None
     
     # 顶点太少时跳过（优化：减少无效计算）
     if len(vertices) < 10:
@@ -1030,6 +1086,9 @@ def analyze_mesh_curvature(mesh_obj, vertex_group_name, weight_cache=None, weigh
     
     # 优化：使用预计算的投影值避免重复计算
     for i in range(num_samples):
+        if i % 3 == 0 and not _check_memory_and_gc():
+            return None
+        
         proj_pos = min_proj + i * step
         
         # 收集该位置附近的顶点（优化：利用已排序特性，减少比较次数）
@@ -1121,16 +1180,9 @@ def calculate_segmentation_params(curvature_data, min_segment_ratio=2.0):
     i = 0
     segment_index = 0
     
-    # 内存监控计数器
-    sample_counter = 0
-    
     while i < len(samples):
-        # 检查内存使用情况
-        sample_counter += 1
-        if MEMORY_MONITOR_AVAILABLE and sample_counter % MEMORY_CHECK_INTERVAL == 0:
-            memory_percent = psutil.virtual_memory().percent
-            if memory_percent > MAX_MEMORY_PERCENTAGE:
-                raise MemoryError(f"内存使用率过高 ({memory_percent:.1f}%)，已终止操作以防止系统卡死")
+        if not _check_memory_and_gc():
+            return segments
         
         if i + 2 < len(samples):
             v1 = samples[i + 1]['position'] - samples[i]['position']
@@ -1221,6 +1273,9 @@ def calculate_body_rigid_params(armature, bone_names=None):
     rigid_params = []
     
     for bone_name in bone_names:
+        if not _check_memory_and_gc():
+            break
+        
         if bone_name not in armature.data.bones:
             continue
         
@@ -1256,7 +1311,12 @@ def calculate_body_rigid_params(armature, bone_names=None):
                 'vertex_count': segment.get('vertex_count', 0),
                 'segment_index': segment['index']
             })
+        
+        del curvature_data, segments
+        _check_memory_and_gc(force=True)
     
+    del weight_cache
+    _check_memory_and_gc(force=True)
     return rigid_params
 
 
@@ -1314,20 +1374,21 @@ class OBJECT_OT_build_advanced_body_rigid(bpy.types.Operator):
             self.report({'WARNING'}, "未找到足够的顶点数据来生成刚体")
             return
 
-        # 创建每个刚体
-        for params in rigid_params_list:
-            # 生成刚体名称
+        total = len(rigid_params_list)
+        created_count = 0
+
+        for rb_idx, params in enumerate(rigid_params_list):
+            if not _check_memory_and_gc():
+                break
+            
             bone_name = params['nearest_bone'] if params['nearest_bone'] else "Body"
             rb_name = f"{bone_name}_{params['index'] + 1}"
             
-            # 如果已存在则跳过
             if rb_name in bpy.data.objects:
                 continue
 
-            # 创建刚体对象
             rb_obj = FnRigidBody.new_rigid_body_object(context, rigid_grp_obj)
 
-            # 转换世界坐标和旋转到刚体组对象的本地坐标（刚体是rigid_grp_obj的子对象）
             local_center = rigid_grp_obj.matrix_world.inverted() @ params['center']
             rb_obj.location = local_center
 
@@ -1335,36 +1396,46 @@ class OBJECT_OT_build_advanced_body_rigid(bpy.types.Operator):
             local_rotation = parent_rot_inv @ params['rotation_matrix']
             rb_obj.rotation_euler = local_rotation.to_euler('YXZ')
             
-            # 设置胶囊体尺寸（MMD胶囊体格式：X=半径, Y=长度, Z=0）
             rb_obj.mmd_rigid.shape = "CAPSULE"
             rb_obj.mmd_rigid.size = Vector((params['outer_radius'], params['length'], 0.0))
             
-            # 设置刚体属性
-            rb_obj.mmd_rigid.type = "0"  # 运动学刚体
+            rb_obj.mmd_rigid.type = "0"
             rb_obj.mmd_rigid.collision_group_number = 1
             rb_obj.mmd_rigid.collision_group_mask = [False] * 16
             rb_obj.mmd_rigid.collision_group_mask[0] = True
             rb_obj.mmd_rigid.collision_group_mask[1] = True
             
-            # 设置名称
             rb_obj.name = rb_name
             rb_obj.mmd_rigid.name_j = rb_name
             rb_obj.mmd_rigid.name_e = rb_name
             rb_obj.data.name = rb_name
             
-            # 设置关联骨骼（使用最近的骨骼）
             if params['nearest_bone']:
                 rb_obj.mmd_rigid.bone = params['nearest_bone']
             
-            # 设置物理属性
             rb = rb_obj.rigid_body
             rb.friction = 0.5
-            rb.mass = 1.0 / len(rigid_params_list)
+            rb.mass = 1.0 / total
             rb.angular_damping = 0.5
             rb.linear_damping = 0.5
             rb.restitution = 0.0
 
-            print(f"[高级身体刚体] 创建: {rb_name}, 位置={local_center}, 尺寸=(外半径:{params['outer_radius']:.4f}, 长度:{params['length']:.4f}), 关联骨骼={params['nearest_bone']}")
+            created_count += 1
+            print(f"[高级身体刚体] 创建: {rb_name} ({created_count}/{total}), 尺寸=(外半径:{params['outer_radius']:.4f}, 长度:{params['length']:.4f}), 关联骨骼={params['nearest_bone']}")
+
+            if created_count % 20 == 0:
+                context.view_layer.update()
+                try:
+                    bpy.ops.ed.undo_push(message=f"高级刚体 {created_count}/{total}")
+                except:
+                    pass
+
+        del rigid_params_list
+        _check_memory_and_gc(force=True)
+        context.view_layer.update()
+
+        if created_count < total:
+            self.report({'WARNING'}, f"内存不足，已提前终止（创建 {created_count}/{total} 个刚体）")
 
 
 # ===========================================================================
