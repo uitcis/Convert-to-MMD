@@ -65,7 +65,6 @@ def register():
     bpy.utils.register_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_simple_body_rigid)
-    bpy.utils.register_class(auto_physics_builder.OBJECT_OT_build_advanced_body_rigid)
     bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
     bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
@@ -124,7 +123,6 @@ def unregister():
     bpy.utils.unregister_class(export_constraints_operator.OBJECT_OT_export_selected_bones_constraints)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_auto_physics_builder)
     bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_simple_body_rigid)
-    bpy.utils.unregister_class(auto_physics_builder.OBJECT_OT_build_advanced_body_rigid)
     bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_constraints)
     bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
@@ -136,6 +134,8 @@ def unregister():
     # 注销 EnumProperty
     if hasattr(bpy.types.Scene, "preset_enum"):
         delattr(bpy.types.Scene, "preset_enum")
+    if hasattr(bpy.types.Scene, "my_enum"):
+        delattr(bpy.types.Scene, "my_enum")
     if hasattr(bpy.types.Scene, "merge_bones_also"):
         delattr(bpy.types.Scene, "merge_bones_also")
 

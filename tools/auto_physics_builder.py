@@ -1,4 +1,4 @@
-"""
+﻿"""
 自动物理构建器
 包含乳房物理和身体刚体构建功能
 
@@ -11,30 +11,20 @@
        2-1. 简易身体刚体参数计算（基于骨骼权重）
        2-2. 身体刚体创建操作符
 
-    3. 高级身体刚体系统（开发中）
-       3-1. 网格分析模块 - 权重收集、PCA分析
-       3-2. 参数计算模块 - 位置、半径、旋转
+    3. 高级身体刚体系统（简化版）
+       3-1. 网格分析模块 - 权重收集、曲率分析
+       3-2. 参数计算模块 - 位置、半径、旋转、分段计算
        3-3. 高级刚体生成算法
-       3-4. 向后兼容函数
 
-    4. 通用横截面分析模块
-
-    5. 注册/反注册函数
+    4. 注册/反注册函数
 """
 import bpy
 import math
-import time
 import gc
-try:
-    import psutil
-    MEMORY_MONITOR_AVAILABLE = True
-except ImportError:
-    MEMORY_MONITOR_AVAILABLE = False
+
 from mathutils import Vector, Euler, Matrix
 
 CHUNK_SIZE = 2000
-GC_INTERVAL = 5
-MEMORY_CHECK_INTERVAL = 100
 MAX_MEMORY_PERCENTAGE = 80
 from .. import bone_utils
 
@@ -55,27 +45,102 @@ except ImportError:
 # 内存监控与垃圾回收辅助函数
 # ---------------------------------------------------------------------------
 
-_loop_counter = [0]
-_gc_counter = [0]
+def _get_memory_info():
+    """获取系统内存信息（使用 Blender API 和系统 API）"""
+    result = {
+        'memory_percent': None,
+        'used_gb': None,
+        'available_gb': None,
+        'peak_gb': None
+    }
+    
+    try:
+        result['used_gb'] = bpy.app.debug_memory_usage() / (1024**3)
+        result['peak_gb'] = bpy.app.debug_memory_peak() / (1024**3)
+    except:
+        pass
+    
+    import os
+    if os.name == 'nt':
+        try:
+            from ctypes import windll, Structure, c_ulonglong, byref
+            class MEMORYSTATUSEX(Structure):
+                _fields_ = [("dwLength", c_ulonglong), ("dwMemoryLoad", c_ulonglong),
+                            ("ullTotalPhys", c_ulonglong), ("ullAvailPhys", c_ulonglong)]
+            stat = MEMORYSTATUSEX()
+            stat.dwLength = c_ulonglong(24)
+            if windll.kernel32.GlobalMemoryStatusEx(byref(stat)):
+                result['memory_percent'] = stat.dwMemoryLoad
+                result['used_gb'] = (stat.ullTotalPhys - stat.ullAvailPhys) / (1024**3)
+                result['available_gb'] = stat.ullAvailPhys / (1024**3)
+        except:
+            pass
+    else:
+        try:
+            total_mem = None
+            avail_mem = None
+            with open('/proc/meminfo', 'r') as f:
+                for line in f:
+                    if line.startswith('MemTotal:'):
+                        total_mem = int(line.split()[1]) * 1024
+                    elif line.startswith('MemAvailable:'):
+                        avail_mem = int(line.split()[1]) * 1024
+            if total_mem and avail_mem:
+                result['memory_percent'] = ((total_mem - avail_mem) / total_mem) * 100
+                result['used_gb'] = (total_mem - avail_mem) / (1024**3)
+                result['available_gb'] = avail_mem / (1024**3)
+        except:
+            pass
+    
+    return result
 
 def _check_memory_and_gc(force=False):
     """
     检查内存使用并在必要时触发垃圾回收
     
-    每 GC_INTERVAL 次调用触发一次 gc.collect()，
-    如果 psutil 可用且内存超限，返回 False 阻止继续处理。
+    当内存使用率超过 GC_MEMORY_THRESHOLD (70%) 时触发 gc.collect()，
+    当内存使用率超过 MAX_MEMORY_PERCENTAGE (80%) 时返回 False 阻止继续处理。
+    
+    Args:
+        force: 是否强制执行内存检查和GC
+    
+    Returns:
+        bool: True=继续处理，False=内存不足应停止
     """
-    _loop_counter[0] += 1
-    _gc_counter[0] += 1
+    GC_MEMORY_THRESHOLD = 70
 
-    if force or _gc_counter[0] >= GC_INTERVAL:
+    mem_info = _get_memory_info()
+    memory_percent = mem_info['memory_percent'] if mem_info else None
+    
+    # 强制触发GC（只在force=True或内存超过阈值时）
+    if force or (memory_percent is not None and memory_percent > GC_MEMORY_THRESHOLD):
         collected = gc.collect()
-        _gc_counter[0] = 0
-        if MEMORY_MONITOR_AVAILABLE and _loop_counter[0] % MEMORY_CHECK_INTERVAL == 0:
-            memory_percent = psutil.virtual_memory().percent
-            if memory_percent > MAX_MEMORY_PERCENTAGE:
-                print(f"内存使用率过高 ({memory_percent:.1f}%)，正在终止操作...")
-                return False
+        
+        if force and collected > 0:
+            # 只在force=True且有回收时打印
+            mem_info2 = _get_memory_info()
+            parts = [f"GC回收: {collected}"]
+            if mem_info2 and mem_info2['memory_percent'] is not None:
+                parts.append(f"使用率: {mem_info2['memory_percent']:.1f}%")
+            print(f"[GC] {' | '.join(parts)}")
+        
+        if memory_percent is not None and memory_percent > GC_MEMORY_THRESHOLD and not force:
+            # 内存超过阈值时的日志
+            parts = [f"已回收 {collected} 个对象"]
+            if mem_info['used_gb'] is not None:
+                parts.append(f"已使用: {mem_info['used_gb']:.2f} GB")
+            if memory_percent is not None:
+                parts.append(f"使用率: {memory_percent:.1f}%")
+            print(f"[GC] {' | '.join(parts)}")
+
+    if memory_percent is not None and memory_percent > MAX_MEMORY_PERCENTAGE:
+        parts = [f"[内存警告] 内存使用率过高 ({memory_percent:.1f}% > {MAX_MEMORY_PERCENTAGE}%)，正在终止操作..."]
+        if mem_info['used_gb'] is not None:
+            parts.append(f"已使用: {mem_info['used_gb']:.2f} GB")
+        if mem_info['available_gb'] is not None:
+            parts.append(f"可用: {mem_info['available_gb']:.2f} GB")
+        print('\n'.join(parts))
+        return False
     return True
 
 
@@ -933,531 +998,16 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
 
 
 # ===========================================================================
-# =                        3. 高级身体刚体系统（开发中）                        =
-# ===========================================================================
-
-# ---------------------------------------------------------------------------
-# 3-1. 网格分析模块 - 权重收集、PCA分析、曲率分析
-# ---------------------------------------------------------------------------
-
-def _cache_bone_weight_vertices(armature, mesh_objs, weight_threshold=0.001):
-    """
-    预缓存所有骨骼的权重顶点数据，避免重复遍历
-    使用分块处理+垃圾回收防止内存爆炸
-    
-    Args:
-        armature: 骨架对象
-        mesh_objs: 网格对象列表
-        weight_threshold: 权重阈值
-    
-    Returns:
-        dict: {bone_name: {'vertices': [Vector], 'weights': [float]}}
-    """
-    cache = {}
-    for mesh_obj in mesh_objs:
-        mesh_world = mesh_obj.matrix_world
-        for vg in mesh_obj.vertex_groups:
-            bone_name = vg.name
-            if bone_name not in armature.data.bones:
-                continue
-            if bone_name not in cache:
-                cache[bone_name] = {'vertices': [], 'weights': []}
-            
-            vg_index = vg.index
-            vertices_data = mesh_obj.data.vertices
-            num_vertices = len(vertices_data)
-            
-            for start in range(0, num_vertices, CHUNK_SIZE):
-                end = min(start + CHUNK_SIZE, num_vertices)
-                for vertex in vertices_data[start:end]:
-                    for group in vertex.groups:
-                        if group.group == vg_index and group.weight > weight_threshold:
-                            cache[bone_name]['vertices'].append(mesh_world @ Vector(vertex.co))
-                            cache[bone_name]['weights'].append(group.weight)
-                            break
-                if not _check_memory_and_gc():
-                    return cache
-    return cache
-
-
-def analyze_mesh_curvature(mesh_obj, vertex_group_name, weight_cache=None, weight_threshold=0.001):
-    """
-    分析网格曲率变化（优化版）
-    
-    流程：
-    1. 获取骨骼权重顶点（使用缓存）
-    2. 沿骨骼方向采样顶点
-    3. 计算各采样点的截面和曲率
-    
-    Args:
-        mesh_obj: 网格对象
-        vertex_group_name: 顶点组名称
-        weight_cache: 预缓存的权重数据（可选）
-        weight_threshold: 权重阈值
-    
-    Returns:
-        dict: 包含采样点、曲率、截面半径等信息
-    """
-    # 使用缓存或直接获取顶点数据
-    if weight_cache and vertex_group_name in weight_cache:
-        data = weight_cache[vertex_group_name]
-        vertices = data['vertices']
-        weights = data['weights']
-    else:
-        vg = mesh_obj.vertex_groups.get(vertex_group_name)
-        if not vg:
-            return None
-        
-        vertices = []
-        weights = []
-        mesh_world = mesh_obj.matrix_world
-        vg_index = vg.index
-        for vertex in mesh_obj.data.vertices:
-            for group in vertex.groups:
-                if group.group == vg_index and group.weight > weight_threshold:
-                    vertices.append(mesh_world @ Vector(vertex.co))
-                    weights.append(group.weight)
-                    break
-            if len(vertices) % CHUNK_SIZE == 0:
-                if not _check_memory_and_gc():
-                    return None
-    
-    # 顶点太少时跳过（优化：减少无效计算）
-    if len(vertices) < 10:
-        return None
-    
-    # 计算质心（使用加权平均）
-    total_weight = sum(weights) if weights else len(vertices)
-    if total_weight > 0:
-        centroid = sum((v * (w if weights else 1.0) for v, w in zip(vertices, weights)), Vector()) / total_weight
-    else:
-        centroid = sum(vertices, Vector((0, 0, 0))) / len(vertices)
-    
-    # 简化的方向计算：使用方差最大的轴作为骨骼方向
-    # 优化：避免昂贵的SVD分解
-    variances = [0.0, 0.0, 0.0]
-    for v in vertices:
-        diff = v - centroid
-        for i in range(3):
-            variances[i] += diff[i] * diff[i]
-    
-    # 找到最大方差的轴
-    max_var_idx = variances.index(max(variances))
-    bone_direction = Vector([0.0, 0.0, 0.0])
-    bone_direction[max_var_idx] = 1.0
-    
-    # 如果方差相近，使用更精确的PCA
-    if max(variances) / min(v for v in variances if v > 0) < 1.5 and len(vertices) >= 20:
-        # 构建协方差矩阵（简化版）
-        cov_matrix = Matrix(((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)))
-        for v in vertices:
-            diff = v - centroid
-            for i in range(3):
-                for j in range(3):
-                    cov_matrix[i][j] += diff[i] * diff[j]
-        cov_matrix /= len(vertices)
-        
-        try:
-            eigenvalues, eigenvectors = cov_matrix.svd()
-            bone_direction = eigenvectors[0].normalized()
-        except:
-            pass
-    
-    # 沿骨骼方向投影并排序
-    projected = []
-    for v in vertices:
-        proj = (v - centroid).dot(bone_direction)
-        projected.append((proj, v))
-    
-    projected.sort(key=lambda x: x[0])
-    
-    # 计算采样点（优化：减少采样数量）
-    samples = []
-    min_proj = projected[0][0]
-    max_proj = projected[-1][0]
-    total_length = max_proj - min_proj
-    
-    # 优化：减少采样点数量，从 max(5, int(total_length / 0.05)) 改为 max(3, int(total_length / 0.1))
-    num_samples = max(3, min(10, int(total_length / 0.1)))
-    if num_samples < 2:
-        return None
-    
-    step = total_length / (num_samples - 1)
-    
-    # 优化：使用预计算的投影值避免重复计算
-    for i in range(num_samples):
-        if i % 3 == 0 and not _check_memory_and_gc():
-            return None
-        
-        proj_pos = min_proj + i * step
-        
-        # 收集该位置附近的顶点（优化：利用已排序特性，减少比较次数）
-        nearby_vertices = []
-        search_radius = step * 1.5
-        
-        # 优化：从上次找到的位置继续搜索，利用排序特性
-        for proj, v in projected:
-            if proj >= proj_pos - search_radius and proj <= proj_pos + search_radius:
-                nearby_vertices.append(v)
-            elif proj > proj_pos + search_radius:
-                break  # 已排序，后面的都超出范围
-        
-        if nearby_vertices:
-            # 计算垂直于骨骼方向的截面
-            plane_pts = []
-            for v in nearby_vertices:
-                proj_vec = (v - centroid).dot(bone_direction) * bone_direction
-                plane_pt = (v - centroid) - proj_vec
-                plane_pts.append(plane_pt)
-            
-            # 计算截面半径（优化：使用快速最大距离计算）
-            max_radius = max(p.length for p in plane_pts)
-            
-            # 计算截面中心
-            center_offset = sum(plane_pts, Vector((0, 0, 0))) / len(plane_pts)
-            world_center = centroid + proj_pos * bone_direction + center_offset
-            
-            samples.append({
-                'position': world_center,
-                'radius': max_radius,
-                'projected_position': proj_pos,
-                'vertex_count': len(nearby_vertices)
-            })
-    
-    # 计算曲率（优化：只在需要时计算）
-    curvature_values = []
-    for i in range(1, len(samples) - 1):
-        prev = samples[i - 1]
-        curr = samples[i]
-        next_s = samples[i + 1]
-        
-        v1 = curr['position'] - prev['position']
-        v2 = next_s['position'] - curr['position']
-        
-        if v1.length > 0 and v2.length > 0:
-            dot_product = v1.normalized().dot(v2.normalized())
-            dot_product = max(-1.0, min(1.0, dot_product))  # 数值稳定性
-            angle = math.acos(dot_product)
-            curvature_values.append(angle)
-    
-    avg_curvature = sum(curvature_values) / len(curvature_values) if curvature_values else 0.0
-    max_curvature = max(curvature_values) if curvature_values else 0.0
-    
-    return {
-        'samples': samples,
-        'bone_direction': bone_direction,
-        'total_length': total_length,
-        'avg_curvature': avg_curvature,
-        'max_curvature': max_curvature,
-        'centroid': centroid
-    }
-
-
-# ---------------------------------------------------------------------------
-# 3-2. 参数计算模块 - 位置、半径、旋转、分段计算
-# ---------------------------------------------------------------------------
-
-def calculate_segmentation_params(curvature_data, min_segment_ratio=2.0):
-    """
-    计算分段数量和长度，切分网格，做到曲率变化平缓
-    
-    Args:
-        curvature_data: 曲率分析数据
-        min_segment_ratio: 最小段长度相对于半径的倍数
-    
-    Returns:
-        list: 分段参数列表
-    """
-    samples = curvature_data['samples']
-    if not samples:
-        return []
-    
-    segments = []
-    total_length = curvature_data['total_length']
-    
-    avg_curvature = curvature_data['avg_curvature']
-    
-    i = 0
-    segment_index = 0
-    
-    while i < len(samples):
-        if not _check_memory_and_gc():
-            return segments
-        
-        if i + 2 < len(samples):
-            v1 = samples[i + 1]['position'] - samples[i]['position']
-            v2 = samples[i + 2]['position'] - samples[i + 1]['position']
-            if v1.length > 0 and v2.length > 0:
-                local_curvature = math.acos(min(1.0, max(-1.0, v1.normalized().dot(v2.normalized()))))
-            else:
-                local_curvature = avg_curvature
-        else:
-            local_curvature = avg_curvature
-        
-        curvature_factor = min(1.0, max(0.3, 1.0 - (local_curvature - avg_curvature) * 10))
-        
-        start_sample = samples[i]
-        end_idx = i + 1
-        accumulated_length = 0.0
-        
-        while end_idx < len(samples):
-            length = (samples[end_idx]['position'] - samples[end_idx - 1]['position']).length
-            avg_radius = sum(s['radius'] for s in samples[i:end_idx + 1]) / (end_idx - i + 1)
-            target_length = max(avg_radius * min_segment_ratio, 0.1) * curvature_factor
-            if accumulated_length + length > target_length and end_idx > i + 1:
-                break
-            accumulated_length += length
-            end_idx += 1
-        
-        end_idx = min(end_idx, len(samples) - 1)
-        end_sample = samples[end_idx]
-        
-        center = (start_sample['position'] + end_sample['position']) / 2
-        
-        segment_length = accumulated_length if accumulated_length > 0 else (end_sample['position'] - start_sample['position']).length
-        
-        direction = (end_sample['position'] - start_sample['position']).normalized()
-        
-        avg_radius = sum(s['radius'] for s in samples[i:end_idx + 1]) / (end_idx - i + 1)
-        
-        min_segment_length = avg_radius * min_segment_ratio
-        if segment_length < min_segment_length:
-            segment_length = min_segment_length
-        
-        segments.append({
-            'index': segment_index,
-            'start_sample': i,
-            'end_sample': end_idx,
-            'center': center,
-            'length': segment_length,
-            'radius': avg_radius,
-            'direction': direction,
-            'start_position': start_sample['position'],
-            'end_position': end_sample['position']
-        })
-        
-        segment_index += 1
-        i = end_idx
-    
-    return segments
-
-
-def calculate_body_rigid_params(armature, bone_names=None):
-    """
-    高级身体刚体参数计算（优化版）
-    
-    流程：
-    1. 预缓存所有骨骼的权重顶点数据（避免重复遍历）
-    2. 网格曲率变化分析
-    3. 计算分段数量和长度，切分网格，做到曲率变化平缓
-    4. 通过曲率和分段计算刚体角度和位置中心，网格截面半径
-    5. 使用分段长度作为刚体长度，网格截面半径作为刚体半径创建刚体
-    
-    Args:
-        armature: 骨架对象
-        bone_names: 骨骼名称列表，None表示使用所有变形骨骼
-    
-    Returns:
-        list: 刚体参数列表
-    """
-    if bone_names is None:
-        bone_names = [bone.name for bone in armature.data.bones if bone.use_deform]
-    
-    mesh_objs = [obj for obj in bpy.data.objects if obj.type == 'MESH' and obj.parent == armature]
-    if not mesh_objs:
-        return []
-    
-    # 优化：预缓存所有骨骼的权重顶点数据，避免重复遍历
-    weight_cache = _cache_bone_weight_vertices(armature, mesh_objs)
-    
-    rigid_params = []
-    
-    for bone_name in bone_names:
-        if not _check_memory_and_gc():
-            break
-        
-        if bone_name not in armature.data.bones:
-            continue
-        
-        # 优化：跳过没有权重数据的骨骼
-        if bone_name not in weight_cache or not weight_cache[bone_name]['vertices']:
-            continue
-        
-        # 3-1. 网格曲率变化分析（使用缓存）
-        curvature_data = None
-        for mesh_obj in mesh_objs:
-            curvature_data = analyze_mesh_curvature(mesh_obj, bone_name, weight_cache)
-            if curvature_data:
-                break
-        
-        if not curvature_data or not curvature_data['samples']:
-            continue
-        
-        # 3-2. 计算分段数量和长度，切分网格，做到曲率变化平缓
-        segments = calculate_segmentation_params(curvature_data)
-        
-        # 3-3. 通过曲率和分段计算刚体角度和位置中心，网格截面半径
-        for segment in segments:
-            # 构建旋转矩阵（将胶囊体Y轴方向旋转到分段方向）
-            rotation_matrix = _build_rotation_matrix(segment['direction']).inverted()
-            
-            rigid_params.append({
-                'index': len(rigid_params),
-                'center': segment['center'],
-                'length': segment['length'],
-                'outer_radius': segment['radius'],
-                'rotation_matrix': rotation_matrix,
-                'nearest_bone': bone_name,
-                'vertex_count': segment.get('vertex_count', 0),
-                'segment_index': segment['index']
-            })
-        
-        del curvature_data, segments
-        _check_memory_and_gc(force=True)
-    
-    del weight_cache
-    _check_memory_and_gc(force=True)
-    return rigid_params
-
-
-# ---------------------------------------------------------------------------
-# 3-3. 高级刚体创建操作符
-# ---------------------------------------------------------------------------
-
-class OBJECT_OT_build_advanced_body_rigid(bpy.types.Operator):
-    """构建高级身体刚体（基于网格曲率分段）"""
-    bl_idname = "object.build_advanced_body_rigid"
-    bl_label = "构建高级身体刚体"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    def execute(self, context):
-        try:
-            armature = context.active_object
-            if not armature or armature.type != 'ARMATURE':
-                self.report({'ERROR'}, "请选择骨架对象")
-                return {'CANCELLED'}
-
-            bpy.ops.object.use_mmd_tools_convert()
-
-            root = FnModel.find_root_object(armature)
-            if not root:
-                self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
-                return {'CANCELLED'}
-
-            self.report({'WARNING'}, "高级模式为开发中功能，可能不稳定")
-            self._create_advanced_body_rigid_bodies(context, armature, root)
-            self.report({'INFO'}, "高级身体刚体系统构建完成")
-        except MemoryError as me:
-            self.report({'ERROR'}, str(me))
-            print(f"内存错误: {me}")
-            return {'CANCELLED'}
-        except Exception as exc:
-            import traceback
-            self.report({'ERROR'}, f"构建失败：{exc}")
-            print(traceback.format_exc())
-            return {'CANCELLED'}
-
-        return {'FINISHED'}
-
-    def _create_advanced_body_rigid_bodies(self, context, armature, root):
-        """使用高级算法创建身体刚体（开发中）"""
-        rigid_grp_obj = FnModel.ensure_rigid_group_object(context, root)
-
-        deform_bones = [bone.name for bone in armature.data.bones if bone.use_deform]
-        
-        rigid_params_list = calculate_body_rigid_params(
-            armature, 
-            bone_names=deform_bones
-        )
-
-        if not rigid_params_list:
-            self.report({'WARNING'}, "未找到足够的顶点数据来生成刚体")
-            return
-
-        total = len(rigid_params_list)
-        created_count = 0
-
-        for rb_idx, params in enumerate(rigid_params_list):
-            if not _check_memory_and_gc():
-                break
-            
-            bone_name = params['nearest_bone'] if params['nearest_bone'] else "Body"
-            rb_name = f"{bone_name}_{params['index'] + 1}"
-            
-            if rb_name in bpy.data.objects:
-                continue
-
-            rb_obj = FnRigidBody.new_rigid_body_object(context, rigid_grp_obj)
-
-            local_center = rigid_grp_obj.matrix_world.inverted() @ params['center']
-            rb_obj.location = local_center
-
-            parent_rot_inv = rigid_grp_obj.matrix_world.inverted().to_3x3()
-            local_rotation = parent_rot_inv @ params['rotation_matrix']
-            rb_obj.rotation_euler = local_rotation.to_euler('YXZ')
-            
-            rb_obj.mmd_rigid.shape = "CAPSULE"
-            rb_obj.mmd_rigid.size = Vector((params['outer_radius'], params['length'], 0.0))
-            
-            rb_obj.mmd_rigid.type = "0"
-            rb_obj.mmd_rigid.collision_group_number = 1
-            rb_obj.mmd_rigid.collision_group_mask = [False] * 16
-            rb_obj.mmd_rigid.collision_group_mask[0] = True
-            rb_obj.mmd_rigid.collision_group_mask[1] = True
-            
-            rb_obj.name = rb_name
-            rb_obj.mmd_rigid.name_j = rb_name
-            rb_obj.mmd_rigid.name_e = rb_name
-            rb_obj.data.name = rb_name
-            
-            if params['nearest_bone']:
-                rb_obj.mmd_rigid.bone = params['nearest_bone']
-            
-            rb = rb_obj.rigid_body
-            rb.friction = 0.5
-            rb.mass = 1.0 / total
-            rb.angular_damping = 0.5
-            rb.linear_damping = 0.5
-            rb.restitution = 0.0
-
-            created_count += 1
-            print(f"[高级身体刚体] 创建: {rb_name} ({created_count}/{total}), 尺寸=(外半径:{params['outer_radius']:.4f}, 长度:{params['length']:.4f}), 关联骨骼={params['nearest_bone']}")
-
-            if created_count % 20 == 0:
-                context.view_layer.update()
-                try:
-                    bpy.ops.ed.undo_push(message=f"高级刚体 {created_count}/{total}")
-                except:
-                    pass
-
-        del rigid_params_list
-        _check_memory_and_gc(force=True)
-        context.view_layer.update()
-
-        if created_count < total:
-            self.report({'WARNING'}, f"内存不足，已提前终止（创建 {created_count}/{total} 个刚体）")
-
-
-# ===========================================================================
-# =                        4. 注册/反注册函数                                 =
+# =                        3. 注册/反注册函数                                 =
 # ===========================================================================
 
 def register():
     bpy.utils.register_class(OBJECT_OT_auto_physics_builder)
     bpy.utils.register_class(OBJECT_OT_build_simple_body_rigid)
-    bpy.utils.register_class(OBJECT_OT_build_advanced_body_rigid)
-
-    
-    # 乳房物理属性
-    if not hasattr(bpy.types.Scene, "left_chest_bone"):
-        bpy.types.Scene.left_chest_bone = bpy.props.StringProperty(name="左胸部骨骼", default="")
-    if not hasattr(bpy.types.Scene, "right_chest_bone"):
-        bpy.types.Scene.right_chest_bone = bpy.props.StringProperty(name="右胸部骨骼", default="")
  
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_auto_physics_builder)
     bpy.utils.unregister_class(OBJECT_OT_build_simple_body_rigid)
-    bpy.utils.unregister_class(OBJECT_OT_build_advanced_body_rigid)
 
 
 if __name__ == "__main__":
