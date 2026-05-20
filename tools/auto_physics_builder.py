@@ -646,11 +646,17 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
     """
     简易身体刚体参数计算（基于骨骼权重）
     
-    使用最小二乘法圆柱拟合算法：
-    1. 计算协方差矩阵，通过特征值分解获取圆柱轴线方向
-    2. 将点投影到垂直于轴线的平面上
-    3. 在投影平面上拟合圆，得到圆心和半径
-    4. 使用所有点到轴线的最大距离作为最终半径
+    圆柱拟合步骤：
+    1. 第一步：获取轴线（通过协方差矩阵特征值分解确定方向）
+    2. 第二步：获取半径（计算所有顶点到轴线的最大垂直距离）
+    3. 第三步：获取圆柱尺寸（计算顶点在轴线方向上的投影范围）
+    4. 第四步：圆柱的中心即为刚体位置（计算几何中心）
+    
+    算法流程：
+    - 通过特征值分解协方差矩阵获取主成分方向作为轴线
+    - 将顶点投影到垂直于轴线的平面上进行圆拟合
+    - 使用所有点到轴线的最大距离确保包围所有顶点
+    - 刚体位置设置为圆柱的几何中心（投影范围的中点）
     
     Args:
         armature: 骨架对象
@@ -724,6 +730,9 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         cov_matrix[2][0] = cov_matrix[0][2]
         cov_matrix[2][1] = cov_matrix[1][2]
         
+        # =========================================================================
+        # 第一步：获取轴线
+        # =========================================================================
         # 2-5. 求解特征值和特征向量（最大特征值对应圆柱轴线方向）
         axis_dir = None
         
@@ -778,6 +787,9 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             bone_tail_world = armature.matrix_world @ bone.tail_local
             axis_dir = (bone_tail_world - bone_head_world).normalized()
         
+        # =========================================================================
+        # 辅助步骤：投影计算（为获取半径做准备）
+        # =========================================================================
         # 2-6. 将所有点投影到垂直于轴线的平面上
         # 创建正交基：u, v 是垂直于轴线的两个正交向量
         if abs(axis_dir.x) < abs(axis_dir.y):
@@ -795,6 +807,9 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         u = (u - u.dot(axis_dir) * axis_dir).normalized()
         v = axis_dir.cross(u).normalized()
         
+        # =========================================================================
+        # 辅助步骤：圆拟合（为获取半径和中心做准备）
+        # =========================================================================
         # 2-7. 在投影平面上拟合圆
         # 投影坐标
         proj_x = [v_world.dot(u) for v_world in vertices_world]
@@ -830,6 +845,9 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             # 如果拟合失败，使用质心作为圆心
             C_fit = centroid
         
+        # =========================================================================
+        # 第二步：获取半径
+        # =========================================================================
         # 2-8. 使用所有点到轴线的最大垂直距离作为半径（确保包住所有顶点）
         max_radius = 0.0
         for v_world in vertices_world:
@@ -843,13 +861,26 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         
         radius = max_radius
         
+        # =========================================================================
+        # 第三步：获取圆柱尺寸
+        # =========================================================================
         # 2-9. 计算圆柱长度（顶点在轴线上的投影范围）
         projections = [v.dot(axis_dir) for v in vertices_world]
         min_proj = min(projections)
         max_proj = max(projections)
         bone_length = max_proj - min_proj
         
-        # 2-10. 创建刚体，刚体位置使用拟合圆心，长度使用投影范围
+        # =========================================================================
+        # 第四步：圆柱的中心即为刚体位置
+        # =========================================================================
+        # 2-10. 计算圆柱几何中心（轴线方向上投影范围的中点）
+        # 圆柱中心 = 拟合圆心在垂直平面上的位置 + 轴线方向上的中点投影
+        center_proj = (min_proj + max_proj) / 2  # 轴线方向上的中点投影
+        C_fit_proj = C_fit.dot(axis_dir)          # 拟合圆心在轴线上的投影
+        delta_proj = center_proj - C_fit_proj      # 需要调整的投影距离
+        cylinder_center = C_fit + delta_proj * axis_dir  # 圆柱几何中心
+        
+        # 2-11. 创建刚体，刚体位置使用圆柱几何中心，长度使用投影范围
         rotation_matrix = _build_rotation_matrix(axis_dir)
         
         # 打印刚体旋转角度和轴线角度信息
@@ -870,7 +901,7 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         
         rigid_params.append({
             'index': len(rigid_params),
-            'center': C_fit,
+            'center': cylinder_center,
             'length': bone_length,
             'outer_radius': radius,
             'rotation_matrix': rotation_matrix,
