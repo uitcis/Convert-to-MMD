@@ -31,14 +31,17 @@ from .. import bone_utils
 try:
     from bl_ext.blender_org.mmd_tools.core.rigid_body import FnRigidBody
     from bl_ext.blender_org.mmd_tools.core.model import FnModel
+    MMD_TOOLS_AVAILABLE = True
 except ImportError:
     try:
         from mmd_tools.core.rigid_body import FnRigidBody
         from mmd_tools.core.model import FnModel
-    except ImportError as e:
-        print(f"导入 mmd_tools 错误 {e}")
-        print("请在 Blender 扩展仓库中安装 mmd_tools 扩展")
-        raise
+        MMD_TOOLS_AVAILABLE = True
+    except ImportError:
+        # 延迟导入，不在加载时强制检测
+        FnRigidBody = None
+        FnModel = None
+        MMD_TOOLS_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +407,10 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         return breast_data
     #乳房刚体构建
     def _create_rigid_bodies(self, context, armature, breast_data):
+        if not MMD_TOOLS_AVAILABLE:
+            self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
+            return None
+            
         root = FnModel.find_root_object(armature)
         if not root:
             self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
@@ -479,6 +486,10 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         return rb_objects
     #乳房弹簧构建
     def _create_spring_joints(self, context, armature, rb_objects):
+        if not MMD_TOOLS_AVAILABLE:
+            self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
+            return None
+            
         root = FnModel.find_root_object(armature)
         joint_grp_obj = FnModel.ensure_joint_group_object(context, root)
 
@@ -930,6 +941,10 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
             armature = context.active_object
             if not armature or armature.type != 'ARMATURE':
                 self.report({'ERROR'}, "请选择骨架对象")
+                return {'CANCELLED'}
+
+            if not MMD_TOOLS_AVAILABLE:
+                self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
                 return {'CANCELLED'}
 
             bpy.ops.object.use_mmd_tools_convert()
