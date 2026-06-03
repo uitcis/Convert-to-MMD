@@ -52,7 +52,10 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             bone_info = {
                 "name": bone.name,
                 "parent": bone.parent.name if bone.parent else None,
-                "location": list(bone.head_local),
+                "head_local": list(bone.head_local),
+                "tail_local": list(bone.tail_local),
+                "use_connect": bone.use_connect,
+                "roll": bone.roll,
                 "rotation": list(bone.matrix.to_euler()),
                 "scale": list(bone.matrix.to_scale()),
                 "is_weight_bone": False
