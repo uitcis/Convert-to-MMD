@@ -2,6 +2,14 @@ import bpy
 import json
 from bpy_extras.io_utils import ExportHelper
 
+def round_float(value, decimals=4):
+    """将浮点数四舍五入到指定小数位数"""
+    return round(value, decimals)
+
+def round_vector(vec, decimals=4):
+    """将向量的每个分量四舍五入到指定小数位数"""
+    return [round(v, decimals) for v in vec]
+
 class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
     bl_idname = "object.export_selected_bones_info"
     bl_label = "导出所选骨骼信息"
@@ -22,19 +30,23 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
         
-        # 获取选中的骨骼
+        # 获取选中的骨骼和对应的edit_bones（用于获取roll值）
         selected_bones = []
+        edit_bones_roll = {}  # 存储骨骼名称到roll值的映射
         mode = obj.mode
         
         if mode == 'EDIT':
-            # 在编辑模式下，通过EditBone名称获取对应的Bone对象
-            selected_bones = [obj.data.bones[edit_bone.name] for edit_bone in obj.data.edit_bones if edit_bone.select]
+            # 在编辑模式下，收集edit_bones的roll值并获取对应的Bone对象
+            for edit_bone in obj.data.edit_bones:
+                if edit_bone.select:
+                    edit_bones_roll[edit_bone.name] = edit_bone.roll
+                    selected_bones.append(obj.data.bones[edit_bone.name])
         elif mode == 'POSE':
             # 在姿态模式下，从pose_bones获取
             selected_bones = [p_bone.bone for p_bone in obj.pose.bones if p_bone.select]
         else:
             # 在对象模式下，检查是否选中了整个骨架
-            if obj.select:
+            if obj.select_get():
                 selected_bones = list(obj.data.bones)
             else:
                 self.report({'ERROR'}, "没有选中任何骨骼")
@@ -48,16 +60,17 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
         # 收集骨骼信息
         bones_info = []
         for bone in selected_bones:
-            # 收集位置、旋转、缩放
+            # 收集位置、旋转、缩放（保留四位小数）
+            roll_value = edit_bones_roll.get(bone.name, None)
             bone_info = {
                 "name": bone.name,
                 "parent": bone.parent.name if bone.parent else None,
-                "head_local": list(bone.head_local),
-                "tail_local": list(bone.tail_local),
+                "head_local": round_vector(bone.head_local),
+                "tail_local": round_vector(bone.tail_local),
                 "use_connect": bone.use_connect,
-                "roll": bone.roll,
-                "rotation": list(bone.matrix.to_euler()),
-                "scale": list(bone.matrix.to_scale()),
+                "roll": round_float(roll_value) if roll_value is not None else None,
+                "rotation": round_vector(bone.matrix.to_euler()),
+                "scale": round_vector(bone.matrix.to_scale()),
                 "is_weight_bone": False
             }
             
