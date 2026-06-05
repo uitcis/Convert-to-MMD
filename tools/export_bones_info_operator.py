@@ -10,6 +10,21 @@ def round_vector(vec, decimals=4):
     """将向量的每个分量四舍五入到指定小数位数"""
     return [round(v, decimals) for v in vec]
 
+def get_bone_collections(bone):
+    """获取骨骼所属的集合/层信息"""
+    # Blender 4.0+ 使用 bone.collections
+    if hasattr(bone, 'collections') and bone.collections:
+        collections = [coll.name for coll in bone.collections]
+        return {"type": "collections", "data": collections}
+    # 旧版本 Blender 使用 bone.layers
+    elif hasattr(bone, 'layers'):
+        layers = []
+        for i, layer_enabled in enumerate(bone.layers):
+            if layer_enabled:
+                layers.append(i + 1)  # 转换为1-based索引
+        return {"type": "layers", "data": layers}
+    return {"type": "unknown", "data": []}
+
 class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
     bl_idname = "object.export_selected_bones_info"
     bl_label = "导出所选骨骼信息"
@@ -65,6 +80,7 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             bone_info = {
                 "name": bone.name,
                 "parent": bone.parent.name if bone.parent else None,
+                "collections": get_bone_collections(bone),
                 "head_local": round_vector(bone.head_local),
                 "tail_local": round_vector(bone.tail_local),
                 "use_connect": bone.use_connect,
