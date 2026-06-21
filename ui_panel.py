@@ -308,6 +308,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row = general_tools_box.row()
             row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
             row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
+            row = general_tools_box.row()
+            row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')
             row = general_tools_box.row(align=True)
             row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
             row.prop(scene, "merge_bones_also", text="合并骨骼")

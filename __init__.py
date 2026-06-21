@@ -31,6 +31,7 @@ from .tools import clear_unweighted_bones_operator
 from .tools import auto_physics_builder
 from .tools import clear_constraints_and_drivers_operator
 from .tools import auto_connect_parent_bones_operator
+from .tools import small_utils_operator
 from . import ui_panel
 from . import bone_map_and_group
 from . import bone_utils
@@ -69,6 +70,7 @@ def register():
     bpy.utils.register_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_unlock_all_bones)
+    bpy.utils.register_class(small_utils_operator.OBJECT_OT_convert_bones_rotation_to_quaternion)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
@@ -127,6 +129,7 @@ def unregister():
     bpy.utils.unregister_class(clear_constraints_and_drivers_operator.OBJECT_OT_clear_all_bone_drivers)
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_unlock_all_bones)
+    bpy.utils.unregister_class(small_utils_operator.OBJECT_OT_convert_bones_rotation_to_quaternion)
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)
