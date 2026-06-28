@@ -71,6 +71,7 @@ def register():
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
     bpy.utils.register_class(auto_connect_parent_bones_operator.OBJECT_OT_unlock_all_bones)
     bpy.utils.register_class(small_utils_operator.OBJECT_OT_convert_bones_rotation_to_quaternion)
+    bpy.utils.register_class(small_utils_operator.OBJECT_OT_split_bones_to_individual_objects)
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
@@ -130,6 +131,7 @@ def unregister():
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_auto_connect_parent_bones)
     bpy.utils.unregister_class(auto_connect_parent_bones_operator.OBJECT_OT_unlock_all_bones)
     bpy.utils.unregister_class(small_utils_operator.OBJECT_OT_convert_bones_rotation_to_quaternion)
+    bpy.utils.unregister_class(small_utils_operator.OBJECT_OT_split_bones_to_individual_objects)
     # 注销动态属性
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)
