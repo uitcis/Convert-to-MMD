@@ -168,15 +168,19 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='EDIT')
         eb = armature.data.edit_bones
 
-        # 胸親骨骼
-        breast_parent_name = scene.breast_parent_bone if scene.breast_parent_bone else None
-        if breast_parent_name and breast_parent_name not in eb:
-            reference_bone = eb.get(left_bone) if left_bone else None
-            reference_y = reference_bone.head.y
-            reference_z = reference_bone.head.z
+        # 胸親骨骼 - 确定参考骨骼用于定位
+        breast_parent_name = scene.breast_parent_bone if getattr(scene, 'breast_parent_bone', None) else None
+        if breast_parent_name and breast_parent_name in eb:
+            reference_bone = eb[breast_parent_name]
         else:
-            reference_y = eb[breast_parent_name].head.y
-            reference_z = eb[breast_parent_name].head.z
+            # Fallback: 使用左/右胸骨骼作为位置参考
+            reference_bone = eb.get(left_bone) or eb.get(right_bone)
+            if reference_bone is None:
+                self.report({'ERROR'}, "未找到胸親父级骨骼或胸部骨骼")
+                bpy.ops.object.mode_set(mode='OBJECT')
+                return {'CANCELLED'}
+        reference_y = reference_bone.head.y
+        reference_z = reference_bone.head.z
 
         BrP_head = Vector((0, reference_y, reference_z))
         BrP_tail = BrP_head + Vector((0, 0, 0.08))
