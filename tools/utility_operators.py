@@ -1,6 +1,12 @@
 import bpy
 
 
+# ============================================================
+# 通用工具操作符集合
+# 放置不依赖特定业务流程的通用辅助工具
+# ============================================================
+
+
 class OBJECT_OT_convert_bones_rotation_to_quaternion(bpy.types.Operator):
     """将所有骨骼的旋转模式转换为四元数 (Quaternion)"""
     bl_idname = "object.convert_bones_rotation_to_quaternion"
@@ -107,7 +113,6 @@ class OBJECT_OT_split_bones_to_individual_objects(bpy.types.Operator):
             quat = direction.to_track_quat(track_axis, 'Z')
             empty_obj.rotation_quaternion = quat
 
-            # 存储原始骨骼方向向量，后续在姿态模式下重新读取
             created_empty_map[bone_data['name']] = {
                 'obj': empty_obj,
                 'parent_name': bone_data['parent_name'],
@@ -126,7 +131,6 @@ class OBJECT_OT_split_bones_to_individual_objects(bpy.types.Operator):
             empty_obj = info['obj']
             p_bone = obj.pose.bones.get(bone_name)
             if p_bone:
-                # 使用姿态骨骼的矩阵获取世界空间变换
                 matrix = obj.matrix_world @ p_bone.matrix
                 empty_obj.location = matrix.to_translation()
                 empty_obj.rotation_mode = 'QUATERNION'
