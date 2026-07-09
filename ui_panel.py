@@ -206,7 +206,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.clear_bone_selection", text="", icon='X')
         
             main_col = layout.column(align=True)
-            # 全ての親到腰部分
+            # 全ての親到下半身骨骼部分
             full_body_box = main_col.box()
             col = full_body_box.column()
             add_bone_row_with_button(col, "操作中心", "control_center_bone")
@@ -214,24 +214,39 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             add_bone_row_with_button(col, "センター", "center_bone")
             add_bone_row_with_button(col, "グルーブ", "groove_bone")
             add_bone_row_with_button(col, "腰", "hip_bone")
-
-            # 上半身到頭部分
-            upper_body_box = main_col.box()
-            col = upper_body_box.column()
+            add_bone_row_with_button(col, "下半身", "lower_body_bone")
             add_bone_row_with_button(col, "上半身*", "upper_body_bone")
-            # 上半身2~5由系统根据上半身和首骨骼自动检测
             add_bone_row_with_button(col, "首*", "neck_bone")
             add_bone_row_with_button(col, "頭*", "head_bone")
+
+            # 上半身部分
+            upper_body_box = main_col.box()
+            col = upper_body_box.column()
+            # 左右指示行
+            header_row = col.row(align=True)
+            header_split = header_row.split(factor=0.1, align=True)
+            header_split.label(text="")
+            header_action = header_split.split(factor=1, align=True)
+            header_left = header_action.split(factor=0.49, align=True)
+            left_sub = header_left.split(factor=0.1, align=True)
+            left_sub.label(text="")
+            left_sub.label(text="左侧")
+            header_divider = header_left.split(factor=(0.02/(0.02+0.49)), align=True)
+            header_divider.label(text="")
+            header_right = header_divider.split(factor=1, align=True)
+            right_sub = header_right.split(factor=0.1, align=True)
+            right_sub.label(text="")
+            right_sub.label(text="右侧")
+            # 上半身2~5由系统根据上半身和首骨骼自动检测
             add_symmetric_bones_with_buttons(col, "目", "left_eye_bone", "right_eye_bone")
             add_symmetric_bones_with_buttons(col, "肩*", "left_shoulder_bone", "right_shoulder_bone")
             add_symmetric_bones_with_buttons(col, "腕*", "left_upper_arm_bone", "right_upper_arm_bone")
             add_symmetric_bones_with_buttons(col, "ひじ*", "left_lower_arm_bone", "right_lower_arm_bone")
             add_symmetric_bones_with_buttons(col, "手首*", "left_hand_bone", "right_hand_bone")
 
-            # 下半身到足首部分
+            # 下半身部分
             lower_body_box = main_col.box()
             col = lower_body_box.column()
-            add_bone_row_with_button(col, "下半身", "lower_body_bone")
             add_symmetric_bones_with_buttons(col, "足*", "left_thigh_bone", "right_thigh_bone")
             add_symmetric_bones_with_buttons(col, "ひざ*", "left_calf_bone", "right_calf_bone")
             add_symmetric_bones_with_buttons(col, "足首*", "left_foot_bone", "right_foot_bone")
