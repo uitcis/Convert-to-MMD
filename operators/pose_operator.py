@@ -88,7 +88,13 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='EDIT')
         edit_bones = obj.data.edit_bones
         
-        # 获取骨骼位置
+        # 获取骨骼位置（先验证骨骼是否存在）
+        missing = [f"{k}='{v}'" for k, v in arm_bones.items() if v and v not in edit_bones]
+        if missing:
+            bpy.ops.object.mode_set(mode='OBJECT')
+            self.report({'ERROR'}, f"编辑模式中未找到以下骨骼：{'; '.join(missing)}")
+            return {'CANCELLED'}
+        
         left_upper_arm = edit_bones[arm_bones["left_upper_arm"]]
         left_lower_arm = edit_bones[arm_bones["left_lower_arm"]]
         right_upper_arm = edit_bones[arm_bones["right_upper_arm"]]
