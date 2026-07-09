@@ -246,6 +246,7 @@ class OBJECT_OT_export_preset(bpy.types.Operator):
     bl_idname = "object.export_preset"
     bl_label = "Export Preset"
     filepath : bpy.props.StringProperty(subtype="FILE_PATH")# type: ignore
+    filter_glob: bpy.props.StringProperty(default="*.json", options={'HIDDEN'})  # type: ignore[assignment]
 
     def execute(self, context):
         scene = context.scene
@@ -270,6 +271,7 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
     bl_idname = "object.import_preset"
     bl_label = "Import Preset"
     filepath : bpy.props.StringProperty(subtype="FILE_PATH")# type: ignore
+    filter_glob: bpy.props.StringProperty(default="*.json", options={'HIDDEN'})  # type: ignore[assignment]
 
     def execute(self, context):
         scene = context.scene
@@ -289,8 +291,6 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
-        # 设置文件过滤器仅显示 JSON 文件
-        self.filter_glob = "*.json"
         return {'RUNNING_MODAL'}
 
 def check_single_bone_position(armature, bone_name, is_left, mode):
