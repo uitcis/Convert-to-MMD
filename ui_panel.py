@@ -269,7 +269,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
 
             # 添加“使用mmdtools转换格式”按钮到最下方
             layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
-        # 其他工具选项卡
+        # 次标准骨骼选项卡
         elif scene.my_enum == 'option2':
             # 上部分：次标准骨骼
             secondary_bones_box = layout.box()
@@ -291,35 +291,6 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row = secondary_bones_box.row()
             row.operator("object.add_shoulder_p_bones", text="3.添加肩P骨骼", icon='BONE_DATA')
             
-            # 下部分：通用工具
-            general_tools_box = layout.box()
-            general_tools_box.label(text="通用工具", icon='TOOL_SETTINGS')
-
-            row = general_tools_box.row()
-            row.operator("object.clear_all_bone_constraints", text="清除所有骨骼约束", icon='CONSTRAINT')
-            row.operator("object.clear_all_bone_drivers", text="清除所有骨骼驱动器", icon='DRIVER')
-            row = general_tools_box.row()
-            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
-            row = general_tools_box.row()
-            row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
-            row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
-            row = general_tools_box.row()
-            row.operator("object.align_forearm_straight", text="伸直小臂", icon='ARROW_LEFTRIGHT')
-            row = general_tools_box.row()
-            row.operator("object.align_forearm_from_selection", text="对齐选中骨骼的小臂", icon='BONE_DATA')
-            row = general_tools_box.row()
-            row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')
-            row.operator("object.split_bones_to_individual_objects", text="拆分骨骼为独立物体", icon='UNLINKED')
-            row = general_tools_box.row(align=True)
-            row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
-            row.prop(scene, "merge_bones_also", text="合并骨骼")
-
-
-            row = general_tools_box.row()
-            row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
-            row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
-
-
             chest_physics_box = layout.box()
             chest_physics_box.label(text="胸物理", icon='PHYSICS')
 
@@ -360,3 +331,32 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row = body_rigid_box.row()
             row.scale_y = 1.2
             row.operator("object.build_simple_body_rigid", text="构建简易身体刚体", icon='ADD')
+
+        # 通用工具选项卡
+        elif scene.my_enum == 'option3':
+            general_tools_box = layout.box()
+            general_tools_box.label(text="通用工具", icon='TOOL_SETTINGS')
+
+            row = general_tools_box.row()
+            row.operator("object.clear_all_bone_constraints", text="清除所有骨骼约束", icon='CONSTRAINT')
+            row.operator("object.clear_all_bone_drivers", text="清除所有骨骼驱动器", icon='DRIVER')
+            row = general_tools_box.row()
+            row.operator("object.clear_unweighted_bones", text="清理无权重骨骼", icon='X')
+            row = general_tools_box.row()
+            row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
+            row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
+            row = general_tools_box.row()
+            row.operator("object.align_forearm_straight", text="伸直小臂", icon='ARROW_LEFTRIGHT')
+            row = general_tools_box.row()
+            row.operator("object.align_forearm_from_selection", text="对齐选中骨骼的小臂", icon='BONE_DATA')
+            row = general_tools_box.row()
+            row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')
+            row.operator("object.split_bones_to_individual_objects", text="拆分骨骼为独立物体", icon='UNLINKED')
+            row = general_tools_box.row(align=True)
+            row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
+            row.prop(scene, "merge_bones_also", text="合并骨骼")
+
+
+            row = general_tools_box.row()
+            row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
+            row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
