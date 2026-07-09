@@ -12,7 +12,7 @@ class OBJECT_OT_load_preset(bpy.types.Operator):
     def execute(self, context):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         # 从项目根目录的 presets/ 读取（operators 在子目录中）
-        project_root = os.path.dirname(os.path.dirname(script_dir))
+        project_root = os.path.dirname(script_dir)
         presets_dir = os.path.join(project_root, "presets")
         preset_path = os.path.join(presets_dir, f"{self.preset_name}.json")
 

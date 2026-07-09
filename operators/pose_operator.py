@@ -1,6 +1,6 @@
 import bpy
 import math
-from mathutils import Matrix
+from mathutils import Matrix, Vector
 from ..bone_utils import apply_armature_transforms
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
@@ -124,48 +124,49 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         pose_bones = obj.pose.bones
         edit_bones = obj.data.bones
         converted_bones = []
-        target_angle = 36  # 目标角度36度
 
+        # 上臂目标角度
+        upper_arm_target = 36
+
+        def _rotate_bone_to_target(bone_name, bone_type, head, tail, target_angle):
+            """将指定骨骼绕全局Y轴旋转到目标角度"""
+            bone = pose_bones[bone_name]
+            bone.rotation_mode = 'XYZ'
+
+            # 计算方向向量（从尾指向头）
+            vec = head - tail
+
+            # 使用四元数转换得到欧拉角
+            quat = vec.to_track_quat('Z', 'Y')
+            euler = quat.to_euler('XYZ')
+            current_angle = math.degrees(euler.x)
+
+            angle_diff = current_angle - target_angle
+
+            # 重置旋转，确保从默认状态开始
+            bone.rotation_euler = (0, 0, 0)
+
+            # 选择骨骼并绕全局Y轴旋转
+            bpy.ops.pose.select_all(action='DESELECT')
+            bone.select = True
+            obj.data.bones.active = bone.bone
+
+            is_left = "left" in bone_type
+            if is_left:
+                bpy.ops.transform.rotate(value=math.radians(-angle_diff), orient_axis='Y', orient_type='GLOBAL')
+            else:
+                bpy.ops.transform.rotate(value=math.radians(angle_diff), orient_axis='Y', orient_type='GLOBAL')
+            converted_bones.append(bone_name)
+
+        # 处理上臂（基于编辑骨骼静置姿态）
         for bone_type, bone_name in arm_bones.items():
+            if "lower_arm" in bone_type:
+                continue
             if bone_name and bone_name in pose_bones and bone_name in edit_bones:
-                bone = pose_bones[bone_name]
                 edit_bone = edit_bones[bone_name]
-                bone.rotation_mode = 'XYZ'
-                
-                # 获取骨骼的头部和尾部坐标
-                head = edit_bone.head_local
-                tail = edit_bone.tail_local
-                
-                # 计算方向向量（从尾指向头）
-                vec = head - tail
-                
-                # 使用四元数转换得到欧拉角
-                quat = vec.to_track_quat('Z', 'Y')
-                euler = quat.to_euler('XYZ')
-                
-                # 获取当前X轴旋转角度
-                current_angle = math.degrees(euler.x)
-                
-                # 计算角度差（左右两侧使用相同的计算逻辑）
-                angle_diff = current_angle - target_angle
-                
-                # 重置旋转，确保从默认状态开始
-                bone.rotation_euler = (0, 0, 0)
-                
-                # 选择骨骼
-                bpy.ops.pose.select_all(action='DESELECT')
-                bone.select = True
-                obj.data.bones.active = bone.bone
-                
-                # 绕全局空间 Y 轴旋转
-                if bone_type == "left_upper_arm":
-                    # 左上肢：绕全局 Y 轴旋转 angle_diff 角度
-                    bpy.ops.transform.rotate(value=math.radians(-angle_diff), orient_axis='Y', orient_type='GLOBAL')
-                elif bone_type == "right_upper_arm":
-                    # 右上肢：绕全局 Y 轴旋转 -angle_diff 角度
-                    bpy.ops.transform.rotate(value=math.radians(angle_diff), orient_axis='Y', orient_type='GLOBAL')
-                
-                converted_bones.append(bone_name)
+                _rotate_bone_to_target(bone_name, bone_type,
+                                       edit_bone.head_local, edit_bone.tail_local,
+                                       upper_arm_target)
 
         if not converted_bones:
             self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
