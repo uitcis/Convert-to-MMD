@@ -5,16 +5,6 @@ import math
 from mathutils import Quaternion
 
 
-def get_arm_bone_names_from_scene(scene):
-    """从场景属性中获取手臂骨骼名称"""
-    return {
-        "left_upper_arm": getattr(scene, "left_upper_arm_bone", ""),
-        "right_upper_arm": getattr(scene, "right_upper_arm_bone", ""),
-        "left_lower_arm": getattr(scene, "left_lower_arm_bone", ""),
-        "right_lower_arm": getattr(scene, "right_lower_arm_bone", ""),
-    }
-
-
 def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
     """
     将小臂方向对齐到上臂方向，实现肘关节伸直（或指定角度）。
@@ -82,92 +72,9 @@ def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
     return True
 
 
-def align_all_forearms(obj, arm_bones, elbow_angle=0.0):
-    """
-    对齐所有小臂。
-
-    参数:
-        obj: 骨架对象（必须在 POSE 模式下）
-        arm_bones: {left_upper_arm, right_upper_arm, left_lower_arm, right_lower_arm} 字典
-        elbow_angle: 肘关节弯曲角度（度数）
-
-    返回:
-        (成功数, 失败信息列表)
-    """
-    results = {"left": None, "right": None}
-    success_count = 0
-
-    for prefix in ("left", "right"):
-        lower_name = arm_bones.get(f"{prefix}_lower_arm")
-        upper_name = arm_bones.get(f"{prefix}_upper_arm")
-        if not lower_name or not upper_name:
-            continue
-        result = align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle)
-        results[prefix] = result
-        if result is True:
-            success_count += 1
-
-    errors = [f"{k}: {v}" for k, v in results.items() if v is not True and v is not None]
-    return success_count, errors
-
-
 # ============================================================
 # 操作符
 # ============================================================
-
-class OBJECT_OT_align_forearm_straight(bpy.types.Operator):
-    """将小臂与上臂对齐，使肘关节完全伸直（当前选中的骨架）"""
-    bl_idname = "object.align_forearm_straight"
-    bl_label = "伸直小臂"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    elbow_angle: bpy.props.FloatProperty(
-        name="肘关节角度",
-        description="0°=完全伸直，正值=向内弯曲（度）",
-        default=0.0,
-        min=-90.0,
-        max=90.0,
-        step=1.0,
-    )  # type: ignore[assignment]
-
-    def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
-            self.report({'ERROR'}, "请选中一个骨架对象")
-            return {'CANCELLED'}
-
-        # 获取骨骼名称
-        arm_bones = get_arm_bone_names_from_scene(context.scene)
-
-        if not any(arm_bones.values()):
-            self.report({'ERROR'}, "请先在UI中设置手臂骨骼名称")
-            return {'CANCELLED'}
-
-        # 保存当前模式
-        original_mode = context.mode
-        if original_mode != 'POSE':
-            bpy.ops.object.mode_set(mode='POSE')
-
-        # 检查骨骼是否存在
-        pose_bones = obj.pose.bones
-        missing = [k for k, v in arm_bones.items() if v and v not in pose_bones]
-        if missing:
-            self.report({'ERROR'}, f"以下骨骼不存在：{', '.join(missing)}")
-            if original_mode != 'POSE':
-                bpy.ops.object.mode_set(mode=original_mode)
-            return {'CANCELLED'}
-
-        success_count, errors = align_all_forearms(obj, arm_bones, self.elbow_angle)
-
-        if original_mode != 'POSE':
-            bpy.ops.object.mode_set(mode=original_mode)
-
-        if errors:
-            self.report({'WARNING'}, f"已对齐 {success_count} 条小臂，失败：{'；'.join(errors)}")
-        else:
-            self.report({'INFO'}, f"已对齐 {success_count} 条小臂，肘关节角度={self.elbow_angle}°")
-        return {'FINISHED'}
-
 
 class OBJECT_OT_align_forearm_from_selection(bpy.types.Operator):
     """基于当前选中的小臂骨骼，将其与父级上臂对齐"""
@@ -221,13 +128,11 @@ class OBJECT_OT_align_forearm_from_selection(bpy.types.Operator):
 
 
 def register():
-    bpy.utils.register_class(OBJECT_OT_align_forearm_straight)
     bpy.utils.register_class(OBJECT_OT_align_forearm_from_selection)
 
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_align_forearm_from_selection)
-    bpy.utils.unregister_class(OBJECT_OT_align_forearm_straight)
 
 
 if __name__ == "__main__":

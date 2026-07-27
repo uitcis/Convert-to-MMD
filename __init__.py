@@ -86,7 +86,6 @@ CLASSES = [
     # 辅助工具
     utility_operators.OBJECT_OT_convert_bones_rotation_to_quaternion,
     utility_operators.OBJECT_OT_split_bones_to_individual_objects,
-    arm_forearm_tool.OBJECT_OT_align_forearm_straight,
     arm_forearm_tool.OBJECT_OT_align_forearm_from_selection,
 ]
 
