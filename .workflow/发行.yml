@@ -12,20 +12,20 @@ stages:
     strategy: naturally
     trigger: auto
     steps:
-      - step: shell@v1
-        name: build
+      - step: shell@agent
+        name: build_task
         displayName: 执行构建打包
-        inputs:
-          commands: |
-            mkdir -p output
-            zip -r output/firmware.zip ./bin
-        artifacts:
-          - name: BUILD_OUTPUT
-            path: output/firmware.zip
+        hostGroupID: gitee-go
+        script: |
+          mkdir -p output
+          zip -r output/firmware.zip ./bin
+        uploadArtifact: true
+        uploadArtifactOptions:
+          artifactPath: output/firmware.zip
+          artifactName: build_output
 
       - step: publish@release
-        name: create_release
-        displayName: 创建Release发布
-        inputs:
-          files: output/firmware.zip
-        dependArtifact: BUILD_OUTPUT
+        name: create_gitee_release
+        displayName: 创建发行版Release
+        dependArtifact: BUILD_ARTIFACT
+        autoIncrement: false
