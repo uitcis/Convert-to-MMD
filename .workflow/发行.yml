@@ -1,31 +1,27 @@
-version: '1.0'
+version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
-triggers:
-  push:
-    - matchType: REGEX
-      branch: ''
-      tag: '^v.*'
 stages:
-  - name: build-stage
-    displayName: 编译打包
-    strategy: naturally
-    trigger: auto
-    steps:
-      - step: shell@agent
-        name: build_task
-        displayName: 执行构建打包
-        hostGroupID: gitee-go
-        script: |
-          mkdir -p output
-          zip -r output/firmware.zip ./bin
-        uploadArtifact: true
-        uploadArtifactOptions:
-          artifactPath: output/firmware.zip
-          artifactName: build_output
-
-      - step: publish@release
-        name: create_gitee_release
-        displayName: 创建发行版Release
-        dependArtifact: BUILD_ARTIFACT
-        autoIncrement: false
+- name: 编译打包
+  displayName: 编译打包
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: release@gitee
+    name: d49d02b4
+    displayName: Gitee Release
+    releaseName: "release-v.${GITEE_PIPELINE_BUILD_NUMBER}"
+    description: CHANGELOG.md
+    tagName: "v.${GITEE_PIPELINE_BUILD_NUMBER}"
+    upstreamArtifact: []
+    assertFiles: []
+    prerelease: false
+    allowUpdate: true
+    strategy:
+      retry: "0"
+      resource:
+        cpu: "2"
+        memory: "4"
+triggers:
+  trigger: auto
+notify: []
