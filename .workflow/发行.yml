@@ -1,15 +1,23 @@
-name: 自动发版
+name: Tag自动发版
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name:检出代码
+      - name: 拉取源码
         uses: actions/checkout@v3
-      - name:编译
-        run: ./build.sh
-      - name:创建Release上传包
-        step: publish@release
+
+      - name: 执行编译打包
+        run: |
+          echo "开始构建"
+          mkdir output
+          zip -r output/firmware.zip ./bin
+
+      - name: 发布版本
+        uses: publish@release
+        with:
+          files: output/firmware.zip
