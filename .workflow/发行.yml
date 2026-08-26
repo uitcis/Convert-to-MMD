@@ -20,8 +20,8 @@ stages:
     strategy:
       retry: "0"
       resource:
-        cpu: "2"
-        memory: "4"
+        cpu: "1"
+        memory: "2"
 triggers:
-  trigger: auto
+  trigger: manual
 notify: []
