@@ -10,9 +10,9 @@ stages:
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
-    releaseName: "release-${CI_COMMIT_TAG}"
+    releaseName: "release-V1.1-${GITEE_PIPELINE_BUILD_NUMBER}"
     description: CHANGELOG.md
-    tagName: "${CI_COMMIT_TAG}"
+    tagName: "release-V1.1-${GITEE_PIPELINE_BUILD_NUMBER}"
     upstreamArtifact: []
     assertFiles: []
     prerelease: false
