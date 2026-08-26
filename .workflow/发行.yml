@@ -23,8 +23,8 @@ stages:
         cpu: "1"
         memory: "2"
 triggers:
-  trigger: tag
-  tag:
+  push:
     tags:
-      - "*"
+      prefix:
+        - V
 notify: []
