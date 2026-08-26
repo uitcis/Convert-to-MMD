@@ -14,7 +14,9 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
             self.report({'ERROR'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 
-        bpy.ops.object.mode_set(mode='EDIT')
+        original_mode = obj.mode
+        if original_mode != 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
         edit_bones = obj.data.edit_bones
 
         precision = 2
@@ -42,7 +44,8 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
                         connection_count += 1
                         break
 
-        bpy.ops.object.mode_set(mode='OBJECT')
+        if obj.mode != original_mode:
+            bpy.ops.object.mode_set(mode=original_mode)
 
         self.report({'INFO'}, f"已自动连接 {connection_count} 个骨骼的父子关系")
         return {'FINISHED'}
@@ -60,7 +63,7 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
             self.report({'ERROR'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 
-        bpy.ops.object.mode_set(mode='POSE')
+        # 锁定属性是姿态数据属性，任意模式下均可修改（无需切换模式）
         for pose_bone in obj.pose.bones:
             pose_bone.bone.use_inherit_rotation = True
             pose_bone.lock_rotation[0] = False
@@ -70,8 +73,6 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
             pose_bone.lock_location[0] = False
             pose_bone.lock_location[1] = False
             pose_bone.lock_location[2] = False
-
-        bpy.ops.object.mode_set(mode='OBJECT')
 
         self.report({'INFO'}, f"已解锁 {len(obj.pose.bones)} 个骨骼的旋转、位置锁定")
         return {'FINISHED'}

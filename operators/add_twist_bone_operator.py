@@ -11,6 +11,7 @@ import bpy
 import math
 from mathutils import Vector
 from bpy.props import StringProperty
+from ..bone_utils import create_or_update_bone
 
 
 # ---------------------------------------------------------------------------
@@ -69,37 +70,41 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
     # ------------------------------------------------------------------
     def _create_twist_bone_chain(self, edit_bones, base_name, twist_names):
         base_bone = edit_bones[base_name]
-        parent_bone = base_bone.parent
-        children_bones = [child for child in edit_bones if child.parent == base_bone]
+        # 原骨骼的直接子级（排除捩/shadow/dummy，避免重复运行时把自己重新挂到主捩下）
+        children_bones = [
+            child for child in edit_bones
+            if child.parent == base_bone
+            and child.name not in twist_names
+            and not child.name.startswith("_shadow_")
+            and not child.name.startswith("_dummy_")
+        ]
 
         bone_head = base_bone.head
         bone_tail = base_bone.tail
         bone_vector = bone_tail - bone_head
-        bone_length = bone_vector.length
 
-        # 创建所有捩骨骼
+        # 创建/复用所有捩骨骼（已存在则不重复创建，仅调整位置与关系）
         twist_bones = []
         for i, twist_name in enumerate(twist_names):
-            twist_bone = edit_bones.new(twist_name)
-
             if i == 0:
                 t = 0.6
                 twist_head = bone_head + bone_vector * t
                 twist_tail = bone_head + bone_vector * 1.0
-                twist_bone.head = twist_head
-                twist_bone.tail = twist_tail
-                twist_bone.roll = base_bone.roll
+                roll = base_bone.roll
             else:
                 t = i * 0.2
                 twist_head = bone_head + bone_vector * t
-                twist_bone.head = twist_head
-                twist_bone.tail = twist_head + Vector((0, 0, 0.08))
-                twist_bone.roll = 0.0
+                twist_tail = twist_head + Vector((0, 0, 0.08))
+                roll = 0.0
 
-            twist_bone.use_connect = False
+            twist_bone = create_or_update_bone(
+                edit_bones, twist_name, twist_head, twist_tail,
+                use_connect=False, parent_name=None,
+            )
+            twist_bone.roll = roll
             twist_bones.append(twist_bone)
 
-        # 为细分的捩骨骼创建shadow/dummy
+        # 为细分的捩骨骼创建/复用shadow/dummy
         for i, twist_bone in enumerate(twist_bones):
             if i == 0:
                 continue
@@ -113,22 +118,20 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
 
             # shadow骨骼
             shadow_name = f"_shadow_{twist_bone.name}"
-            shadow_bone = edit_bones.new(shadow_name)
-            shadow_bone.head = shadow_head
-            shadow_bone.tail = shadow_head + Vector((0, 0, 0.08))
-            shadow_bone.parent = base_bone
-            shadow_bone.use_connect = False
+            shadow_bone = create_or_update_bone(
+                edit_bones, shadow_name, shadow_head, shadow_head + Vector((0, 0, 0.08)),
+                use_connect=False, parent_name=base_name,
+            )
             shadow_bone.roll = 0.0
 
             # dummy骨骼
             dummy_name = f"_dummy_{twist_bone.name}"
-            dummy_bone = edit_bones.new(dummy_name)
-            dummy_bone.head = shadow_head
-            dummy_bone.tail = shadow_head + Vector((0, 0, 0.08))
-
             main_twist_name = twist_bone.name.replace("1", "").replace("2", "").replace("3", "")
-            dummy_bone.parent = edit_bones.get(main_twist_name, base_bone)
-            dummy_bone.use_connect = False
+            dummy_parent_name = main_twist_name if main_twist_name in edit_bones else base_name
+            dummy_bone = create_or_update_bone(
+                edit_bones, dummy_name, shadow_head, shadow_head + Vector((0, 0, 0.08)),
+                use_connect=False, parent_name=dummy_parent_name,
+            )
             dummy_bone.roll = 0.0
 
         # 设置捩骨骼父级

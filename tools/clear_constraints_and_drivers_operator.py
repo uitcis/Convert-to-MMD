@@ -14,11 +14,7 @@ class OBJECT_OT_clear_all_bone_constraints(bpy.types.Operator):
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
-        # 切换到姿态模式
-        if obj.mode != 'POSE':
-            bpy.ops.object.mode_set(mode='POSE')
-
-        # 统计被清除的约束数量
+        # 约束是姿态数据属性，任意模式下均可清除（无需切换到姿态模式）
         total_removed = 0
 
         # 遍历所有骨骼并清除约束

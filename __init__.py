@@ -46,6 +46,7 @@ from .tools import clear_constraints_and_drivers_operator
 from .tools import auto_connect_parent_bones_operator
 from .tools import utility_operators
 from .tools import arm_forearm_tool
+from .tools import adjust_bone_rolls_operator
 
 
 # ============================================================
@@ -87,6 +88,7 @@ CLASSES = [
     utility_operators.OBJECT_OT_convert_bones_rotation_to_quaternion,
     utility_operators.OBJECT_OT_split_bones_to_individual_objects,
     arm_forearm_tool.OBJECT_OT_align_forearm_from_selection,
+    adjust_bone_rolls_operator.OBJECT_OT_calculate_bone_rolls,
 ]
 
 

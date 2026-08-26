@@ -27,10 +27,7 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelp
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
-        # 切换到姿态模式
-        if obj.mode != 'POSE':
-            bpy.ops.object.mode_set(mode='POSE')
-
+        # 约束是姿态数据属性，任意模式下均可读取（无需切换到姿态模式）
         constraints_data = {}
 
         # 2. 定义需要转换为度数的属性白名单

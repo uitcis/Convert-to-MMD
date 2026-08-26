@@ -20,13 +20,7 @@ class OBJECT_OT_convert_bones_rotation_to_quaternion(bpy.types.Operator):
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
-        # 记录原模式以便恢复
-        original_mode = obj.mode
-
-        # 切换到姿态模式
-        if original_mode != 'POSE':
-            bpy.ops.object.mode_set(mode='POSE')
-
+        # rotation_mode 是姿态数据属性，任意模式下均可修改（无需切换到姿态模式）
         converted_count = 0
         skipped_count = 0
 
@@ -36,10 +30,6 @@ class OBJECT_OT_convert_bones_rotation_to_quaternion(bpy.types.Operator):
                 converted_count += 1
             else:
                 skipped_count += 1
-
-        # 恢复原模式
-        if original_mode != 'POSE':
-            bpy.ops.object.mode_set(mode=original_mode)
 
         if converted_count > 0:
             self.report(
@@ -121,12 +111,7 @@ class OBJECT_OT_split_bones_to_individual_objects(bpy.types.Operator):
                 'roll': bone_data['roll'],
             }
 
-        # 切换到姿态模式获取正确的变换
-        bpy.ops.object.select_all(action='DESELECT')
-        obj.select_set(True)
-        context.view_layer.objects.active = obj
-        bpy.ops.object.mode_set(mode='POSE')
-
+        # 直接读取姿态矩阵（pose 数据在物体模式下同样可用，无需切换模式）
         for bone_name, info in created_empty_map.items():
             empty_obj = info['obj']
             p_bone = obj.pose.bones.get(bone_name)
@@ -143,9 +128,6 @@ class OBJECT_OT_split_bones_to_individual_objects(bpy.types.Operator):
             parent_name = info['parent_name']
             if parent_name and parent_name in created_empty_map:
                 empty_obj.parent = created_empty_map[parent_name]['obj']
-
-        # 恢复对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
 
         # 选中所有创建的空物体
         bpy.ops.object.select_all(action='DESELECT')

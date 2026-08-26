@@ -513,9 +513,8 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 
-        # 保存当前模式并切换到OBJECT模式
-        current_mode = context.mode
-        if current_mode != 'OBJECT':
+        # mmd_tools 转换需要在物体模式下执行
+        if context.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
         try:

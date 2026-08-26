@@ -1,6 +1,7 @@
 import bpy
 import math
 from mathutils import Vector
+from ..bone_utils import create_or_update_bone, context_mode_to_mode_set
 
 
 class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
@@ -14,22 +15,14 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
             self.report({'ERROR'}, "请选择一个骨架")
             return {'CANCELLED'}
         
+        original_mode = context.mode
+        # mode_set 只接受 OBJECT/EDIT/POSE，而 context.mode 返回 'EDIT_ARMATURE' 等值
+        restore_mode = context_mode_to_mode_set(original_mode)
         # 切换到编辑模式
-        if context.mode != 'EDIT_ARMATURE':
+        if original_mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = armature.data.edit_bones
-        
-        # 检查是否已经存在肩P骨骼
-        existing_shoulder_p_bones = []
-        for bone in edit_bones:
-            if '肩P' in bone.name:
-                existing_shoulder_p_bones.append(bone.name)
-        
-        if existing_shoulder_p_bones:
-            self.report({'INFO'}, f"已经存在肩P骨骼: {', '.join(existing_shoulder_p_bones)}，跳过操作")
-            bpy.ops.object.mode_set(mode='OBJECT')
-            return {'CANCELLED'}
         
         # 定义肩部骨骼映射 (现有肩骨骼名, 肩P骨骼名, 肩C骨骼名, 肩P父级, 肩C父级, dummy父级, shadow父级)
         shoulder_bones_config = [
@@ -58,44 +51,38 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
             # 获取肩P骨骼的父级骨骼
             p_parent_bone = edit_bones.get(p_parent_name) if p_parent_name else original_parent
             
-            # 创建肩P骨骼
-            p_bone = edit_bones.new(p_name)
-            p_bone.head = head_pos
-            # 调整肩P骨骼的尾端到头部上方（保持头部位置，向上延伸）
+            # 创建/复用肩P骨骼（已存在则不重复创建，仅调整位置与关系）
             up_vector = Vector((0, 0, 0.08))  # 向上延伸0.08个单位
-            p_bone.tail = head_pos + up_vector
-            
-            # 设置肩P骨骼的父级
+            p_bone = create_or_update_bone(
+                edit_bones, p_name, head_pos, head_pos + up_vector,
+                use_connect=False, parent_name=None,
+            )
+            # 设置肩P骨骼的父级（不连接，保持独立控制）
             if p_parent_bone:
                 p_bone.parent = p_parent_bone
-                p_bone.use_connect = False  # 肩P骨骼不连接，保持独立控制
             else:
                 p_bone.parent = original_parent
-                p_bone.use_connect = False
+            p_bone.use_connect = False
             
-            # 创建肩C骨骼
-            c_bone = edit_bones.new(c_name)
-            c_bone.head = tail_pos
-            # 调整肩C骨骼的尾端到头部上方（保持头部位置，向上延伸）
-            c_bone.tail = tail_pos + up_vector
-            
-            # 获取肩C骨骼的父级骨骼
+            # 创建/复用肩C骨骼
+            c_bone = create_or_update_bone(
+                edit_bones, c_name, tail_pos, tail_pos + up_vector,
+                use_connect=False, parent_name=None,
+            )
+            # 获取肩C骨骼的父级骨骼并设置（不连接，保持独立控制）
             c_parent_bone = edit_bones.get(c_parent_name) if c_parent_name else original_bone
-            
-            # 设置肩C骨骼的父级
             if c_parent_bone:
                 c_bone.parent = c_parent_bone
-                c_bone.use_connect = False  # 肩C骨骼不连接，保持独立控制
             else:
                 c_bone.parent = original_bone
-                c_bone.use_connect = False
+            c_bone.use_connect = False
             
-            # 创建dummy骨骼
+            # 创建/复用dummy骨骼
             dummy_bone_name = f"_dummy_{c_name}"
-            dummy_bone = edit_bones.new(dummy_bone_name)
-            dummy_bone.head = head_pos
-            dummy_bone.tail = head_pos + up_vector  # 向上延伸0.08个单位
-            
+            dummy_bone = create_or_update_bone(
+                edit_bones, dummy_bone_name, head_pos, head_pos + up_vector,
+                use_connect=False, parent_name=None,
+            )
             # 设置dummy骨骼的父级
             dummy_parent_bone = edit_bones.get(dummy_parent_name) if dummy_parent_name else p_bone
             if dummy_parent_bone:
@@ -104,12 +91,12 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
                 dummy_bone.parent = p_bone
             dummy_bone.use_connect = False
             
-            # 创建shadow骨骼
+            # 创建/复用shadow骨骼
             shadow_bone_name = f"_shadow_{c_name}"
-            shadow_bone = edit_bones.new(shadow_bone_name)
-            shadow_bone.head = head_pos
-            shadow_bone.tail = head_pos + up_vector  # 向上延伸0.08个单位
-            
+            shadow_bone = create_or_update_bone(
+                edit_bones, shadow_bone_name, head_pos, head_pos + up_vector,
+                use_connect=False, parent_name=None,
+            )
             # 设置shadow骨骼的父级
             shadow_parent_bone = edit_bones.get(shadow_parent_name) if shadow_parent_name else p_parent_bone
             if shadow_parent_bone:
@@ -141,18 +128,29 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
             
             bones_added += 1
         
-        # 一次性切换到姿态模式添加约束
+        # 关键修复：退出编辑模式使pose数据与新骨骼同步。
+        # 编辑模式下pose.bones是进入编辑模式前的快照，不含新建骨骼，
+        # 直接访问会触发KeyError（如 '右肩C' not found）。
+        if context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        # 添加约束（必须在非编辑模式下进行，此时pose.bones已包含新建骨骼）
         if created_bones:
-            bpy.ops.object.mode_set(mode='POSE')
-            
             for c_name, shadow_bone_name in created_bones:
                 # 获取肩C骨骼的骨骼对象
-                c_pose_bone = armature.pose.bones[c_name]
+                c_pose_bone = armature.pose.bones.get(c_name)
+                if c_pose_bone is None:
+                    print(f"警告: 未在姿态骨骼中找到 {c_name}，跳过约束设置")
+                    continue
                 
                 # 锁定肩C骨骼的移动
                 c_pose_bone.lock_location[0] = True
                 c_pose_bone.lock_location[1] = True
                 c_pose_bone.lock_location[2] = True
+                
+                # 清除现有约束，避免重复运行累加
+                for constraint in list(c_pose_bone.constraints):
+                    c_pose_bone.constraints.remove(constraint)
                 
                 # 为肩C骨骼添加TRANSFORM约束
                 transform_constraint = c_pose_bone.constraints.new('TRANSFORM')
@@ -206,10 +204,15 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
                     shadow_constraint.target_space = 'POSE'
                     # 移除目标剪切
                     shadow_constraint.remove_target_shear = False
-        # 对创建的骨骼进行分组
+        # 对创建的骨骼进行分组（切到物体模式，兼容 Blender 3.x 的 pose.group_add 分支）
+        # 注意：上方已切换到物体模式以同步pose数据，此处无需再次切换
         bpy.ops.object.create_bone_group()
+
+        # 恢复进入时的模式（context.mode 的值需转换为 mode_set 接受的枚举）
+        if context.mode != original_mode:
+            bpy.ops.object.mode_set(mode=restore_mode)
         
-        self.report({'INFO'}, f"已添加 {bones_added} 组肩P骨骼")
+        self.report({'INFO'}, f"已处理 {bones_added} 组肩P骨骼（已存在的骨骼自动复用，仅调整关系）")
         return {'FINISHED'}
 
 

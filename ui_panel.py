@@ -362,6 +362,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
             row = general_tools_box.row()
             row.operator("object.align_forearm_from_selection", text="对齐小臂", icon='ARROW_LEFTRIGHT')
+            row.operator("object.calculate_bone_rolls", text="设置骨骼扭转", icon='FILE_REFRESH')
             row = general_tools_box.row()
             row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')
             row.operator("object.split_bones_to_individual_objects", text="拆分骨骼为独立物体", icon='UNLINKED')

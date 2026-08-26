@@ -54,8 +54,10 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
         original_cursor_location = context.scene.cursor.location.copy()
         context.scene.cursor.location = target_origin
         
-        # 切换到对象模式
-        bpy.ops.object.mode_set(mode='OBJECT')
+        original_mode = obj.mode
+        # origin_set 需要在物体模式下执行
+        if original_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
         
         # 选择骨架对象
         bpy.ops.object.select_all(action='DESELECT')
@@ -65,18 +67,19 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
         # 使用 origin_set 操作符将原点设置到 3D 游标位置
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
         
-        # 切换回姿态模式
-        bpy.ops.object.mode_set(mode='POSE')
-        
         # 将骨架坐标归零
         obj.location = (0.0, 0.0, 0.0)
         
-        # 清除所有姿态和动画
-        bpy.ops.pose.select_all(action='SELECT')
-        bpy.ops.pose.rot_clear()
-        bpy.ops.pose.scale_clear()
-        bpy.ops.pose.loc_clear()
-        bpy.ops.pose.select_all(action='DESELECT')
+        # 清除所有骨骼的姿势变换（pose 数据属性，任意模式下均可重置，无需切换姿态模式）
+        for pb in obj.pose.bones:
+            if pb.rotation_mode == 'QUATERNION':
+                pb.rotation_quaternion.identity()
+            elif pb.rotation_mode == 'AXIS_ANGLE':
+                pb.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
+            else:
+                pb.rotation_euler.zero()
+            pb.scale = (1.0, 1.0, 1.0)
+            pb.location = (0.0, 0.0, 0.0)
         
         # 删除所有动作（动画）
         if obj.animation_data:
@@ -86,6 +89,10 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
                     obj.animation_data.nla_tracks.remove(track)
         # 重新加载视图
         context.view_layer.update()
+
+        # 恢复进入时的模式
+        if obj.mode != original_mode:
+            bpy.ops.object.mode_set(mode=original_mode)
         
         self.report({'INFO'}, "已归正骨骼：设置原点并清除动画")
         return {'FINISHED'}

@@ -95,8 +95,10 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
             return {'CANCELLED'}
         
         mmd_bones = self.get_mmd_bones()
-        
-        bpy.ops.object.mode_set(mode='EDIT')
+
+        original_mode = armature.mode
+        if original_mode != 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
         
         total_merged = 0
         
@@ -104,7 +106,8 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
             merged = self.merge_bone_chain(armature, bone_name, mmd_bones)
             total_merged += merged
         
-        bpy.ops.object.mode_set(mode='OBJECT')
+        if armature.mode != original_mode:
+            bpy.ops.object.mode_set(mode=original_mode)
         
         if total_merged > 0:
             self.report({'INFO'}, f"已合并 {total_merged} 个{self.bone_type}")

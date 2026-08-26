@@ -242,11 +242,12 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             edit_bones["右足首"].tail = edit_bones["右足先EX"].head
 
 
-        # 调用函数设置 roll 値
-        bone_utils.set_roll_values(edit_bones, bone_utils.DEFAULT_ROLL_VALUES)               
-
         # 连接手指骨骼的头尾
         self.connect_finger_bones(edit_bones)
+
+        # 调用新规则设置骨骼扭转（几何/按名，复刻 Shift+N 全局 ±Z/±Y）
+        # 放在连接手指之后，使手指 roll 基于连接后的真实头尾方向计算
+        bone_utils.calculate_auto_bone_roll(edit_bones, armature_obj=obj)
 
         return {'FINISHED'}
 
