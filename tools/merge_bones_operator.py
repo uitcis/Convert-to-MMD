@@ -135,12 +135,16 @@ class OBJECT_OT_merge_arm_bones(OBJECT_OT_merge_bones_base):
     bone_type = "手臂骨骼"
 
 
-class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_bones_base):
-    """合并所选骨骼权重到活动项骨骼"""
-    bl_idname = "object.merge_selected_bones_weights"
-    bl_label = "合并所选骨骼权重到活动项骨骼"
-    bl_description = "将所选骨骼的权重合并到活动项骨骼"
+class OBJECT_OT_merge_selected_bones_base(OBJECT_OT_merge_bones_base):
+    """合并所选骨骼权重到活动项骨骼（未注册基类）
+
+    两个具体操作符（仅权重 / 权重+骨骼）共享此实现，
+    通过 also_merge_bones 类属性区分行为。
+    """
     bl_options = {'REGISTER', 'UNDO'}
+
+    # 是否同时合并骨骼（子类覆盖）
+    also_merge_bones = False
 
     @classmethod
     def poll(cls, context):
@@ -185,8 +189,8 @@ class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_bones_base):
         else:
             self.report({'INFO'}, "没有骨骼权重被合并")
 
-        merge_bones_also = context.scene.merge_bones_also
-        if merge_bones_also:
+        # 同时合并骨骼（将所选骨骼的父级重接到目标骨骼后删除）
+        if self.also_merge_bones:
             if original_mode != 'EDIT':
                 bpy.ops.object.mode_set(mode='EDIT')
             edit_bones = armature.data.edit_bones
@@ -208,16 +212,36 @@ class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_bones_base):
         return {'FINISHED'}
 
 
+class OBJECT_OT_merge_selected_bones_weights(OBJECT_OT_merge_selected_bones_base):
+    """合并所选骨骼权重到活动项骨骼"""
+    bl_idname = "object.merge_selected_bones_weights"
+    bl_label = "合并所选骨骼权重到活动项骨骼"
+    bl_description = "将所选骨骼的权重合并到活动项骨骼"
+
+    also_merge_bones = False
+
+
+class OBJECT_OT_merge_selected_bones_and_weights(OBJECT_OT_merge_selected_bones_base):
+    """合并所选骨骼权重与骨骼到活动项骨骼"""
+    bl_idname = "object.merge_selected_bones_and_weights"
+    bl_label = "合并所选骨骼权重与骨骼"
+    bl_description = "将所选骨骼的权重合并到活动项骨骼，并将骨骼本身也合并删除"
+
+    also_merge_bones = True
+
+
 def register():
     bpy.utils.register_class(OBJECT_OT_merge_leg_bones)
     bpy.utils.register_class(OBJECT_OT_merge_arm_bones)
     bpy.utils.register_class(OBJECT_OT_merge_selected_bones_weights)
+    bpy.utils.register_class(OBJECT_OT_merge_selected_bones_and_weights)
 
 
 def unregister():
     bpy.utils.unregister_class(OBJECT_OT_merge_leg_bones)
     bpy.utils.unregister_class(OBJECT_OT_merge_arm_bones)
     bpy.utils.unregister_class(OBJECT_OT_merge_selected_bones_weights)
+    bpy.utils.unregister_class(OBJECT_OT_merge_selected_bones_and_weights)
 
 
 if __name__ == "__main__":

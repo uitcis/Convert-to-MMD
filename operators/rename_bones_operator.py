@@ -33,19 +33,32 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         # mode_set 只接受 OBJECT/EDIT/POSE，而 context.mode 返回 'EDIT_ARMATURE' 等值
         restore_mode = bone_utils.context_mode_to_mode_set(original_mode)
 
-        # 创建骨架备份
+        # === 骨骼备份管理 ===
+        # 1. 删除旧的备份对象（如果存在），避免累积
+        old_backup_name = f"{obj.name}_backup"
+        if old_backup_name in bpy.data.objects:
+            try:
+                old_backup_obj = bpy.data.objects[old_backup_name]
+                bpy.data.objects.remove(old_backup_obj, do_unlink=True)
+                print(f"[Convert-to-MMD] 已删除旧备份: {old_backup_name}")
+            except Exception as e:
+                print(f"[Convert-to-MMD] 删除旧备份失败: {e}")
+
+        # 2. 创建新的骨架备份
         # 使用直接的方式复制对象，避免上下文问题
         backup_data = obj.data.copy()
         backup_data.name = f"{obj.data.name}_backup"
         backup_obj = bpy.data.objects.new(f"{obj.name}_backup", backup_data)
         bpy.context.collection.objects.link(backup_obj)
-        
+
         # 设置备份对象的属性
         backup_obj.matrix_world = obj.matrix_world
         backup_obj.hide_viewport = True
         backup_obj.hide_render = True
-        
+
         self.report({'INFO'}, f"已创建骨架备份: {backup_obj.name} (数据块: {backup_obj.data.name})")
+        print(f"[Convert-to-MMD] 备份创建成功: {backup_obj.name}")
+        # === 备份管理结束 ===
 
         # 检测骨架高度并自动缩放（内部已包含模式切换，结束时可能停在 OBJECT 或 EDIT）
         scaled, scale_factor, skeleton_height = bone_utils.check_and_scale_skeleton(obj)

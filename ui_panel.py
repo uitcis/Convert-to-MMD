@@ -365,12 +365,17 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.calculate_bone_rolls", text="设置骨骼扭转", icon='FILE_REFRESH')
             row = general_tools_box.row()
             row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')
-            row.operator("object.split_bones_to_individual_objects", text="拆分骨骼为独立物体", icon='UNLINKED')
             row = general_tools_box.row(align=True)
             row.operator("object.merge_selected_bones_weights", text="合并所选骨骼权重", icon='MOD_VERTEX_WEIGHT')
-            row.prop(scene, "merge_bones_also", text="合并骨骼")
+            row.operator("object.merge_selected_bones_and_weights", text="合并骨骼及权重", icon='MOD_VERTEX_WEIGHT')
 
 
             row = general_tools_box.row()
             row.operator("object.export_selected_bones_info", text="导出所选骨骼信息", icon='EXPORT')
             row.operator("object.export_selected_bones_constraints", text="导出所选骨骼约束关系", icon='EXPORT')
+
+            # 备份管理工具
+            general_tools_box.separator(factor=0.3)
+            backup_row = general_tools_box.row()
+            backup_row.operator("object.cleanup_backups", text="清理骨架备份", icon='TRASH')
+            backup_row.label(text="释放内存和文件空间")

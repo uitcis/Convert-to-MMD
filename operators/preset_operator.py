@@ -128,6 +128,7 @@ def try_fill_symmetric_bones(scene, armature, first_prop, mode):
     if not symmetric_bone_name:
         return False
     
+    symmetric_bone = None
     if mode == 'EDIT_ARMATURE':
         if symmetric_bone_name not in armature.data.edit_bones:
             return False
@@ -136,7 +137,10 @@ def try_fill_symmetric_bones(scene, armature, first_prop, mode):
         if symmetric_bone_name not in armature.pose.bones:
             return False
         symmetric_bone = armature.pose.bones.get(symmetric_bone_name)
-    
+    else:
+        # 非编辑/姿态模式下不进行对称填充
+        return False
+
     if not symmetric_bone:
         return False
     

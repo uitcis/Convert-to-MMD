@@ -38,6 +38,11 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                     current_bone.tail = next_bone.head
 
     def execute(self, context):
+        """执行补全缺失骨骼操作
+
+        Returns:
+            dict: Blender operator 返回状态
+        """
         obj = context.active_object
         if not obj or obj.type != 'ARMATURE':
             self.report({'ERROR'}, "没有选择骨架")
@@ -46,8 +51,18 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         # 确保当前处于编辑模式 (EDIT mode)
         if context.mode != 'EDIT_ARMATURE':
             bpy.ops.object.mode_set(mode='EDIT')
-        
+
         edit_bones = obj.data.edit_bones
+
+        # === 输入验证阶段 ===
+        # 验证必需的骨骼存在
+        required_bones = ["首", "頭", "左肩", "左腕", "左ひじ", "左足首",
+                          "右肩", "右腕", "右ひじ", "右足首"]
+        missing_bones = [name for name in required_bones if name not in edit_bones]
+        if missing_bones:
+            self.report({'ERROR'}, f"缺失必需骨骼: {', '.join(missing_bones)}")
+            return {'CANCELLED'}
+
         # 获取需要修改的骨骼
         left_foot_bone = edit_bones.get("左足")
         right_foot_bone = edit_bones.get("右足")
@@ -68,16 +83,23 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         if lower_body_bone and lower_body_bone.parent:
             lower_body_bone.use_connect = False
             lower_body_bone.parent = None
-        # 确认上半身骨骼存在
+
+        # 确认上半身骨骼存在（已在 required_bones 验证中检查）
         if not upper_body_bone:
             self.report({'ERROR'}, "上半身骨骼不存在")
             return {'CANCELLED'}
+
         # 获取 上半身 骨骼的坐标
         upper_body_head = upper_body_bone.head.copy()
         upper_body_tail = upper_body_bone.tail.copy()
-        
+
         # 计算骨架高度和bone_length
         bone_length = bone_utils.calculate_bone_length(edit_bones)
+
+        # 验证 bone_length 有效性
+        if bone_length <= 0 or bone_length > 10:  # 10m 为合理上限
+            self.report({'ERROR'}, f"计算出的骨骼长度无效: {bone_length:.3f}")
+            return {'CANCELLED'}
 
         # 先检测上半身链骨骼（上半身2, 上半身3, ...）
         upper_chain_bones = []
@@ -88,8 +110,9 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         last_upper_body = upper_chain_bones[-1] if upper_chain_bones else "上半身"
 
-        # 定义基本骨骼的属性
-        bone_properties = {
+        # 定义基本骨骼的属性（带输入验证）
+        try:
+            bone_properties = {
 
             "全ての親": {"head": Vector((0, 0, 0)), "tail": Vector((0, 0, bone_length)), "parent": None, "use_deform": False, "use_connect": False},
             "センター": {"head": Vector((0, 0, bone_length * 2)), "tail": Vector((0, 0, bone_length*1.1)), "parent": "全ての親", "use_deform": False, "use_connect": False},
@@ -198,8 +221,16 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "tail": Vector((edit_bones["右足首"].tail.x, edit_bones["右足首"].tail.y - bone_length*0.5, 0)),
                 "parent": "右足首",
                 "use_connect": False
-            }            
-        }
+            }
+        }  # bone_properties 结束
+        except KeyError as e:
+            self.report({'ERROR'}, f"骨骼属性构建失败，缺少必需骨骼: {e}")
+            print(f"[Convert-to-MMD] 骨骼属性构建错误: {e}")
+            return {'CANCELLED'}
+        except Exception as e:
+            self.report({'ERROR'}, f"骨骼属性构建失败: {e}")
+            print(f"[Convert-to-MMD] 骨骼属性构建异常: {e}")
+            return {'CANCELLED'}
 
         if upper_chain_bones:
             for idx, bone_name in enumerate(upper_chain_bones):
