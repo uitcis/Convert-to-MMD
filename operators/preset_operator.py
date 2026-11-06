@@ -1,6 +1,8 @@
 import bpy
 import json
 
+from .. import bone_utils
+
 # 定义手指骨骼的属性列表
 _finger_bone_props = [
     ('left_thumb_0', 'left_thumb_1', 'left_thumb_2'),
@@ -189,8 +191,8 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
     bone_property : bpy.props.StringProperty(name="Bone Property")# type: ignore
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 
@@ -512,8 +514,8 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
     bl_description = "使用mmd_tools插件转换模型格式（需要先安装mmd_tools插件）"
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 

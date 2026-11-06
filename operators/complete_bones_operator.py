@@ -43,8 +43,8 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         Returns:
             dict: Blender operator 返回状态
         """
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "没有选择骨架")
             return {'CANCELLED'}
 

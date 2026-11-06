@@ -1,6 +1,7 @@
 import bpy
 import math
 from mathutils import Vector
+from .. import bone_utils
 from ..bone_utils import create_or_update_bone, context_mode_to_mode_set
 
 
@@ -10,8 +11,8 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
     bl_label = "添加肩P骨骼"
     
     def execute(self, context):
-        armature = context.active_object
-        if not armature or armature.type != 'ARMATURE':
+        armature = bone_utils.resolve_armature(context)
+        if not armature:
             self.report({'ERROR'}, "请选择一个骨架")
             return {'CANCELLED'}
         

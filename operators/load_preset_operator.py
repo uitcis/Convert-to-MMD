@@ -2,6 +2,8 @@ import bpy
 import os
 import json
 
+from .. import bone_utils
+
 
 class OBJECT_OT_load_preset(bpy.types.Operator):
     bl_idname = "object.load_preset"
@@ -24,9 +26,9 @@ class OBJECT_OT_load_preset(bpy.types.Operator):
                 if hasattr(context.scene, prop_name):
                     setattr(context.scene, prop_name, bone_name)
 
-        # 自动检测上半身骨骼链
-        obj = context.active_object
-        if obj and obj.type == 'ARMATURE':
+        # 自动检测上半身骨骼链（只读解析，不改变用户的活动对象）
+        obj = bone_utils.resolve_armature(context, ensure_active=False)
+        if obj:
             from .preset_operator import auto_detect_upper_body_chain
             auto_detect_upper_body_chain(context.scene, obj)
 

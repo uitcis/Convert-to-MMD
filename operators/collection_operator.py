@@ -2,6 +2,8 @@ import bpy
 from bpy.props import BoolProperty
 from functools import lru_cache
 
+from .. import bone_utils
+
 @lru_cache(maxsize=None)
 def load_bone_presets():
     from ..bone_map_and_group import mmd_bone_group
@@ -47,8 +49,8 @@ class OBJECT_OT_create_bone_group(bpy.types.Operator):
     )
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'}
 

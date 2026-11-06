@@ -21,6 +21,44 @@ def context_mode_to_mode_set(context_mode):
     # WEIGHT_PAINT 等无法用 mode_set 恢复的模式，退回 OBJECT
     return 'OBJECT'
 
+def resolve_armature(context, ensure_active=True):
+    """解析当前上下文指向的骨架对象。
+
+    活动对象是骨架时直接返回；活动对象是网格时，沿 ARMATURE 修改器回溯
+    其绑定的骨架（与面板显示逻辑一致）。
+
+    ensure_active=True 时会把找到的骨架设为活动对象，以保证后续
+    bpy.ops（模式切换、变换、选择等）作用在骨架上；面板绘制等只读场景
+    应传 False，避免仅打开面板就改变用户的活动对象。
+
+    Returns:
+        bpy.types.Object | None: 骨架对象；无法解析时返回 None
+    """
+    obj = context.active_object
+    if obj and obj.type == 'ARMATURE':
+        return obj
+
+    armature = None
+    if obj and obj.type == 'MESH':
+        for mod in obj.modifiers:
+            if mod.type == 'ARMATURE' and mod.object:
+                try:
+                    if mod.object.type == 'ARMATURE' and mod.object.name in bpy.data.objects:
+                        armature = mod.object
+                        break
+                except (ReferenceError, RuntimeError):
+                    continue
+
+    if armature and ensure_active and context.active_object is not armature:
+        try:
+            armature.select_set(True)
+            context.view_layer.objects.active = armature
+        except (ReferenceError, RuntimeError):
+            return None
+
+    return armature
+
+
 def create_or_update_bone(edit_bones, name, head_position, tail_position, use_connect=False, parent_name=None, use_deform=True):
     bone = edit_bones.get(name)
     if bone:
@@ -48,7 +86,7 @@ def apply_armature_transforms(context, armature_obj=None):
             bpy.ops.object.mode_set(mode='OBJECT')
         
         # 获取骨架对象
-        armature = armature_obj or context.active_object
+        armature = armature_obj or resolve_armature(context, ensure_active=False)
         if not armature or armature.type != 'ARMATURE':
             print("未找到骨架对象")
             return False

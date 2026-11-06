@@ -1,6 +1,8 @@
 import bpy
 from mathutils import Vector
 
+from .. import bone_utils
+
 
 class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
     """自动将头部与尾部位置匹配的骨骼设为父子关系（保持偏移量）"""
@@ -9,8 +11,8 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 
@@ -58,8 +60,8 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 

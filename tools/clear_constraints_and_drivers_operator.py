@@ -1,5 +1,7 @@
 import bpy
 
+from .. import bone_utils
+
 
 class OBJECT_OT_clear_all_bone_constraints(bpy.types.Operator):
     """清除所有骨骼的约束"""
@@ -8,9 +10,9 @@ class OBJECT_OT_clear_all_bone_constraints(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
+        obj = bone_utils.resolve_armature(context)
 
-        if not obj or obj.type != 'ARMATURE':
+        if not obj:
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
@@ -41,9 +43,9 @@ class OBJECT_OT_clear_all_bone_drivers(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
+        obj = bone_utils.resolve_armature(context)
 
-        if not obj or obj.type != 'ARMATURE':
+        if not obj:
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 

@@ -1,4 +1,6 @@
 import bpy
+
+from .. import bone_utils
 import json
 from bpy_extras.io_utils import ExportHelper
 
@@ -35,13 +37,14 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
     
     def invoke(self, context, event):
         # 设置默认文件名为活动对象的名称
-        if context.active_object:
-            self.filepath = f"{context.active_object.name}_bones_info.json"
+        armature = bone_utils.resolve_armature(context, ensure_active=False)
+        if armature:
+            self.filepath = f"{armature.name}_bones_info.json"
         return super().invoke(context, event)
     
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
         

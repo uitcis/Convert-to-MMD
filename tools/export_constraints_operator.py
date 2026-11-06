@@ -3,6 +3,8 @@ import json
 import math
 from bpy_extras.io_utils import ExportHelper
 
+from .. import bone_utils
+
 
 class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelper):
     """导出所选骨骼约束关系"""
@@ -15,15 +17,16 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelp
     
     def invoke(self, context, event):
         # 设置默认文件名为活动对象的名称
-        if context.active_object:
-            self.filepath = f"{context.active_object.name}_constraints.json"
+        armature = bone_utils.resolve_armature(context, ensure_active=False)
+        if armature:
+            self.filepath = f"{armature.name}_constraints.json"
         return super().invoke(context, event)
 
     def execute(self, context):
-        obj = context.active_object
+        obj = bone_utils.resolve_armature(context)
         
         # 1. 基础检查
-        if not obj or obj.type != 'ARMATURE':
+        if not obj:
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 

@@ -12,8 +12,8 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     mmd_bone_map = bone_map_and_group.mmd_bone_map  # 使用导入的bone_map模块
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
@@ -89,15 +89,21 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
                 else:
                     self.report({'WARNING'}, f"未找到骨骼 '{bone_name}' 以重命名为 {new_name}")
         
-        # 用MMD名称重新检测上半身骨骼链，确保属性与重命名后的骨骼一致
-        preset_operator.auto_detect_upper_body_chain(scene, obj)
-
         # 重命名完成后，直接在编辑模式按新规则设置骨骼扭转（几何/按名，复刻 Shift+N 全局 ±Z/±Y）
         adjusted, local_count, fallback_count = bone_utils.calculate_auto_bone_roll(edit_bones, armature_obj=obj)
         if adjusted:
             self.report({'INFO'}, f"已设置骨骼扭转：局部轴(±Z) {local_count} 根、其余(±Y) {fallback_count} 根，共调整 {adjusted} 根。")
 
         # 恢复进入时的模式（context.mode 的值需转换为 mode_set 接受的枚举）
+        if context.mode != original_mode:
+            bpy.ops.object.mode_set(mode=restore_mode)
+
+        # 用MMD名称重新检测上半身骨骼链，确保属性与重命名后的骨骼一致。
+        # Armature.bones 只在对象模式下反映最新数据，编辑模式读到的是进入编辑模式时的快照，
+        # 因此必须在对象模式执行检测，检测完成后再恢复用户原来的模式。
+        if context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        preset_operator.auto_detect_upper_body_chain(scene, obj)
         if context.mode != original_mode:
             bpy.ops.object.mode_set(mode=restore_mode)
 

@@ -1,6 +1,7 @@
 import bpy
 import math
 from mathutils import Matrix, Vector
+from .. import bone_utils
 from ..bone_utils import apply_armature_transforms
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
@@ -9,8 +10,8 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
     bl_label = "Convert to A-Pose"
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'} 
         if not apply_armature_transforms(context, obj):

@@ -2,23 +2,6 @@ import bpy
 from .. import bone_utils
 
 
-def _resolve_armature(context):
-    """解析用户意图指向的骨架：active 是骨架直接用；
-    是网格则沿骨架修改器回溯（与面板显示逻辑一致）。"""
-    obj = context.active_object
-    if obj and obj.type == 'ARMATURE':
-        return obj
-    if obj and obj.type == 'MESH':
-        for mod in obj.modifiers:
-            if mod.type == 'ARMATURE' and mod.object:
-                try:
-                    if mod.object.type == 'ARMATURE' and mod.object.name in bpy.data.objects:
-                        return mod.object
-                except (ReferenceError, RuntimeError):
-                    pass
-    return None
-
-
 class OBJECT_OT_calculate_bone_rolls(bpy.types.Operator):
     """按骨骼名与几何方向计算扭转（roll）：
 
@@ -30,15 +13,10 @@ class OBJECT_OT_calculate_bone_rolls(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = _resolve_armature(context)
+        obj = bone_utils.resolve_armature(context)
         if not obj:
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
-
-        # 确保目标骨架是 active（网格选中场景下才需要切换）
-        if context.active_object is not obj:
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(True)
 
         original_mode = context.mode
         # mode_set 只接受 OBJECT/EDIT/POSE，而 context.mode 返回 'EDIT_ARMATURE' 等值

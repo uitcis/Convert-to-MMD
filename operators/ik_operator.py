@@ -70,8 +70,8 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
     bl_label = "Add MMD IK"
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 

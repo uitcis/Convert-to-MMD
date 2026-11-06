@@ -13,6 +13,8 @@ import bpy
 
 from mathutils import Vector, Matrix
 
+from .. import bone_utils
+
 from .physics_utils import (
     _check_memory_and_gc, _solve_eigen_3x3_sym, _build_rotation_matrix,
     MMD_TOOLS_AVAILABLE, FnRigidBody, FnModel
@@ -167,23 +169,43 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         proj_x = [v_world.dot(u) for v_world in vertices_world]
         proj_y = [v_world.dot(v) for v_world in vertices_world]
 
-        A_mat_list = [[0.0] * 3 for _ in range(n)]
-        b_vec_list = [0.0] * n
-
+        # 正规方程 (AᵀA)x = Aᵀb：A 是 n×3，AᵀA 是 3×3。
+        # mathutils.Matrix 最多只支持 4 行/列，无法构造 n×3 的 A（n 通常远大于 4），
+        # 因此这里直接累加 3×3 的系数矩阵与右端项，不再构造 A/AAᵀ。
+        s_00 = s_01 = s_02 = s_11 = s_12 = 0.0
+        b_0 = b_1 = b_2 = 0.0
         for i in range(n):
-            A_mat_list[i][0] = 2 * proj_x[i]
-            A_mat_list[i][1] = 2 * proj_y[i]
-            A_mat_list[i][2] = 1.0
-            b_vec_list[i] = proj_x[i]**2 + proj_y[i]**2
+            px = proj_x[i]
+            py = proj_y[i]
+            rhs_i = px * px + py * py
+            s_00 += 4.0 * px * px
+            s_01 += 4.0 * px * py
+            s_02 += 2.0 * px
+            s_11 += 4.0 * py * py
+            s_12 += 2.0 * py
+            b_0 += 2.0 * px * rhs_i
+            b_1 += 2.0 * py * rhs_i
+            b_2 += rhs_i
+        s_22 = float(n)
 
         try:
-            A_mat = Matrix(A_mat_list)
-            b_vec = Vector(b_vec_list)
-            x = A_mat.transposed() @ ((A_mat @ A_mat.transposed()).inverted() @ b_vec)
+            normal_mat = Matrix((
+                (s_00, s_01, s_02),
+                (s_01, s_11, s_12),
+                (s_02, s_12, s_22),
+            ))
+            normal_rhs = Vector((b_0, b_1, b_2))
+            x = normal_mat.inverted() @ normal_rhs
             a_fit = x[0]
             b_fit = x[1]
-            C_fit = centroid + a_fit * u + b_fit * v
-        except Exception:
+            # proj_x/proj_y 是顶点在 u/v 上的绝对投影，解出的 a_fit/b_fit 已是圆心坐标，
+            # 不能在此基础上再叠加质心（否则圆心偏移会被翻倍）。
+            # 轴向上的位置无约束，沿用质心在轴向上的投影。
+            C_fit = a_fit * u + b_fit * v + centroid.dot(axis_dir) * axis_dir
+        except Exception as exc:
+            # 退化点集（共线/重合）无法解出圆心时回退质心，但必须显式记录，
+            # 避免把求解代码本身的错误也静默吞掉。
+            print(f"[Convert-to-MMD] 圆拟合失败，已回退质心（骨骼 '{bone_name}'，顶点数 {n}）：{exc}")
             C_fit = centroid
 
         # 获取半径（点到轴线的最大垂直距离）
@@ -253,8 +275,8 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            armature = context.active_object
-            if not armature or armature.type != 'ARMATURE':
+            armature = bone_utils.resolve_armature(context)
+            if not armature:
                 self.report({'ERROR'}, "请选择骨架对象")
                 return {'CANCELLED'}
 

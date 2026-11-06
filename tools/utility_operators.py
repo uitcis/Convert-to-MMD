@@ -1,5 +1,7 @@
 import bpy
 
+from .. import bone_utils
+
 
 # ============================================================
 # 通用工具操作符集合
@@ -14,9 +16,9 @@ class OBJECT_OT_convert_bones_rotation_to_quaternion(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
+        obj = bone_utils.resolve_armature(context)
 
-        if not obj or obj.type != 'ARMATURE':
+        if not obj:
             self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 

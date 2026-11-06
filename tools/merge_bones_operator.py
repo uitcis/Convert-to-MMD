@@ -1,4 +1,6 @@
 import bpy
+
+from .. import bone_utils
 from .. import bone_map_and_group
 
 
@@ -89,8 +91,8 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
         return merged_count
     
     def execute(self, context):
-        armature = context.active_object
-        if not armature or armature.type != 'ARMATURE':
+        armature = bone_utils.resolve_armature(context)
+        if not armature:
             self.report({'ERROR'}, "请选择一个骨架")
             return {'CANCELLED'}
         
@@ -148,11 +150,11 @@ class OBJECT_OT_merge_selected_bones_base(OBJECT_OT_merge_bones_base):
 
     @classmethod
     def poll(cls, context):
-        obj = context.active_object
+        obj = bone_utils.resolve_armature(context, ensure_active=False)
         return obj and obj.type == 'ARMATURE' and obj.mode in {'POSE', 'EDIT'}
 
     def execute(self, context):
-        armature = context.active_object
+        armature = bone_utils.resolve_armature(context)
         original_mode = armature.mode
 
         if original_mode == 'EDIT':

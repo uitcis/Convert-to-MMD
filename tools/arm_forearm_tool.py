@@ -4,6 +4,8 @@ import bpy
 import math
 from mathutils import Quaternion
 
+from .. import bone_utils
+
 
 def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
     """
@@ -92,8 +94,8 @@ class OBJECT_OT_align_forearm_from_selection(bpy.types.Operator):
     )  # type: ignore[assignment]
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "请选中一个骨架对象")
             return {'CANCELLED'}
 

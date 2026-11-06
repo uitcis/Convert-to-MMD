@@ -11,6 +11,7 @@ import bpy
 import math
 from mathutils import Vector
 from bpy.props import StringProperty
+from .. import bone_utils
 from ..bone_utils import create_or_update_bone
 
 
@@ -42,8 +43,8 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        obj = context.active_object
-        if obj is None or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if obj is None:
             self.report({'ERROR'}, "请先选择一个骨架对象")
             return {'CANCELLED'}
 

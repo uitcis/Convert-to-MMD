@@ -1,5 +1,7 @@
 import bpy
 
+from .. import bone_utils
+
 
 class OBJECT_OT_correct_bones(bpy.types.Operator):
     """归正骨骼：创建备份、设置原点并取消动画，如果骨骼原点已在正确位置，则不需要点击"""
@@ -7,8 +9,8 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
     bl_label = "Correct Bones"
 
     def execute(self, context):
-        obj = context.active_object
-        if not obj or obj.type != 'ARMATURE':
+        obj = bone_utils.resolve_armature(context)
+        if not obj:
             self.report({'ERROR'}, "没有选择骨架对象")
             return {'CANCELLED'}
 

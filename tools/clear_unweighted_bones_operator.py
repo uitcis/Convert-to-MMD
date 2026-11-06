@@ -1,4 +1,6 @@
 import bpy
+
+from .. import bone_utils
 from ..bone_map_and_group import mmd_bone_map, mmd_bone_group
 
 class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
@@ -44,8 +46,8 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
         return weighted_bones
     
     def execute(self, context):
-        armature = context.active_object
-        if not armature or armature.type != 'ARMATURE':
+        armature = bone_utils.resolve_armature(context)
+        if not armature:
             self.report({'ERROR'}, "请选择一个骨架")
             return {'CANCELLED'}
             

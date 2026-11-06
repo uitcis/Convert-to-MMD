@@ -1,6 +1,7 @@
 import bpy
 import os
 
+from . import bone_utils
 from .operators.load_preset_operator import OBJECT_OT_load_preset
 
 
@@ -16,32 +17,12 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         scene = context.scene
 
 
-        # 检查活动对象是否为骨架；如果是网格则自动查找其骨架修改器
-        obj = context.active_object
+        # 解析骨架：活动对象是网格时沿 ARMATURE 修改器回溯。
+        # 绘制是只读操作，不能改变用户的活动对象，因此 ensure_active=False
+        obj = bone_utils.resolve_armature(context, ensure_active=False)
         if not obj:
             layout.menu("TOPBAR_MT_file_import", text="Import", icon='IMPORT')
             return
-
-        if obj.type != 'ARMATURE':
-            if obj.type == 'MESH':
-                armature = None
-                for mod in obj.modifiers:
-                    if mod.type == 'ARMATURE' and mod.object:
-                        try:
-                            if mod.object.type == 'ARMATURE' and mod.object.name in bpy.data.objects:
-                                armature = mod.object
-                                break
-                        except (ReferenceError, RuntimeError):
-                            pass
-                            continue
-                if armature:
-                    obj = armature
-                else:
-                    layout.menu("TOPBAR_MT_file_import", text="Import", icon='IMPORT')
-                    return
-            else:
-                layout.menu("TOPBAR_MT_file_import", text="Import", icon='IMPORT')
-                return
 
         # 添加带有标签、prop_search用于骨骼和填充按钮的行的函数
         def add_bone_row_with_button(layout, label_text, prop_name):

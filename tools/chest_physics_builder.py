@@ -12,10 +12,11 @@ import math
 
 from mathutils import Vector, Euler
 
+from .. import bone_utils
+
 from .physics_utils import (
     _check_memory_and_gc, MMD_TOOLS_AVAILABLE, FnRigidBody, FnModel
 )
-from .. import bone_utils
 
 
 # ===========================================================================
@@ -126,8 +127,8 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            armature = context.active_object
-            if not armature or armature.type != 'ARMATURE':
+            armature = bone_utils.resolve_armature(context)
+            if not armature:
                 self.report({'ERROR'}, "请选择骨架对象")
                 return {'CANCELLED'}
 
@@ -352,6 +353,29 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 
         return rb_objects
 
+    @staticmethod
+    def _find_existing_joint(joint_name, rb1, rb2):
+        """查找已经存在的弹簧关节对象，避免重复构建时叠加关节。
+
+        优先按约束两端的刚体对象匹配（能兼容旧版本用刚体名命名的关节，
+        也能避免同名多模型场景误命中其他角色的关节）；找不到时再按关节名兜底。
+        """
+        for obj in bpy.data.objects:
+            if getattr(obj, "mmd_type", None) != "JOINT":
+                continue
+            constraint = getattr(obj, "rigid_body_constraint", None)
+            if not constraint:
+                continue
+            obj1 = getattr(constraint, "object1", None)
+            obj2 = getattr(constraint, "object2", None)
+            if (obj1 == rb1 and obj2 == rb2) or (obj1 == rb2 and obj2 == rb1):
+                return obj
+
+        for obj in bpy.data.objects:
+            if getattr(obj, "mmd_type", None) == "JOINT" and obj.name == joint_name:
+                return obj
+        return None
+
     # 乳房弹簧构建
     def _create_spring_joints(self, context, armature, rb_objects):
         if not MMD_TOOLS_AVAILABLE:
@@ -367,14 +391,13 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             if not rb1 or not rb2:
                 continue
 
-            if rb2.name in bpy.data.objects and bpy.data.objects[rb2.name].mmd_type == "JOINT":
-                continue
-
-            joint_obj = FnRigidBody.new_joint_object(context, joint_grp_obj, FnModel.get_empty_display_size(root))
+            joint_obj = self._find_existing_joint(sd["joint"], rb1, rb2)
+            if joint_obj is None:
+                joint_obj = FnRigidBody.new_joint_object(context, joint_grp_obj, FnModel.get_empty_display_size(root))
             mid = (rb1.location + rb2.location) / 2
 
             joint_obj = FnRigidBody.setup_joint_object(
-                obj=joint_obj, name=rb2.name, name_e=rb2.name, location=Vector(mid),
+                obj=joint_obj, name=sd["joint"], name_e=sd["joint"], location=Vector(mid),
                 rotation=Euler((0, 0, 0)), rigid_a=rb1, rigid_b=rb2,
                 maximum_location=Vector((sd.get("lin_x_hi", 0), sd.get("lin_y_hi", 0), sd.get("lin_z_hi", 0))),
                 minimum_location=Vector((sd.get("lin_x_lo", 0), sd.get("lin_y_lo", 0), sd.get("lin_z_lo", 0))),
@@ -383,6 +406,10 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 spring_linear=Vector((sd.get("k_lin_x", 0), sd.get("k_lin_y", 0), sd.get("k_lin_z", 0))),
                 spring_angular=Vector((sd.get("k_ang_x", 0), sd.get("k_ang_y", 0), sd.get("k_ang_z", 0))),
             )
+            # setup_joint_object 内部会加 "J." 前缀，而 sd["joint"] 已带前缀，
+            # 直接沿用会得到 "J.J.xxx"，这里把对象名归一化为关节名本身。
+            if sd["joint"].startswith("J.") and joint_obj.name != sd["joint"]:
+                joint_obj.name = sd["joint"]
             joint_obj.rigid_body_constraint.disable_collisions = True
 
     # 乳房弹簧定义
