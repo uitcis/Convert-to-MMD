@@ -149,7 +149,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             },
             "左ひじ": {
                 "head": edit_bones["左ひじ"].head,
-                "tail": edit_bones["左手首"].head if edit_bones["左手首"]else edit_bones["左ひじ"].tail,
+                "tail": edit_bones["左手首"].head if "左手首" in edit_bones else edit_bones["左ひじ"].tail,
                 "parent": "左腕",
                 "use_connect": True
             },
@@ -168,7 +168,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             },
             "右ひじ": {
                 "head": edit_bones["右ひじ"].head,
-                "tail": edit_bones["右手首"].head if edit_bones["右手首"]else edit_bones["右ひじ"].tail,
+                "tail": edit_bones["右手首"].head if "右手首" in edit_bones else edit_bones["右ひじ"].tail,
                 "parent": "右腕",
                 "use_connect": True
             }, 

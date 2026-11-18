@@ -27,24 +27,24 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
             self.report({'ERROR'}, f"未找到上半身骨骼：{upper_body_bone_name}")
             return {'CANCELLED'}
 
-        # 创建骨架备份
-        backup_data = obj.data.copy()
-        backup_data.name = f"{obj.data.name}_backup"
-        backup_obj = bpy.data.objects.new(f"{obj.name}_backup", backup_data)
-        bpy.context.collection.objects.link(backup_obj)
-        
-        backup_obj.matrix_world = obj.matrix_world
-        backup_obj.hide_viewport = True
-        backup_obj.hide_render = True
-        
-        self.report({'INFO'}, f"已创建骨架备份：{backup_obj.name}")
-
         # 获取上半身骨骼的头部位置（世界坐标）
         upper_body_bone_obj = obj.data.bones.get(upper_body_bone_name)
         if not upper_body_bone_obj:
             self.report({'ERROR'}, f"未找到骨骼数据：{upper_body_bone_name}")
             return {'CANCELLED'}
-        
+
+        # 创建骨架备份（校验通过后再创建，避免失败时留下备份对象）
+        backup_data = obj.data.copy()
+        backup_data.name = f"{obj.data.name}_backup"
+        backup_obj = bpy.data.objects.new(f"{obj.name}_backup", backup_data)
+        bpy.context.collection.objects.link(backup_obj)
+
+        backup_obj.matrix_world = obj.matrix_world
+        backup_obj.hide_viewport = True
+        backup_obj.hide_render = True
+
+        self.report({'INFO'}, f"已创建骨架备份：{backup_obj.name}")
+
         # 计算目标原点位置（世界坐标）：X 为上半身骨骼的 X，Y 和 Z 为 0
         target_location = obj.matrix_world @ upper_body_bone_obj.head_local
         target_origin = (target_location.x, target_location.y, 0.0)
@@ -61,6 +61,10 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
         if original_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
         
+        # 记录进入时的选择状态，结束时恢复
+        original_selected = list(context.selected_objects)
+        original_active = context.view_layer.objects.active
+
         # 选择骨架对象
         bpy.ops.object.select_all(action='DESELECT')
         obj.select_set(True)
@@ -95,6 +99,14 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
         # 恢复进入时的模式
         if obj.mode != original_mode:
             bpy.ops.object.mode_set(mode=original_mode)
+
+        # 恢复 3D 游标与进入时的选择状态
+        scene.cursor.location = original_cursor_location
+        for selected_obj in context.selected_objects:
+            selected_obj.select_set(False)
+        for selected_obj in original_selected:
+            selected_obj.select_set(True)
+        context.view_layer.objects.active = original_active
         
         self.report({'INFO'}, "已归正骨骼：设置原点并清除动画")
         return {'FINISHED'}

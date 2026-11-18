@@ -72,6 +72,9 @@ _left_right_mapping = {
     'right_foot_bone': 'left_foot_bone',
     'left_toe_bone': 'right_toe_bone',
     'right_toe_bone': 'left_toe_bone',
+    # 胸部物理骨骼
+    'left_chest_bone': 'right_chest_bone',
+    'right_chest_bone': 'left_chest_bone',
 }
 
 

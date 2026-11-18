@@ -180,6 +180,7 @@ def check_and_scale_skeleton(obj):
         
         context = bpy.context
         apply_armature_transforms(context, obj)
+        scaled = True
 
 
     
