@@ -120,60 +120,69 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         context.view_layer.objects.active = obj
         bpy.ops.object.mode_set(mode='POSE')
 
-        # 7. 清除所有现有姿态
-        bpy.ops.pose.select_all(action='SELECT')
+        pose_bones = obj.pose.bones
+
+        # 7. 仅清除手臂链的既有姿态，保留面部等其它骨骼的姿态
+        bpy.ops.pose.select_all(action='DESELECT')
+        for arm_bone_name in arm_bones.values():
+            if arm_bone_name and arm_bone_name in pose_bones:
+                pose_bones[arm_bone_name].select = True
         bpy.ops.pose.rot_clear()
         bpy.ops.pose.scale_clear()
         bpy.ops.pose.loc_clear()
         bpy.ops.pose.select_all(action='DESELECT')
+        context.view_layer.update()
 
         # 8. 为骨骼设置A-Pose旋转
-        pose_bones = obj.pose.bones
         edit_bones = obj.data.bones
         converted_bones = []
 
-        # 上臂目标角度
+        # 上臂目标仰角（向下为负）
         upper_arm_target = 36
 
-        def _rotate_bone_to_target(bone_name, bone_type, head, tail, target_angle):
-            """将指定骨骼绕全局Y轴旋转到目标角度"""
+        def _elevation(vec):
+            """方向向量相对水平面的仰角（度），向上为正"""
+            return math.degrees(math.atan2(vec.z, math.hypot(vec.x, vec.y)))
+
+        def _rotate_bone_to_target(bone_name, bone_type, target_angle):
+            """按世界方向把上臂旋转到目标仰角（绕肩关节，与骨骼roll无关）"""
             bone = pose_bones[bone_name]
             bone.rotation_mode = 'XYZ'
+            mw = obj.matrix_world.copy()
+            head_w = mw @ bone.head
+            tail_w = mw @ bone.tail
+            current_dir = (tail_w - head_w).normalized()
+            elevation_before = _elevation(current_dir)
 
-            # 计算方向向量（从尾指向头）
-            vec = head - tail
-
-            # 使用四元数转换得到欧拉角
-            quat = vec.to_track_quat('Z', 'Y')
-            euler = quat.to_euler('XYZ')
-            current_angle = math.degrees(euler.x)
-
-            angle_diff = current_angle - target_angle
-
-            # 重置旋转，确保从默认状态开始
-            bone.rotation_euler = (0, 0, 0)
-
-            # 选择骨骼并绕全局Y轴旋转
-            bpy.ops.pose.select_all(action='DESELECT')
-            bone.select = True
-            obj.data.bones.active = bone.bone
-
-            is_left = "left" in bone_type
-            if is_left:
-                bpy.ops.transform.rotate(value=math.radians(-angle_diff), orient_axis='Y', orient_type='GLOBAL')
+            # 用当前朝向判断左右，避免骨骼命名与实际镜像不一致时转错方向
+            if abs(current_dir.x) > 1e-4:
+                side = 1.0 if current_dir.x > 0 else -1.0
             else:
-                bpy.ops.transform.rotate(value=math.radians(angle_diff), orient_axis='Y', orient_type='GLOBAL')
+                side = 1.0 if "left" in bone_type else -1.0
+
+            rad = math.radians(target_angle)
+            target_dir = Vector((side * math.cos(rad), 0.0, -math.sin(rad)))
+            quat = current_dir.rotation_difference(target_dir)
+
+            # 绕肩关节（骨头）在世界空间旋转，再换算回姿态空间
+            pivot = (Matrix.Translation(head_w) @ quat.to_matrix().to_4x4()
+                     @ Matrix.Translation(-head_w))
+            bone.matrix = mw.inverted() @ pivot @ mw @ bone.matrix
+            context.view_layer.update()
+
+            new_head_w = mw @ bone.head
+            new_tail_w = mw @ bone.tail
+            elevation_after = _elevation((new_tail_w - new_head_w).normalized())
+            print(f"[A-Pose] {bone_name}: 仰角 {elevation_before:.2f}° -> "
+                  f"目标 {-target_angle:.2f}° -> 实际 {elevation_after:.2f}°")
             converted_bones.append(bone_name)
 
-        # 处理上臂（基于编辑骨骼静置姿态）
+        # 处理上臂
         for bone_type, bone_name in arm_bones.items():
             if "lower_arm" in bone_type:
                 continue
             if bone_name and bone_name in pose_bones and bone_name in edit_bones:
-                edit_bone = edit_bones[bone_name]
-                _rotate_bone_to_target(bone_name, bone_type,
-                                       edit_bone.head_local, edit_bone.tail_local,
-                                       upper_arm_target)
+                _rotate_bone_to_target(bone_name, bone_type, upper_arm_target)
 
         if not converted_bones:
             self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
