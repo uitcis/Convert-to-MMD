@@ -123,6 +123,21 @@ def unregister_properties(properties_list):
             delattr(bpy.types.Scene, prop_name)
 
 
+def register_convert_options():
+    """注册第 5 步转换选项（默认关闭，保持原有的材质转换行为）。"""
+    bpy.types.Scene.preserve_original_materials = bpy.props.BoolProperty(
+        name="保留原材质",
+        description="转换模型结构后还原转换前的材质节点，保持原有渲染观感",
+        default=False,
+    )
+
+
+def unregister_convert_options():
+    """注销第 5 步转换选项。"""
+    if hasattr(bpy.types.Scene, "preserve_original_materials"):
+        delattr(bpy.types.Scene, "preserve_original_materials")
+
+
 def get_registered_props():
     """获取所有已注册的属性名称列表。"""
     return _registered_props.copy()

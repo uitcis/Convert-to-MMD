@@ -51,6 +51,23 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
 
     rigid_params = []
 
+    # 一次性建立“顶点组名 -> [(世界坐标, 权重)]”索引。
+    # 原实现每个骨骼都重新遍历全部顶点及其 groups，复杂度为
+    # O(骨骼 × 顶点 × 组数)，在数万顶点、数百骨骼的模型上耗时数十秒；
+    # 这里只扫描一遍网格，结果（顶点顺序与权重）与原实现完全一致。
+    weighted_vertices_by_group = {}
+    for mesh_obj in mesh_objs:
+        mesh_matrix = mesh_obj.matrix_world
+        index_to_name = {vg.index: vg.name for vg in mesh_obj.vertex_groups}
+        for vertex in mesh_obj.data.vertices:
+            for group in vertex.groups:
+                if group.weight > 0.4:
+                    group_name = index_to_name.get(group.group)
+                    if group_name is not None:
+                        weighted_vertices_by_group.setdefault(group_name, []).append(
+                            (mesh_matrix @ Vector(vertex.co), group.weight)
+                        )
+
     for bone_idx, bone_name in enumerate(bone_names):
         if not _check_memory_and_gc():
             break
@@ -61,19 +78,7 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
         bone = armature.data.bones[bone_name]
 
         # 获取骨骼对应顶点组权重顶点（保留权重值）
-        weighted_vertices = []
-
-        for mesh_obj in mesh_objs:
-            vg = mesh_obj.vertex_groups.get(bone_name)
-            if not vg:
-                continue
-
-            for vertex in mesh_obj.data.vertices:
-                for group in vertex.groups:
-                    if group.group == vg.index and group.weight > 0.4:
-                        v_world = mesh_obj.matrix_world @ Vector(vertex.co)
-                        weighted_vertices.append((v_world, group.weight))
-                        break
+        weighted_vertices = weighted_vertices_by_group.get(bone_name)
 
         if not weighted_vertices:
             continue
@@ -188,6 +193,18 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             b_2 += rhs_i
         s_22 = float(n)
 
+        # 圆拟合合理性校验的尺度基准：顶点相对质心的最大距离与骨骼世界长度取大。
+        # 少顶点、近重合/近共线的退化点集会让正规方程病态，解出的圆心和半径
+        # 可能远离骨骼（实测曾把刚体甩到 45m 外）。
+        spread = 0.0
+        for v_world in vertices_world:
+            dist = (v_world - centroid).length
+            if dist > spread:
+                spread = dist
+        bone_head_world = armature.matrix_world @ bone.head_local
+        bone_tail_world = armature.matrix_world @ bone.tail_local
+        fit_scale = max(spread, (bone_tail_world - bone_head_world).length, 1e-3)
+
         try:
             normal_mat = Matrix((
                 (s_00, s_01, s_02),
@@ -198,10 +215,24 @@ def calculate_simple_body_rigid_params(armature, bone_names=None):
             x = normal_mat.inverted() @ normal_rhs
             a_fit = x[0]
             b_fit = x[1]
+            c_fit = x[2]
             # proj_x/proj_y 是顶点在 u/v 上的绝对投影，解出的 a_fit/b_fit 已是圆心坐标，
             # 不能在此基础上再叠加质心（否则圆心偏移会被翻倍）。
             # 轴向上的位置无约束，沿用质心在轴向上的投影。
             C_fit = a_fit * u + b_fit * v + centroid.dot(axis_dir) * axis_dir
+
+            # 圆的半径满足 r² = a² + b² + c。圆心离质心过远、
+            # 或拟合半径远超点集/骨骼尺度，都说明拟合已发散，回退质心。
+            radius_sq = a_fit * a_fit + b_fit * b_fit + c_fit
+            center_offset = (C_fit - centroid).length
+            if not math.isfinite(radius_sq) or radius_sq < 0.0:
+                print(f"[Convert-to-MMD] 圆拟合结果无效，已回退质心（骨骼 '{bone_name}'，顶点数 {n}）")
+                C_fit = centroid
+            elif center_offset > fit_scale * 2.0 or math.sqrt(radius_sq) > fit_scale * 2.0:
+                print(f"[Convert-to-MMD] 圆拟合发散，已回退质心（骨骼 '{bone_name}'，顶点数 {n}，"
+                      f"圆心偏移 {center_offset:.3f}m，拟合半径 {math.sqrt(radius_sq):.3f}m，"
+                      f"点集尺度 {fit_scale:.3f}m）")
+                C_fit = centroid
         except Exception as exc:
             # 退化点集（共线/重合）无法解出圆心时回退质心，但必须显式记录，
             # 避免把求解代码本身的错误也静默吞掉。

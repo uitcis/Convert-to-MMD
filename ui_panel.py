@@ -264,6 +264,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.create_bone_group", text="4.创建骨骼集合")
 
             # 添加“使用mmdtools转换格式”按钮到最下方
+            layout.prop(scene, "preserve_original_materials",
+                        text="保留原材质（仅转换模型结构）")
             layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
         # 次标准骨骼选项卡
         elif scene.my_enum == 'option2':

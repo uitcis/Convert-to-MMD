@@ -526,14 +526,24 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
         if context.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
+        # “保留原材质”无法通过 convert_material_nodes=False 实现：mmd_tools 仍会
+        # 删除 EMISSION/BSDF 节点，却不建立 mmd_shader，结果材质全黑。
+        # 因此这里在转换前整体备份材质，转换完成后再换回，只保留模型结构转换。
+        preserve = bool(getattr(context.scene, "preserve_original_materials", False))
+        backups = self._backup_materials(obj) if preserve else []
+
         try:
+            # 必须转换材质节点：mmd_tools 会把原有的 EMISSION/BSDF 节点替换成 mmd_shader，
+            # 关掉该选项时旧材质节点已被移除、新的 mmd_shader 又不会建立，
+            # 输出材质 Surface 无连接，渲染结果全黑。
             bpy.ops.mmd_tools.convert_to_mmd_model(
-                convert_material_nodes=False
+                convert_material_nodes=True
             )
         except (TypeError, AttributeError):
             try:
                 bpy.ops.mmd_tools.convert_to_mmd_model()
             except (TypeError, AttributeError):
+                self._discard_material_backups(backups)
                 bpy.context.window_manager.popup_menu(
                     self.draw_error_menu,
                     title="MMD Tools 未安装",
@@ -541,10 +551,77 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
                 )
                 return {'CANCELLED'}
 
+        if backups:
+            self._restore_materials(backups)
+
         # 恢复原始选择状态
         context.view_layer.objects.active = obj
         obj.select_set(True)
         return {'FINISHED'}
+
+    @staticmethod
+    def _model_meshes(armature):
+        """遍历绑定到该骨架的网格对象（转换会把网格挂到骨架下）。"""
+        for mesh_obj in bpy.data.objects:
+            if mesh_obj.type != 'MESH':
+                continue
+            if any(mod.type == 'ARMATURE' and mod.object == armature
+                   for mod in mesh_obj.modifiers):
+                yield mesh_obj
+
+    @classmethod
+    def _backup_materials(cls, armature):
+        """转换前备份模型网格上的材质（含节点树副本）。
+
+        Returns:
+            list: [(转换前材质, 原名, 材质副本)]
+        """
+        backups = []
+        for mesh_obj in cls._model_meshes(armature):
+            for slot in mesh_obj.material_slots:
+                mat = slot.material
+                if mat is None or any(item[0] == mat for item in backups):
+                    continue
+                backups.append((mat, mat.name, mat.copy()))
+        return backups
+
+    @classmethod
+    def _restore_materials(cls, backups):
+        """转换后把备份材质换回所有使用它的网格，并清理转换产生的材质。
+
+        注意：不能把转换后的 mmd_material 参数复制回备份材质——mmd_tools 的
+        参数 setter 会触发节点更新回调，把 mmd_shader 节点重新建到备份节点树里。
+        因此备份材质的 MMD 参数保持转换前的值（从 PMX 导入的模型本来就是正确的）。
+        """
+        # 先让转换后的材质让出原名，再把备份材质改回原名，保证材质名不变
+        for mat, name, _ in backups:
+            if mat.name == name:
+                mat.name = name + "_mmd_converted"
+        for _, name, saved in backups:
+            saved.name = name
+
+        # 所有网格槽位都换回备份副本：材质可能被模型之外的网格共享，
+        # 只换模型网格会留下已转换的材质，观感也不一致。
+        saved_by_mat = {mat: saved for mat, _, saved in backups}
+        for mesh_obj in bpy.data.objects:
+            if mesh_obj.type != 'MESH':
+                continue
+            for slot in mesh_obj.material_slots:
+                saved = saved_by_mat.get(slot.material)
+                if saved is not None:
+                    slot.material = saved
+
+        # 转换后的材质若已无人使用（或只剩 fake user），直接移除，避免留下废弃数据
+        for mat, _, _ in backups:
+            if mat.users == 0 or (mat.use_fake_user and mat.users == 1):
+                bpy.data.materials.remove(mat)
+
+    @staticmethod
+    def _discard_material_backups(backups):
+        """转换失败时清理未被使用的材质副本。"""
+        for _, _, saved in backups:
+            if saved.users == 0:
+                bpy.data.materials.remove(saved)
 
     def draw_error_menu(self, menu, context):
         layout = menu.layout

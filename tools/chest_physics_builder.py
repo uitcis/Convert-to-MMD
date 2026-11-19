@@ -132,16 +132,19 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 self.report({'ERROR'}, "请选择骨架对象")
                 return {'CANCELLED'}
 
-            bpy.ops.object.use_mmd_tools_convert()
-
-            context.scene.frame_set(context.scene.frame_start)
-
+            # 先校验胸骨参数，再执行不可逆操作：
+            # mmd_tools 转换会创建模型根节点、重挂网格，一旦执行就无法还原，
+            # 参数不合法时模型应保持原状。
             left_bone = context.scene.left_chest_bone if hasattr(context.scene, "left_chest_bone") else ""
             right_bone = context.scene.right_chest_bone if hasattr(context.scene, "right_chest_bone") else ""
 
             if not left_bone or not right_bone:
                 self.report({'ERROR'}, "请先选择左/右胸部骨骼")
                 return {'CANCELLED'}
+
+            bpy.ops.object.use_mmd_tools_convert()
+
+            context.scene.frame_set(context.scene.frame_start)
 
             breast_data = self._build_breast_bone_chain(context, armature, left_bone, right_bone)
             if breast_data == {'CANCELLED'}:

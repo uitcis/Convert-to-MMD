@@ -144,6 +144,7 @@ def register():
     # 注册动态属性
     bones = preset_operator.get_bones_list()
     properties.register_properties(bones)
+    properties.register_convert_options()
 
     # 注册 EnumProperty
     bpy.types.Scene.preset_enum = bpy.props.EnumProperty(
@@ -172,6 +173,7 @@ def unregister():
     # 注销动态属性（更安全的删除方式）
     bones = preset_operator.get_bones_list()
     properties.unregister_properties(bones)
+    properties.unregister_convert_options()
 
     # 安全删除属性，忽略不存在的情况
     for attr_name in ["preset_enum", "my_enum"]:
