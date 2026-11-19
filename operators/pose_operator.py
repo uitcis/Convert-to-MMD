@@ -1,6 +1,6 @@
 import bpy
 import math
-from mathutils import Matrix, Vector
+from mathutils import Matrix
 from .. import bone_utils
 from ..bone_utils import apply_armature_transforms
 # 新增的T-Pose到A-Pose转换操作符
@@ -14,6 +14,43 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         if not obj:
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'} 
+
+        # 前置校验：四根身体参考骨必须已设置且存在，缺任意一根直接取消
+        body_fields = (
+            ("上半身", "upper_body_bone"),
+            ("首", "neck_bone"),
+            ("左肩", "left_shoulder_bone"),
+            ("右肩", "right_shoulder_bone"),
+        )
+        missing = []
+        body_names = {}
+        for label, prop_name in body_fields:
+            name = getattr(context.scene, prop_name, "")
+            body_names[label] = name
+            if not name:
+                missing.append(f"{label}（未设置）")
+            elif name not in obj.data.bones:
+                missing.append(f"{label}（骨骼 '{name}' 不存在）")
+        if missing:
+            self.report({'ERROR'},
+                        "请先设置身体参考骨骼，当前缺少：" + "、".join(missing))
+            return {'CANCELLED'}
+
+        # 前置校验：身体参考骨不得重复指向同一根骨
+        conflict = bone_utils.check_duplicate_bone_fields(body_names.items())
+        if conflict:
+            self.report({'ERROR'}, conflict)
+            return {'CANCELLED'}
+
+        # 身体参考骨位置不能退化，避免目标方向为零向量
+        up_check = (obj.data.bones[body_names["首"]].head_local -
+                    obj.data.bones[body_names["上半身"]].head_local)
+        left_check = (obj.data.bones[body_names["左肩"]].tail_local -
+                      obj.data.bones[body_names["右肩"]].tail_local)
+        if up_check.length < 1e-6 or left_check.length < 1e-6:
+            self.report({'ERROR'}, "身体参考骨骼位置异常，请检查上半身/首与左肩/右肩的选择")
+            return {'CANCELLED'}
+
         if not apply_armature_transforms(context, obj):
             self.report({'ERROR'}, "应用骨架变换失败")
             return {'CANCELLED'}
@@ -133,7 +170,25 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         context.view_layer.update()
 
-        # 8. 为骨骼设置A-Pose旋转
+        # 8. 构造身体坐标系（前置校验已保证四根参考骨存在且不重复）
+        def _build_body_frame():
+            """返回 (up, left)，均为世界空间单位向量"""
+            data_bones = obj.data.bones
+            mw3 = obj.matrix_world.to_3x3()
+            up = mw3 @ (data_bones[scene.neck_bone].head_local -
+                        data_bones[scene.upper_body_bone].head_local)
+            # 肩骨取 tail 端（肩关节），避免锁骨两端都靠近脊柱时轴过短
+            left = mw3 @ (data_bones[scene.left_shoulder_bone].tail_local -
+                          data_bones[scene.right_shoulder_bone].tail_local)
+            up.normalize()
+            left = (left - up * left.dot(up)).normalized()
+            return up, left
+
+        body_up, body_left = _build_body_frame()
+        body_fwd = body_left.cross(body_up).normalized()
+        print(f"[A-Pose] 身体坐标系来源：骨骼({scene.upper_body_bone}/"
+              f"{scene.neck_bone}/{scene.left_shoulder_bone}/{scene.right_shoulder_bone})")
+
         edit_bones = obj.data.bones
         converted_bones = []
 
@@ -141,27 +196,38 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         upper_arm_target = 36
 
         def _elevation(vec):
-            """方向向量相对水平面的仰角（度），向上为正"""
+            """方向向量相对世界水平面的仰角（度），向上为正"""
             return math.degrees(math.atan2(vec.z, math.hypot(vec.x, vec.y)))
 
+        def _body_elevation(vec):
+            """方向在身体坐标系中的仰角（度），沿 up 为正"""
+            return math.degrees(math.asin(max(-1.0, min(1.0, vec.dot(body_up)))))
+
+        def _azimuth_deviation(vec, expect_lat):
+            """水平分量相对身体左右轴的偏差（度），正值偏身体前方"""
+            lateral = vec.dot(expect_lat)
+            forward = vec.dot(body_fwd)
+            return math.degrees(math.atan2(forward, lateral))
+
         def _rotate_bone_to_target(bone_name, bone_type, target_angle):
-            """按世界方向把上臂旋转到目标仰角（绕肩关节，与骨骼roll无关）"""
+            """按身体坐标系把上臂转到目标仰角（绕肩关节，与骨骼roll无关）"""
             bone = pose_bones[bone_name]
             bone.rotation_mode = 'XYZ'
             mw = obj.matrix_world.copy()
             head_w = mw @ bone.head
             tail_w = mw @ bone.tail
             current_dir = (tail_w - head_w).normalized()
-            elevation_before = _elevation(current_dir)
 
-            # 用当前朝向判断左右，避免骨骼命名与实际镜像不一致时转错方向
-            if abs(current_dir.x) > 1e-4:
-                side = 1.0 if current_dir.x > 0 else -1.0
+            # 左右归属按身体坐标系判定，不再依赖世界 X 符号
+            lateral = current_dir.dot(body_left)
+            if abs(lateral) > 1e-4:
+                side = 1.0 if lateral > 0 else -1.0
             else:
                 side = 1.0 if "left" in bone_type else -1.0
 
             rad = math.radians(target_angle)
-            target_dir = Vector((side * math.cos(rad), 0.0, -math.sin(rad)))
+            target_dir = (body_left * (side * math.cos(rad))
+                          - body_up * math.sin(rad)).normalized()
             quat = current_dir.rotation_difference(target_dir)
 
             # 绕肩关节（骨头）在世界空间旋转，再换算回姿态空间
@@ -170,11 +236,13 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             bone.matrix = mw.inverted() @ pivot @ mw @ bone.matrix
             context.view_layer.update()
 
-            new_head_w = mw @ bone.head
-            new_tail_w = mw @ bone.tail
-            elevation_after = _elevation((new_tail_w - new_head_w).normalized())
-            print(f"[A-Pose] {bone_name}: 仰角 {elevation_before:.2f}° -> "
-                  f"目标 {-target_angle:.2f}° -> 实际 {elevation_after:.2f}°")
+            new_dir = ((mw @ bone.tail) - (mw @ bone.head)).normalized()
+            expect_lat = body_left * side
+            print(f"[A-Pose] {bone_name}: 世界仰角 {_elevation(current_dir):.2f}° -> "
+                  f"{_elevation(new_dir):.2f}° | 身体仰角 {_body_elevation(current_dir):.2f}° -> "
+                  f"{_body_elevation(new_dir):.2f}° | "
+                  f"方位偏差 {_azimuth_deviation(new_dir, expect_lat):+.2f}° | "
+                  f"前后偏移 {new_dir.dot(body_fwd):+.3f}")
             converted_bones.append(bone_name)
 
         # 处理上臂

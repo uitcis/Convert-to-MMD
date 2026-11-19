@@ -28,6 +28,15 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             self.report({'WARNING'}, "未设置骨骼")
             return {'CANCELLED'}
 
+        # 前置校验：参与重命名的字段不得重复指向同一根骨骼；取消时不改任何数据
+        conflict = bone_utils.check_duplicate_bone_fields(
+            (new_name, getattr(scene, prop_name, ""))
+            for prop_name, new_name in self.mmd_bone_map.items()
+        )
+        if conflict:
+            self.report({'ERROR'}, conflict)
+            return {'CANCELLED'}
+
         # 记录进入时的模式，结束时恢复（尽量复用已有模式窗口，减少切换）
         original_mode = context.mode
         # mode_set 只接受 OBJECT/EDIT/POSE，而 context.mode 返回 'EDIT_ARMATURE' 等值

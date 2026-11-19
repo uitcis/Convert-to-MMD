@@ -59,6 +59,25 @@ def resolve_armature(context, ensure_active=True):
     return armature
 
 
+def check_duplicate_bone_fields(fields):
+    """检查骨骼字段是否重复指向同一根骨骼。
+
+    Args:
+        fields: 可迭代的 (显示名, 骨骼名) 对；骨骼名为空时忽略
+
+    Returns:
+        str | None: 冲突提示文本；没有重复时返回 None
+    """
+    seen = {}
+    for label, name in fields:
+        if not name:
+            continue
+        if name in seen:
+            return f"{seen[name]}与{label}指向同一根骨骼 '{name}'，请先修正选择"
+        seen[name] = label
+    return None
+
+
 def create_or_update_bone(edit_bones, name, head_position, tail_position, use_connect=False, parent_name=None, use_deform=True):
     bone = edit_bones.get(name)
     if bone:
