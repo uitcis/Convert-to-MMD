@@ -15,18 +15,16 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             self.report({'ERROR'}, "未选择骨架对象")
             return {'CANCELLED'} 
 
-        # 前置校验：四根身体参考骨必须已设置且存在，缺任意一根直接取消
-        body_fields = (
-            ("上半身", "upper_body_bone"),
-            ("首", "neck_bone"),
-            ("左肩", "left_shoulder_bone"),
-            ("右肩", "right_shoulder_bone"),
-        )
+        scene = context.scene
+
+        # 前置校验：上半身/首必须已设置且存在（左右轴改用左右上臂骨，肩骨不参与）
+        body_names = {
+            "上半身": getattr(scene, "upper_body_bone", ""),
+            "首": getattr(scene, "neck_bone", ""),
+        }
         missing = []
-        body_names = {}
-        for label, prop_name in body_fields:
-            name = getattr(context.scene, prop_name, "")
-            body_names[label] = name
+        for label in ("上半身", "首"):
+            name = body_names[label]
             if not name:
                 missing.append(f"{label}（未设置）")
             elif name not in obj.data.bones:
@@ -36,25 +34,52 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                         "请先设置身体参考骨骼，当前缺少：" + "、".join(missing))
             return {'CANCELLED'}
 
-        # 前置校验：身体参考骨不得重复指向同一根骨
+        # 前置校验：实际参与建系的字段不得重复；空字段自动跳过
         conflict = bone_utils.check_duplicate_bone_fields(body_names.items())
         if conflict:
             self.report({'ERROR'}, conflict)
             return {'CANCELLED'}
 
-        # 身体参考骨位置不能退化，避免目标方向为零向量
-        up_check = (obj.data.bones[body_names["首"]].head_local -
-                    obj.data.bones[body_names["上半身"]].head_local)
-        left_check = (obj.data.bones[body_names["左肩"]].tail_local -
-                      obj.data.bones[body_names["右肩"]].tail_local)
-        if up_check.length < 1e-6 or left_check.length < 1e-6:
-            self.report({'ERROR'}, "身体参考骨骼位置异常，请检查上半身/首与左肩/右肩的选择")
+        # 构造身体坐标系（此时尚未产生任何副作用）
+        def _build_body_frame():
+            """返回 (up, left, 左右轴来源, 失败原因)。
+
+            up 由上半身→首的 head 连线得出；左右轴只用左/右上臂骨的 head 差值。
+            left 为 None 表示左右轴无法确定。
+            """
+            data_bones = obj.data.bones
+            mw3 = obj.matrix_world.to_3x3()
+            up_raw = (data_bones[body_names["首"]].head_local -
+                      data_bones[body_names["上半身"]].head_local)
+            if up_raw.length < 1e-6:
+                return up_raw, None, None, "上半身与首位置重合"
+            up = (mw3 @ up_raw).normalized()
+
+            la = getattr(scene, "left_upper_arm_bone", "")
+            ra = getattr(scene, "right_upper_arm_bone", "")
+            if la and ra and la in data_bones and ra in data_bones:
+                left = mw3 @ (data_bones[la].head_local -
+                              data_bones[ra].head_local)
+                left = left - up * left.dot(up)
+                if left.length > 1e-6:
+                    return up, left.normalized(), f"上臂骨 head({la}/{ra})", None
+                reason = f"上臂骨({la}/{ra})的 head 位置重合或与上下轴平行"
+            else:
+                reason = "左右上臂骨未配置或不存在"
+            return up, None, None, reason
+
+        body_up, body_left, left_source, frame_error = _build_body_frame()
+        if body_up.length < 1e-6:
+            self.report({'ERROR'}, "上半身与首的位置重合或过于接近，无法确定身体上下方向")
+            return {'CANCELLED'}
+        if body_left is None:
+            self.report({'ERROR'}, "无法确定身体左右轴：" + frame_error +
+                        "，请检查左右上臂骨的配置")
             return {'CANCELLED'}
 
         if not apply_armature_transforms(context, obj):
             self.report({'ERROR'}, "应用骨架变换失败")
             return {'CANCELLED'}
-        scene = context.scene
         
         # 获取骨骼名称
         arm_bones = {
@@ -170,24 +195,11 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         bpy.ops.pose.select_all(action='DESELECT')
         context.view_layer.update()
 
-        # 8. 构造身体坐标系（前置校验已保证四根参考骨存在且不重复）
-        def _build_body_frame():
-            """返回 (up, left)，均为世界空间单位向量"""
-            data_bones = obj.data.bones
-            mw3 = obj.matrix_world.to_3x3()
-            up = mw3 @ (data_bones[scene.neck_bone].head_local -
-                        data_bones[scene.upper_body_bone].head_local)
-            # 肩骨取 tail 端（肩关节），避免锁骨两端都靠近脊柱时轴过短
-            left = mw3 @ (data_bones[scene.left_shoulder_bone].tail_local -
-                          data_bones[scene.right_shoulder_bone].tail_local)
-            up.normalize()
-            left = (left - up * left.dot(up)).normalized()
-            return up, left
-
-        body_up, body_left = _build_body_frame()
+        # 8. 构造身体坐标系（校验阶段已确认可用，此处按变换后的矩阵重算）
+        body_up, body_left, left_source, _ = _build_body_frame()
         body_fwd = body_left.cross(body_up).normalized()
-        print(f"[A-Pose] 身体坐标系来源：骨骼({scene.upper_body_bone}/"
-              f"{scene.neck_bone}/{scene.left_shoulder_bone}/{scene.right_shoulder_bone})")
+        print(f"[A-Pose] 身体坐标系来源：上半身({body_names['上半身']})/首({body_names['首']})，"
+              f"左右轴取自{left_source}")
 
         edit_bones = obj.data.bones
         converted_bones = []
