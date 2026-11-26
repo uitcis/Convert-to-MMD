@@ -12,6 +12,7 @@ stages:
     displayName: Gitee Release
     # Tag 推送时 GITEE_COMMIT_MESSAGE 取的是触发提交的提交信息（已验证，标签说明不生效）
     # 约定：发版提交的提交信息只写版本号，如 "V1.3"
+    # 发版约定：CHANGELOG.md 每次只保留当前版本的内容，不保留历史版本条目
     releaseName: "${GITEE_COMMIT_MESSAGE}"
     description: CHANGELOG.md
     tagName: "${GITEE_COMMIT_MESSAGE}"
