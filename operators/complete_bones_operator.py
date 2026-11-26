@@ -1,4 +1,5 @@
 import bpy
+import math
 from mathutils import Vector
 from .. import bone_utils
 
@@ -87,6 +88,62 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             return {'CANCELLED'}
 
         # === 校验通过，构造标准骨骼属性（此阶段尚未改动任何数据）===
+        # 重要：下面用局部快照替代 edit_bones[...].head/tail 的直接引用。
+        # edit_bones 的 Vector 是实时视图；而后面创建备份时会切到 OBJECT 再重进
+        # EDIT（第 277/295 行），edit_bones 随之重建，旧引用会失效并变成 NaN/0。
+        # 若把引用直接存进 bone_properties，写回时就会把骨骼 head/tail 改到
+        # 原点或 1e14 级错误位置。这里先把所有需要的坐标 copy 成独立快照。
+        _head = {name: eb.head.copy() for name, eb in edit_bones.items()}
+        _tail = {name: eb.tail.copy() for name, eb in edit_bones.items()}
+
+        # === 膝盖预弯：保证髋-膝-踝夹角至少 179.5°（即弯曲不少于 0.5°）===
+        # MMD 的腿 IK 靠单侧角度限制定弯向；Blender 侧没有 pole target，
+        # rest 姿态完全共线时 solver 缺少明确的弯曲提示。这里检查实际夹角，
+        # 对共线/弯曲不足的膝盖，沿角色前方（本坐标系 -Y）平移 head，
+        # 直到夹角恰好 180° - 0.5°。原本已有足够弯曲的保持不动。
+        KNEE_BEND_DEG = 0.5
+        _target_angle = 180.0 - KNEE_BEND_DEG
+        _knee_bend_heads = {}
+        for _side in ("左", "右"):
+            _hip = _head.get(f"{_side}足")
+            _knee = _head.get(f"{_side}ひざ")
+            _ankle = _head.get(f"{_side}足首")
+            if _hip is None or _knee is None or _ankle is None:
+                continue
+            _upper = (_knee - _hip).length
+            _lower = (_ankle - _knee).length
+            if _upper < 1e-6 or _lower < 1e-6:
+                continue
+
+            def _angle_at(_d):
+                _k = _knee.copy()
+                _k.y -= _d
+                _a = _hip - _k
+                _b = _ankle - _k
+                _denom = _a.length * _b.length
+                if _denom < 1e-12:
+                    return 0.0
+                _cos = max(-1.0, min(1.0, _a.dot(_b) / _denom))
+                return math.degrees(math.acos(_cos))
+
+            _cur = _angle_at(0.0)
+            if _cur <= _target_angle + 1e-4:
+                print(f"[Convert-to-MMD] {_side}膝已有弯曲 {180.0 - _cur:.2f}° ≥ {KNEE_BEND_DEG:.1f}°，保持原样")
+                continue
+            _lo, _hi = 0.0, min(_upper, _lower) * 0.5
+            for _ in range(40):
+                _mid = (_lo + _hi) * 0.5
+                if _angle_at(_mid) > _target_angle:
+                    _lo = _mid
+                else:
+                    _hi = _mid
+            _d = (_lo + _hi) * 0.5
+            _new_knee = _knee.copy()
+            _new_knee.y -= _d
+            _knee_bend_heads[f"{_side}ひざ"] = _new_knee
+            print(f"[Convert-to-MMD] {_side}膝预弯: 夹角 {_cur:.3f}° -> {_angle_at(_d):.3f}°, "
+                  f"head.y {_knee.y:.4f} -> {_new_knee.y:.4f} (前移 {_d*1000:.2f}mm)")
+
         # 先检测上半身链骨骼（上半身2, 上半身3, ...）
         upper_chain_bones = []
         for i in range(2, 6):
@@ -109,102 +166,102 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 "tail": Vector((0, upper_body_tail.y, upper_body_head.z+bone_length)), 
                 "parent": "腰", "use_connect": False},
             "首": {
-                "head": edit_bones["首"].head,
-                "tail": edit_bones["頭"].head,
+                "head": _head["首"],
+                "tail": _head["頭"],
                 "parent": last_upper_body,
                 "use_connect": False
             },
             "頭": {
-                "head": edit_bones["頭"].head,
-                "tail": Vector((0, edit_bones["頭"].head.y, edit_bones["頭"].head.z+bone_length * 0.25)),
+                "head": _head["頭"],
+                "tail": Vector((0, _head["頭"].y, _head["頭"].z+bone_length * 0.25)),
                 "parent": "首",
                 "use_connect": False
             },                                  
             # 上肢骨骼链
             "左肩": {
-                "head": edit_bones["左肩"].head,
-                "tail": edit_bones["左腕"].head,
+                "head": _head["左肩"],
+                "tail": _head["左腕"],
                 "parent": last_upper_body,
                 "use_connect": False
             },
             "左腕": {
-                "head": edit_bones["左腕"].head,
-                "tail": edit_bones["左ひじ"].head,
+                "head": _head["左腕"],
+                "tail": _head["左ひじ"],
                 "parent": "左肩",
                 "use_connect": True
             },
             "左ひじ": {
-                "head": edit_bones["左ひじ"].head,
-                "tail": edit_bones["左手首"].head if "左手首" in edit_bones else edit_bones["左ひじ"].tail,
+                "head": _head["左ひじ"],
+                "tail": _head["左手首"] if "左手首" in edit_bones else _tail["左ひじ"],
                 "parent": "左腕",
                 "use_connect": True
             },
         
             "右肩": {
-                "head": edit_bones["右肩"].head,
-                "tail": edit_bones["右腕"].head,
+                "head": _head["右肩"],
+                "tail": _head["右腕"],
                 "parent": last_upper_body,
                 "use_connect": False
             },
             "右腕": {
-                "head": edit_bones["右腕"].head,
-                "tail": edit_bones["右ひじ"].head,
+                "head": _head["右腕"],
+                "tail": _head["右ひじ"],
                 "parent": "右肩",
                 "use_connect": True
             },
             "右ひじ": {
-                "head": edit_bones["右ひじ"].head,
-                "tail": edit_bones["右手首"].head if "右手首" in edit_bones else edit_bones["右ひじ"].tail,
+                "head": _head["右ひじ"],
+                "tail": _head["右手首"] if "右手首" in edit_bones else _tail["右ひじ"],
                 "parent": "右腕",
                 "use_connect": True
             }, 
             
             "下半身": {"head": Vector((0, upper_body_head.y, upper_body_head.z)), "tail": Vector((0, upper_body_head.y, upper_body_head.z - bone_length)), "parent": "腰", "use_connect": False},
             "左足": {
-                "head": edit_bones["左足"].head,
-                "tail": edit_bones["左ひざ"].head,
+                "head": _head["左足"],
+                "tail": _knee_bend_heads.get("左ひざ", _head["左ひざ"]),
                 "parent": "下半身",
                 "use_connect": False
             },
             "右足": {
-                "head": edit_bones["右足"].head,
-                "tail": edit_bones["右ひざ"].head,
+                "head": _head["右足"],
+                "tail": _knee_bend_heads.get("右ひざ", _head["右ひざ"]),
                 "parent": "下半身",
                 "use_connect": False
             },
             "左ひざ": {
-                "head": edit_bones["左ひざ"].head,
-                "tail": edit_bones["左足首"].head,
+                "head": _knee_bend_heads.get("左ひざ", _head["左ひざ"]),
+                "tail": _head["左足首"],
                 "parent": "左足",
                 "use_connect": False
             },
             "右ひざ": {
-                "head": edit_bones["右ひざ"].head,
-                "tail": edit_bones["右足首"].head,
+                "head": _knee_bend_heads.get("右ひざ", _head["右ひざ"]),
+                "tail": _head["右足首"],
                 "parent": "右足",
                 "use_connect": False
             },
             "左足首": {
-                "head": edit_bones["左足首"].head,
-                "tail": Vector((edit_bones["左足首"].head.x, edit_bones["左足首"].head.y - bone_length*0.3, 0)),
+                "head": _head["左足首"],
+                "tail": Vector((_head["左足首"].x, _head["左足首"].y - bone_length*0.3, 0)),
                 "parent": "左ひざ",
                 "use_connect": False
             },
             "右足首": {
-                "head": edit_bones["右足首"].head,
-                "tail": Vector((edit_bones["右足首"].head.x, edit_bones["右足首"].head.y - bone_length*0.3, 0)),
+                "head": _head["右足首"],
+                "tail": Vector((_head["右足首"].x, _head["右足首"].y - bone_length*0.3, 0)),
                 "parent": "右ひざ",
                 "use_connect": False
             },
             "左足先EX": {
-                "head": edit_bones["左足首"].tail,
-                "tail": Vector((edit_bones["左足首"].tail.x, edit_bones["左足首"].tail.y - bone_length*0.5, 0)),
+                "head": _tail["左足首"],
+                "tail": Vector((_tail["左足首"].x, _tail["左足首"].y - bone_length*0.5, 0)),
                 "parent": "左足首",
                 "use_connect": False
             },
             "右足先EX": {
-                "head": edit_bones["右足首"].tail,
-                "tail": Vector((edit_bones["右足首"].tail.x, edit_bones["右足首"].tail.y - bone_length*0.5, 0)),
+                "head": _tail["右足首"],
+                "tail": Vector((_tail["右足首"].x, _tail["右足首"].y - bone_length*0.5, 0)),
                 "parent": "右足首",
                 "use_connect": False
             }
@@ -225,16 +282,16 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                 if next_bone_name:
                     # 非最后一节：尾部指向下一节骨骼的头部
                     bone_properties[bone_name] = {
-                        "head": Vector((0, edit_bones[bone_name].head.y, edit_bones[bone_name].head.z)),
-                        "tail": Vector((0, edit_bones[next_bone_name].head.y, edit_bones[next_bone_name].head.z)),
+                        "head": Vector((0, _head[bone_name].y, _head[bone_name].z)),
+                        "tail": Vector((0, _head[next_bone_name].y, _head[next_bone_name].z)),
                         "parent": upper_chain_bones[idx - 1] if idx > 0 else "上半身",
                         "use_connect": False
                     }
                 else:
                     # 最后一节：尾部指向首骨骼头部
                     bone_properties[bone_name] = {
-                        "head": Vector((0, edit_bones[bone_name].head.y, edit_bones[bone_name].head.z)),
-                        "tail": Vector((0, edit_bones["首"].head.y, edit_bones["首"].head.z)),
+                        "head": Vector((0, _head[bone_name].y, _head[bone_name].z)),
+                        "tail": Vector((0, _head["首"].y, _head["首"].z)),
                         "parent": upper_chain_bones[idx - 1] if idx > 0 else "上半身",
                         "use_connect": False
                     }
