@@ -52,6 +52,7 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
         selected_bones = []
         edit_bones_roll = {}  # 存储骨骼名称到roll值的映射
         mode = obj.mode
+        exported_all_in_object_mode = False
         
         if mode == 'EDIT':
             # 在编辑模式下，收集edit_bones的roll值并获取对应的Bone对象
@@ -66,6 +67,7 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             # 在对象模式下，检查是否选中了整个骨架
             if obj.select_get():
                 selected_bones = list(obj.data.bones)
+                exported_all_in_object_mode = True
             else:
                 self.report({'ERROR'}, "没有选中任何骨骼")
                 return {'CANCELLED'}
@@ -124,7 +126,11 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
         try:
             with open(self.filepath, 'w', encoding='utf-8') as f:
                 json.dump(bones_info, f, ensure_ascii=False, indent=2)
-            self.report({'INFO'}, f"已成功导出{len(selected_bones)}个骨骼的信息到 {self.filepath}")
+            if exported_all_in_object_mode:
+                self.report({'INFO'},
+                            f"对象模式已导出全部骨骼（{len(selected_bones)} 根）到 {self.filepath}")
+            else:
+                self.report({'INFO'}, f"已成功导出{len(selected_bones)}个骨骼的信息到 {self.filepath}")
         except Exception as e:
             self.report({'ERROR'}, f"导出失败: {str(e)}")
             return {'CANCELLED'}

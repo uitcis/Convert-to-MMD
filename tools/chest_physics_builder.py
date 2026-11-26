@@ -142,7 +142,17 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
                 self.report({'ERROR'}, "请先选择左/右胸部骨骼")
                 return {'CANCELLED'}
 
-            bpy.ops.object.use_mmd_tools_convert()
+            missing = [name for name in (left_bone, right_bone)
+                       if name not in armature.data.bones]
+            if missing:
+                self.report({'ERROR'},
+                            f"胸部骨骼不存在: {', '.join(missing)}，请重新选择后再执行")
+                return {'CANCELLED'}
+
+            convert_result = bpy.ops.object.use_mmd_tools_convert()
+            if 'CANCELLED' in convert_result:
+                self.report({'ERROR'}, "mmd_tools 转换未完成，已中止乳房物理构建")
+                return {'CANCELLED'}
 
             context.scene.frame_set(context.scene.frame_start)
 
@@ -163,6 +173,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             self.report({'ERROR'}, str(me))
             print(f"内存错误: {me}")
             return {'CANCELLED'}
+        except Exception as exc:
+            self.report({'ERROR'}, f"乳房物理构建失败: {exc}")
+            print(f"[乳房物理] 未预期错误: {exc}")
+            import traceback
+            traceback.print_exc()
+            return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -171,6 +187,20 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         scene = context.scene
         bpy.ops.object.mode_set(mode='EDIT')
         eb = armature.data.edit_bones
+
+        # 先做所有可能失败的校验与拟合计算，再改动骨骼，避免取消时留下半改状态
+        fits = {}
+        for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
+            if user_bone not in eb:
+                self.report({'ERROR'}, f"骨骼 '{user_bone}' 不存在")
+                bpy.ops.object.mode_set(mode='OBJECT')
+                return {'CANCELLED'}
+            fit = calculate_breast_sphere_fit(armature, user_bone, weight_threshold=0)
+            if fit is None:
+                self.report({'ERROR'}, f"无法计算{prefix}侧乳房球形拟合，请检查顶点权重")
+                bpy.ops.object.mode_set(mode='OBJECT')
+                return {'CANCELLED'}
+            fits[prefix] = fit
 
         # 胸親骨骼 - 确定参考骨骼用于定位
         breast_parent_name = scene.breast_parent_bone if getattr(scene, 'breast_parent_bone', None) else None
@@ -198,21 +228,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         # 作用：胸上2骨骼
         breast_data = {}
         for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
-            if user_bone not in eb:
-                raise ValueError(f"骨骼 '{user_bone}' 不存在")
-
             BrUp2_name = f"{prefix}胸上 2"
             if user_bone != BrUp2_name:
                 eb[user_bone].name = BrUp2_name
 
             BrUp2 = eb[BrUp2_name]
-            sphere_fit = calculate_breast_sphere_fit(armature, BrUp2_name, weight_threshold=0)
-
-            if sphere_fit is None:
-                self.report({'ERROR'}, f"无法计算{prefix}侧乳房球形拟合，请检查顶点权重")
-                bpy.ops.object.mode_set(mode='OBJECT')
-                return {'CANCELLED'}
-
+            sphere_fit = fits[prefix]
             breast_data[prefix] = {
                 'center': sphere_fit['center'],
                 'radius': sphere_fit['radius'],

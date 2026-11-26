@@ -67,10 +67,13 @@ class OBJECT_OT_cleanup_backups(bpy.types.Operator):
         removed_count = 0
         removed_data_count = 0
 
-        # 清理备份对象（注意：空物体等对象的 data 可能为 None）
+        # 清理备份对象：只处理骨架备份，避免误删用户自己的 *_backup 网格/空物体
         for obj in list(bpy.data.objects):
+            if obj.type != 'ARMATURE':
+                continue
             obj_data = obj.data
-            is_backup = obj.name.endswith("_backup") or (obj_data is not None and "_backup" in obj_data.name)
+            is_backup = (obj.name.endswith("_backup")
+                         or (obj_data is not None and obj_data.name.endswith("_backup")))
             if is_backup:
                 try:
                     bpy.data.objects.remove(obj, do_unlink=True)

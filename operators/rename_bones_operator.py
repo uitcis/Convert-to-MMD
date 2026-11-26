@@ -43,7 +43,18 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
         restore_mode = bone_utils.context_mode_to_mode_set(original_mode)
 
         # === 骨骼备份管理 ===
-        # 1. 删除旧的备份对象（如果存在），避免累积
+        # 1. 先创建新备份（临时名），成功后再替换旧备份，避免中途失败导致没有备份
+        backup_data = obj.data.copy()
+        backup_data.name = f"{obj.data.name}_backup_tmp"
+        backup_obj = bpy.data.objects.new(f"{obj.name}_backup_tmp", backup_data)
+        bpy.context.collection.objects.link(backup_obj)
+
+        # 设置备份对象的属性
+        backup_obj.matrix_world = obj.matrix_world
+        backup_obj.hide_viewport = True
+        backup_obj.hide_render = True
+
+        # 2. 新备份就绪后，删除旧备份并改名
         old_backup_name = f"{obj.name}_backup"
         if old_backup_name in bpy.data.objects:
             try:
@@ -52,18 +63,8 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
                 print(f"[Convert-to-MMD] 已删除旧备份: {old_backup_name}")
             except Exception as e:
                 print(f"[Convert-to-MMD] 删除旧备份失败: {e}")
-
-        # 2. 创建新的骨架备份
-        # 使用直接的方式复制对象，避免上下文问题
-        backup_data = obj.data.copy()
+        backup_obj.name = f"{obj.name}_backup"
         backup_data.name = f"{obj.data.name}_backup"
-        backup_obj = bpy.data.objects.new(f"{obj.name}_backup", backup_data)
-        bpy.context.collection.objects.link(backup_obj)
-
-        # 设置备份对象的属性
-        backup_obj.matrix_world = obj.matrix_world
-        backup_obj.hide_viewport = True
-        backup_obj.hide_render = True
 
         self.report({'INFO'}, f"已创建骨架备份: {backup_obj.name} (数据块: {backup_obj.data.name})")
         print(f"[Convert-to-MMD] 备份创建成功: {backup_obj.name}")

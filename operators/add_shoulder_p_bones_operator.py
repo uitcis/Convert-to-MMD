@@ -149,9 +149,10 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
                 c_pose_bone.lock_location[1] = True
                 c_pose_bone.lock_location[2] = True
                 
-                # 清除现有约束，避免重复运行累加
+                # 只移除本工具重复运行留下的同名约束，保留用户/其它插件的约束
                 for constraint in list(c_pose_bone.constraints):
-                    c_pose_bone.constraints.remove(constraint)
+                    if constraint.name.startswith("mmd_additional_rotation"):
+                        c_pose_bone.constraints.remove(constraint)
                 
                 # 为肩C骨骼添加TRANSFORM约束
                 transform_constraint = c_pose_bone.constraints.new('TRANSFORM')
@@ -191,9 +192,10 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
                 # 为shadow骨骼添加COPY_TRANSFORMS约束
                 if shadow_bone_name in armature.pose.bones:
                     shadow_bone = armature.pose.bones[shadow_bone_name]
-                    # 清除现有约束
+                    # 只清理本工具添加的 COPY_TRANSFORMS 约束，保留其它约束
                     for constraint in list(shadow_bone.constraints):
-                        shadow_bone.constraints.remove(constraint)
+                        if constraint.name.startswith("mmd_tools_at_dummy"):
+                            shadow_bone.constraints.remove(constraint)
                     # 添加COPY_TRANSFORMS约束
                     shadow_constraint = shadow_bone.constraints.new('COPY_TRANSFORMS')
                     shadow_constraint.name = "mmd_tools_at_dummy"

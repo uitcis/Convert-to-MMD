@@ -37,15 +37,15 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
         return bones_to_merge
     
     def merge_vertex_groups(self, obj, target_bone_name, source_bone_name):
-        """合并顶点组"""
+        """合并顶点组，返回是否真的合并了权重（源顶点组是否存在）"""
         if not obj or obj.type != 'MESH':
-            return
+            return False
         
         target_vg = obj.vertex_groups.get(target_bone_name)
         source_vg = obj.vertex_groups.get(source_bone_name)
         
         if not source_vg:
-            return
+            return False
         
         if not target_vg:
             target_vg = obj.vertex_groups.new(name=target_bone_name)
@@ -56,6 +56,7 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
                     target_vg.add([vertex.index], group.weight, 'ADD')
         
         obj.vertex_groups.remove(source_vg)
+        return True
     
     def merge_bone_chain(self, armature, start_bone_name, mmd_bones):
         """合并起始骨骼的所有子级骨骼（排除MMD骨骼）"""
@@ -177,19 +178,28 @@ class OBJECT_OT_merge_selected_bones_base(OBJECT_OT_merge_bones_base):
             return {'CANCELLED'}
 
         merged_count = 0
+        skipped_names = []
         for source_bone_name in selected_bone_names:
+            bone_merged = False
             for obj in bpy.context.scene.objects:
                 if obj.type == 'MESH':
                     for modifier in obj.modifiers:
                         if modifier.type == 'ARMATURE' and modifier.object == armature:
-                            self.merge_vertex_groups(obj, target_bone_name, source_bone_name)
+                            if self.merge_vertex_groups(obj, target_bone_name, source_bone_name):
+                                bone_merged = True
                             break
-            merged_count += 1
+            if bone_merged:
+                merged_count += 1
+            else:
+                skipped_names.append(source_bone_name)
 
         if merged_count > 0:
-            self.report({'INFO'}, f"已将 {merged_count} 个骨骼的权重合并到 {target_bone_name}")
+            message = f"已将 {merged_count} 个骨骼的权重合并到 {target_bone_name}"
+            if skipped_names:
+                message += f"；{len(skipped_names)} 个骨骼没有对应顶点组，已跳过: {', '.join(skipped_names[:5])}"
+            self.report({'INFO'}, message)
         else:
-            self.report({'INFO'}, "没有骨骼权重被合并")
+            self.report({'INFO'}, "没有骨骼权重被合并（所选骨骼在绑定网格上都没有对应顶点组）")
 
         # 同时合并骨骼（将所选骨骼的父级重接到目标骨骼后删除）
         if self.also_merge_bones:

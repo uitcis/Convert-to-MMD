@@ -1,4 +1,4 @@
-from mathutils import Vector
+from mathutils import Matrix, Vector
 import bpy
 
 def context_mode_to_mode_set(context_mode):
@@ -116,6 +116,83 @@ def _is_identity_matrix(matrix, tolerance=1e-6):
     return True
 
 
+def _backup_and_remove_shape_keys(mesh_obj):
+    """备份网格的全部形态键（含基础键）后删除，返回可直接恢复的备份列表。
+
+    transform_apply 无法作用于带形态键的网格，需要先移除形态键，
+    应用变换后再按新的基础网格恢复（形态键增量按应用后的线性变换换算）。
+    """
+    keys_data = mesh_obj.data.shape_keys
+    if not keys_data or not keys_data.key_blocks:
+        return []
+
+    basis = keys_data.key_blocks[0]
+    backup = []
+    for key_block in keys_data.key_blocks:
+        deltas = {}
+        if key_block != basis:
+            for i, v in enumerate(key_block.data):
+                delta = v.co - basis.data[i].co
+                if delta.length > 1e-9:
+                    deltas[i] = delta.copy()
+        backup.append({
+            'name': key_block.name,
+            'deltas': deltas,
+            'relative_key': key_block.relative_key.name if key_block.relative_key else None,
+            'slider_min': key_block.slider_min,
+            'slider_max': key_block.slider_max,
+            'mute': key_block.mute,
+            'value': key_block.value,
+        })
+
+    for key_block in list(keys_data.key_blocks)[::-1]:
+        mesh_obj.shape_key_remove(key_block)
+    return backup
+
+
+def _restore_shape_keys(mesh_obj, backup, delta_matrix):
+    """按备份恢复形态键，增量坐标按 delta_matrix 做同样的线性变换。"""
+    if not backup:
+        return
+    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.context.view_layer.objects.active = mesh_obj
+    mesh_obj.select_set(True)
+
+    bpy.ops.object.shape_key_add(from_mix=False)
+    basis = mesh_obj.data.shape_keys.key_blocks[0]
+    basis.name = backup[0]['name']
+    restored = {basis.name: basis}
+
+    for item in backup[1:]:
+        key_block = mesh_obj.shape_key_add(name=item['name'], from_mix=False)
+        for index, delta in item['deltas'].items():
+            key_block.data[index].co = basis.data[index].co + (delta_matrix @ delta)
+        key_block.slider_min = item['slider_min']
+        key_block.slider_max = item['slider_max']
+        key_block.mute = item['mute']
+        key_block.value = item['value']
+        relative_name = item['relative_key']
+        if relative_name and relative_name in restored:
+            key_block.relative_key = restored[relative_name]
+        restored[item['name']] = key_block
+
+
+def get_bound_meshes(armature):
+    """返回所有绑定到该骨架的网格：Armature 修改器指向它，或父级是它（取并集）。"""
+    meshes = []
+    for obj in bpy.data.objects:
+        if obj.type != 'MESH':
+            continue
+        has_armature_modifier = any(
+            mod.type == 'ARMATURE' and mod.object == armature
+            for mod in obj.modifiers
+        )
+        if obj.parent == armature or has_armature_modifier:
+            meshes.append(obj)
+    return meshes
+
+
 def apply_armature_transforms(context, armature_obj=None):
     """自动应用骨架和网格对象的变换"""
     try:
@@ -140,12 +217,47 @@ def apply_armature_transforms(context, armature_obj=None):
                 if not _is_identity_matrix(deform):
                     pose_deforms[pose_bone.name] = deform
 
+        # 带形态键的网格无法直接应用变换：先备份并移除形态键，应用后再恢复
+        # 记录应用前后的世界矩阵，用于把形态键增量换算到新的网格数据空间
+        if hasattr(context, "view_layer"):
+            context.view_layer.update()
+        shape_key_backups = []
+        for child in armature.children_recursive:
+            if child.type != 'MESH' or not child.data.shape_keys:
+                continue
+            if not child.visible_get():
+                continue
+            try:
+                backup = _backup_and_remove_shape_keys(child)
+            except RuntimeError as e:
+                print(f"备份形态键失败 {child.name}: {e}")
+                continue
+            if backup:
+                shape_key_backups.append(
+                    (child, backup, child.matrix_world.copy()))
+
         # 选择骨架层级并应用变换
         bpy.ops.object.select_all(action='DESELECT')
         armature.select_set(True)
         bpy.context.view_layer.objects.active = armature
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=True)
-        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        applied = False
+        try:
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+            applied = True
+        finally:
+            if shape_key_backups:
+                context.view_layer.update()
+                for child, backup, world_before in shape_key_backups:
+                    try:
+                        if applied:
+                            delta_matrix = (child.matrix_world.inverted()
+                                            @ world_before).to_3x3()
+                        else:
+                            delta_matrix = Matrix.Identity(3)
+                        _restore_shape_keys(child, backup, delta_matrix)
+                    except RuntimeError as e:
+                        print(f"恢复形态键失败 {child.name}: {e}")
 
         # 按层级从根到叶依次还原姿势（父骨骼先更新，子骨骼才能正确解算）
         if pose_deforms:
@@ -236,16 +348,50 @@ def check_and_scale_skeleton(obj):
         
         # 切换到对象模式
         bpy.ops.object.mode_set(mode='OBJECT')
+
+        # 解除父级时保留世界矩阵，避免骨架/模型跳位
+        if obj.parent:
+            world_before_unparent = obj.matrix_world.copy()
+            obj.parent = None
+            obj.matrix_world = world_before_unparent
+            bpy.context.view_layer.update()
+
+        # 记录缩放前的骨架与子物体世界矩阵，缩放后按比例校正子物体
+        obj_world_before = obj.matrix_world.copy()
+        children_world = {
+            child.name: child.matrix_world.copy()
+            for child in obj.children_recursive
+        }
+
         # 重置缩放
         obj.scale = (1.0, 1.0, 1.0)
         # 缩放
         obj.scale *= scale_factor
-        # 清除父级
-        obj.parent = None
+        bpy.context.view_layer.update()
+        obj_world_scaled = obj.matrix_world.copy()
+
         # 使用apply_armature_transforms应用变换
-        
         context = bpy.context
         apply_armature_transforms(context, obj)
+
+        # 应用后校正子物体位置：旋转/缩放已由 transform_apply 烘进子物体数据，
+        # 这里只修正世界位置，避免再次叠加缩放导致子物体被二次缩小
+        if children_world:
+            relative = obj_world_scaled @ obj_world_before.inverted()
+            corrected = 0
+            for child in obj.children_recursive:
+                saved = children_world.get(child.name)
+                if saved is None:
+                    continue
+                expected_pos = relative @ saved.translation
+                current = child.matrix_world.copy()
+                if (current.translation - expected_pos).length > 1e-4:
+                    current.translation = expected_pos
+                    child.matrix_world = current
+                    corrected += 1
+            if corrected:
+                print(f"[缩放] 已校正 {corrected} 个子物体的世界位置")
+                bpy.context.view_layer.update()
         scaled = True
 
 

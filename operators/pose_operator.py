@@ -136,143 +136,184 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         meshes_with_armature = []
         shape_key_backups = {}
-        for mesh_obj in bpy.data.objects:
-            if mesh_obj.type == 'MESH':
+        created_modifiers = []
+        restored_meshes = set()
+        saved_basis = {}
+        finished = False
+        original_mode = context.mode
+        restore_mode = bone_utils.context_mode_to_mode_set(original_mode)
+
+        def restore_all_shape_keys():
+            for mesh_name, backup in shape_key_backups.items():
+                if mesh_name in restored_meshes:
+                    continue
+                mesh_obj = bpy.data.objects.get(mesh_name)
+                if mesh_obj is None:
+                    restored_meshes.add(mesh_name)
+                    continue
+                try:
+                    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                    restore_shape_keys(mesh_obj, backup)
+                except Exception as e:
+                    print(f"[A-Pose] 恢复形态键失败 {mesh_name}: {e}")
+                restored_meshes.add(mesh_name)
+
+        def remove_created_modifiers():
+            for mesh_obj, mod_name in created_modifiers:
+                try:
+                    mod = mesh_obj.modifiers.get(mod_name)
+                    if mod is not None:
+                        mesh_obj.modifiers.remove(mod)
+                except (ReferenceError, RuntimeError) as e:
+                    print(f"[A-Pose] 移除临时修改器失败 {mod_name}: {e}")
+
+        try:
+            for mesh_obj in bpy.data.objects:
+                if mesh_obj.type == 'MESH':
+                    for modifier in mesh_obj.modifiers:
+                        if modifier.type == 'ARMATURE' and modifier.object == obj:
+                            shape_key_backups[mesh_obj.name] = backup_shape_keys(mesh_obj)
+                            meshes_with_armature.append(mesh_obj)
+                            break
+
+            if not meshes_with_armature:
+                self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
+
+            # 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
+            bpy.ops.object.mode_set(mode='EDIT')
+            edit_bones = obj.data.edit_bones
+
+            # 获取骨骼位置（先验证骨骼是否存在）
+            missing = [f"{k}='{v}'" for k, v in arm_bones.items() if v and v not in edit_bones]
+            if missing:
+                bpy.ops.object.mode_set(mode='OBJECT')
+                self.report({'ERROR'}, f"编辑模式中未找到以下骨骼：{'; '.join(missing)}")
+                return {'CANCELLED'}
+
+            left_upper_arm = edit_bones[arm_bones["left_upper_arm"]]
+            left_lower_arm = edit_bones[arm_bones["left_lower_arm"]]
+            right_upper_arm = edit_bones[arm_bones["right_upper_arm"]]
+            right_lower_arm = edit_bones[arm_bones["right_lower_arm"]]
+
+            # 调整尾部位置
+            left_upper_arm.tail = left_lower_arm.head
+            right_upper_arm.tail = right_lower_arm.head
+
+            # 5. 为每个网格复制骨骼修改器，但保留原始修改器
+            for mesh_obj in meshes_with_armature:
                 for modifier in mesh_obj.modifiers:
                     if modifier.type == 'ARMATURE' and modifier.object == obj:
-                        shape_key_backups[mesh_obj.name] = backup_shape_keys(mesh_obj)
-                        meshes_with_armature.append(mesh_obj)
+                        # 复制修改器
+                        new_modifier = mesh_obj.modifiers.new(name=modifier.name + "_copy", type='ARMATURE')
+                        new_modifier.object = modifier.object
+                        new_modifier.use_vertex_groups = modifier.use_vertex_groups
+                        new_modifier.use_bone_envelopes = modifier.use_bone_envelopes
+                        created_modifiers.append((mesh_obj, new_modifier.name))
                         break
 
-        if not meshes_with_armature:
-            self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
+            # 6. 切换到姿态模式设置A-Pose
+            context.view_layer.objects.active = obj
+            bpy.ops.object.mode_set(mode='POSE')
 
-        # 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
-        bpy.ops.object.mode_set(mode='EDIT')
-        edit_bones = obj.data.edit_bones
-        
-        # 获取骨骼位置（先验证骨骼是否存在）
-        missing = [f"{k}='{v}'" for k, v in arm_bones.items() if v and v not in edit_bones]
-        if missing:
-            bpy.ops.object.mode_set(mode='OBJECT')
-            self.report({'ERROR'}, f"编辑模式中未找到以下骨骼：{'; '.join(missing)}")
-            return {'CANCELLED'}
-        
-        left_upper_arm = edit_bones[arm_bones["left_upper_arm"]]
-        left_lower_arm = edit_bones[arm_bones["left_lower_arm"]]
-        right_upper_arm = edit_bones[arm_bones["right_upper_arm"]]
-        right_lower_arm = edit_bones[arm_bones["right_lower_arm"]]
-        
-        # 调整尾部位置
-        left_upper_arm.tail = left_lower_arm.head
-        right_upper_arm.tail = right_lower_arm.head
+            pose_bones = obj.pose.bones
 
-        # 5. 为每个网格复制骨骼修改器，但保留原始修改器
-        for mesh_obj in meshes_with_armature:
-            for modifier in mesh_obj.modifiers:
-                if modifier.type == 'ARMATURE' and modifier.object == obj:
-                    # 复制修改器
-                    new_modifier = mesh_obj.modifiers.new(name=modifier.name + "_copy", type='ARMATURE')
-                    new_modifier.object = modifier.object
-                    new_modifier.use_vertex_groups = modifier.use_vertex_groups
-                    new_modifier.use_bone_envelopes = modifier.use_bone_envelopes
-                    break
-
-        # 6. 切换到姿态模式设置A-Pose
-        context.view_layer.objects.active = obj
-        bpy.ops.object.mode_set(mode='POSE')
-
-        pose_bones = obj.pose.bones
-
-        # 7. 仅清除手臂链的既有姿态，保留面部等其它骨骼的姿态
-        bpy.ops.pose.select_all(action='DESELECT')
-        for arm_bone_name in arm_bones.values():
-            if arm_bone_name and arm_bone_name in pose_bones:
-                pose_bones[arm_bone_name].select = True
-        bpy.ops.pose.rot_clear()
-        bpy.ops.pose.scale_clear()
-        bpy.ops.pose.loc_clear()
-        bpy.ops.pose.select_all(action='DESELECT')
-        context.view_layer.update()
-
-        # 8. 构造身体坐标系（校验阶段已确认可用，此处按变换后的矩阵重算）
-        body_up, body_left, left_source, _ = _build_body_frame()
-        body_fwd = body_left.cross(body_up).normalized()
-        print(f"[A-Pose] 身体坐标系来源：上半身({body_names['上半身']})/首({body_names['首']})，"
-              f"左右轴取自{left_source}")
-
-        edit_bones = obj.data.bones
-        converted_bones = []
-
-        # 上臂目标仰角（向下为负）
-        upper_arm_target = 36
-
-        def _elevation(vec):
-            """方向向量相对世界水平面的仰角（度），向上为正"""
-            return math.degrees(math.atan2(vec.z, math.hypot(vec.x, vec.y)))
-
-        def _body_elevation(vec):
-            """方向在身体坐标系中的仰角（度），沿 up 为正"""
-            return math.degrees(math.asin(max(-1.0, min(1.0, vec.dot(body_up)))))
-
-        def _azimuth_deviation(vec, expect_lat):
-            """水平分量相对身体左右轴的偏差（度），正值偏身体前方"""
-            lateral = vec.dot(expect_lat)
-            forward = vec.dot(body_fwd)
-            return math.degrees(math.atan2(forward, lateral))
-
-        def _rotate_bone_to_target(bone_name, bone_type, target_angle):
-            """按身体坐标系把上臂转到目标仰角（绕肩关节，与骨骼roll无关）"""
-            bone = pose_bones[bone_name]
-            bone.rotation_mode = 'XYZ'
-            mw = obj.matrix_world.copy()
-            head_w = mw @ bone.head
-            tail_w = mw @ bone.tail
-            current_dir = (tail_w - head_w).normalized()
-
-            # 左右归属按身体坐标系判定，不再依赖世界 X 符号
-            lateral = current_dir.dot(body_left)
-            if abs(lateral) > 1e-4:
-                side = 1.0 if lateral > 0 else -1.0
-            else:
-                side = 1.0 if "left" in bone_type else -1.0
-
-            rad = math.radians(target_angle)
-            target_dir = (body_left * (side * math.cos(rad))
-                          - body_up * math.sin(rad)).normalized()
-            quat = current_dir.rotation_difference(target_dir)
-
-            # 绕肩关节（骨头）在世界空间旋转，再换算回姿态空间
-            pivot = (Matrix.Translation(head_w) @ quat.to_matrix().to_4x4()
-                     @ Matrix.Translation(-head_w))
-            bone.matrix = mw.inverted() @ pivot @ mw @ bone.matrix
+            # 7. 仅清除手臂链的既有姿态，保留面部等其它骨骼的姿态
+            bpy.ops.pose.select_all(action='DESELECT')
+            for arm_bone_name in arm_bones.values():
+                if arm_bone_name and arm_bone_name in pose_bones:
+                    pose_bones[arm_bone_name].select = True
+            bpy.ops.pose.rot_clear()
+            bpy.ops.pose.scale_clear()
+            bpy.ops.pose.loc_clear()
+            bpy.ops.pose.select_all(action='DESELECT')
             context.view_layer.update()
 
-            new_dir = ((mw @ bone.tail) - (mw @ bone.head)).normalized()
-            expect_lat = body_left * side
-            print(f"[A-Pose] {bone_name}: 世界仰角 {_elevation(current_dir):.2f}° -> "
-                  f"{_elevation(new_dir):.2f}° | 身体仰角 {_body_elevation(current_dir):.2f}° -> "
-                  f"{_body_elevation(new_dir):.2f}° | "
-                  f"方位偏差 {_azimuth_deviation(new_dir, expect_lat):+.2f}° | "
-                  f"前后偏移 {new_dir.dot(body_fwd):+.3f}")
-            converted_bones.append(bone_name)
+            # 8. 构造身体坐标系（校验阶段已确认可用，此处按变换后的矩阵重算）
+            body_up, body_left, left_source, _ = _build_body_frame()
+            body_fwd = body_left.cross(body_up).normalized()
+            print(f"[A-Pose] 身体坐标系来源：上半身({body_names['上半身']})/首({body_names['首']})，"
+                  f"左右轴取自{left_source}")
 
-        # 处理上臂
-        for bone_type, bone_name in arm_bones.items():
-            if "lower_arm" in bone_type:
-                continue
-            if bone_name and bone_name in pose_bones and bone_name in edit_bones:
-                _rotate_bone_to_target(bone_name, bone_type, upper_arm_target)
+            edit_bones = obj.data.bones
+            converted_bones = []
 
-        if not converted_bones:
-            self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
-            return {'CANCELLED'}
+            # 上臂目标仰角（向下为负）
+            upper_arm_target = 36
 
-        # 9. 更新视图以确保姿态已应用
-        context.view_layer.update()
+            def _elevation(vec):
+                """方向向量相对世界水平面的仰角（度），向上为正"""
+                return math.degrees(math.atan2(vec.z, math.hypot(vec.x, vec.y)))
 
-        # 10. 应用第二个修改器（复制的修改器）来调整网格姿态
-        try:
+            def _body_elevation(vec):
+                """方向在身体坐标系中的仰角（度），沿 up 为正"""
+                return math.degrees(math.asin(max(-1.0, min(1.0, vec.dot(body_up)))))
+
+            def _azimuth_deviation(vec, expect_lat):
+                """水平分量相对身体左右轴的偏差（度），正值偏身体前方"""
+                lateral = vec.dot(expect_lat)
+                forward = vec.dot(body_fwd)
+                return math.degrees(math.atan2(forward, lateral))
+
+            def _rotate_bone_to_target(bone_name, bone_type, target_angle):
+                """按身体坐标系把上臂转到目标仰角（绕肩关节，与骨骼roll无关）"""
+                bone = pose_bones[bone_name]
+                bone.rotation_mode = 'XYZ'
+                mw = obj.matrix_world.copy()
+                head_w = mw @ bone.head
+                tail_w = mw @ bone.tail
+                current_dir = (tail_w - head_w).normalized()
+
+                # 左右归属按身体坐标系判定，不再依赖世界 X 符号
+                lateral = current_dir.dot(body_left)
+                if abs(lateral) > 1e-4:
+                    side = 1.0 if lateral > 0 else -1.0
+                else:
+                    side = 1.0 if "left" in bone_type else -1.0
+
+                rad = math.radians(target_angle)
+                target_dir = (body_left * (side * math.cos(rad))
+                              - body_up * math.sin(rad)).normalized()
+                quat = current_dir.rotation_difference(target_dir)
+
+                # 绕肩关节（骨头）在世界空间旋转，再换算回姿态空间
+                pivot = (Matrix.Translation(head_w) @ quat.to_matrix().to_4x4()
+                         @ Matrix.Translation(-head_w))
+                bone.matrix = mw.inverted() @ pivot @ mw @ bone.matrix
+                context.view_layer.update()
+
+                new_dir = ((mw @ bone.tail) - (mw @ bone.head)).normalized()
+                expect_lat = body_left * side
+                print(f"[A-Pose] {bone_name}: 世界仰角 {_elevation(current_dir):.2f}° -> "
+                      f"{_elevation(new_dir):.2f}° | 身体仰角 {_body_elevation(current_dir):.2f}° -> "
+                      f"{_body_elevation(new_dir):.2f}° | "
+                      f"方位偏差 {_azimuth_deviation(new_dir, expect_lat):+.2f}° | "
+                      f"前后偏移 {new_dir.dot(body_fwd):+.3f}")
+                converted_bones.append(bone_name)
+
+            # 处理上臂
+            for bone_type, bone_name in arm_bones.items():
+                if "lower_arm" in bone_type:
+                    continue
+                if bone_name and bone_name in pose_bones and bone_name in edit_bones:
+                    _rotate_bone_to_target(bone_name, bone_type, upper_arm_target)
+
+            if not converted_bones:
+                self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
+                return {'CANCELLED'}
+
+            # 9. 记录手臂链以外骨骼的局部姿态：后续只把手臂链烘进静置，
+            #    避免把面部等其它骨骼的既有姿态一并写进静置姿态。
+            arm_pose_names = {name for name in arm_bones.values() if name}
+            saved_basis = {
+                pb.name: pb.matrix_basis.copy()
+                for pb in pose_bones if pb.name not in arm_pose_names
+            }
+            for pb_name in saved_basis:
+                pose_bones[pb_name].matrix_basis = Matrix.Identity(4)
+            context.view_layer.update()
+
+            # 10. 应用第二个修改器（复制的修改器）来调整网格姿态
             for mesh_obj in meshes_with_armature:
                 context.view_layer.objects.active = mesh_obj
                 bpy.ops.object.mode_set(mode='OBJECT')
@@ -282,21 +323,51 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                         break
                 if mesh_obj.name in shape_key_backups:
                     restore_shape_keys(mesh_obj, shape_key_backups[mesh_obj.name])
+                restored_meshes.add(mesh_obj.name)
+
+            # 11. 切换回骨骼对象
+            context.view_layer.objects.active = obj
+            bpy.ops.object.mode_set(mode='POSE')
+
+            # 12. 应用当前姿态为新的静置姿态（此时其它骨骼姿态已归零，只会烘入手臂链）
+            bpy.ops.pose.armature_apply()
+
+            # 13. 恢复手臂链以外骨骼的姿态
+            for pb_name, basis in saved_basis.items():
+                pb = pose_bones.get(pb_name)
+                if pb is not None:
+                    pb.matrix_basis = basis
+            context.view_layer.update()
+
+            # 14. 清理临时创建的网格
+            for mesh_obj in meshes_with_armature:
+                if mesh_obj.get("is_temp_mesh"):
+                    bpy.data.objects.remove(mesh_obj, do_unlink=True)
+
+            finished = True
+            self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
+            return {'FINISHED'}
         except RuntimeError as e:
-            self.report({'ERROR'}, f"应用修改器时出错：{str(e)}")
+            self.report({'ERROR'}, f"转换 A-Pose 时出错：{str(e)}")
             return {'CANCELLED'}
-
-        # 11. 切换回骨骼对象
-        context.view_layer.objects.active = obj
-        bpy.ops.object.mode_set(mode='POSE')
-
-        # 12. 应用当前姿态为新的静置姿态
-        bpy.ops.pose.armature_apply()
-
-        # 13. 清理临时创建的网格
-        for mesh_obj in meshes_with_armature:
-            if mesh_obj.get("is_temp_mesh"):
-                bpy.data.objects.remove(mesh_obj, do_unlink=True)
-
-        self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
-        return {'FINISHED'}
+        finally:
+            # 无论成功、取消还是异常，都恢复形态键并清除临时修改器
+            restore_all_shape_keys()
+            remove_created_modifiers()
+            if not finished:
+                for pb_name, basis in saved_basis.items():
+                    try:
+                        pb = obj.pose.bones.get(pb_name) if obj else None
+                        if pb is not None:
+                            pb.matrix_basis = basis
+                    except (ReferenceError, RuntimeError):
+                        pass
+                try:
+                    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+                        bpy.ops.object.mode_set(mode='OBJECT')
+                    if obj and obj.name in bpy.data.objects:
+                        if context.mode != original_mode:
+                            bpy.ops.object.mode_set(mode=restore_mode)
+                        context.view_layer.objects.active = obj
+                except (ReferenceError, RuntimeError) as e:
+                    print(f"[A-Pose] 取消后恢复状态失败: {e}")

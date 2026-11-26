@@ -4,9 +4,9 @@ from .. import bone_utils
 
 
 class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
-    """补充缺失的 MMD 格式骨骼"""
+    """重建 MMD 标准骨骼（补建缺失骨骼并重定位已有标准骨骼）"""
     bl_idname = "object.complete_missing_bones"
-    bl_label = "Complete Missing Bones"
+    bl_label = "重建标准骨骼"
 
     def connect_finger_bones(self, edit_bones):
         """连接手指骨骼的头尾"""
@@ -68,23 +68,8 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         right_foot_bone = edit_bones.get("右足")
         upper_body_bone = edit_bones.get("上半身")
         lower_body_bone = edit_bones.get("下半身")
-        # 清除 左足 和 右足 骨骼的父级
-        if left_foot_bone:
-            left_foot_bone.use_connect = False
-            left_foot_bone.parent = None
-        if right_foot_bone:
-            right_foot_bone.use_connect = False
-            right_foot_bone.parent = None
-        # 清除 上半身 骨骼的父级
-        if upper_body_bone and upper_body_bone.parent:
-            upper_body_bone.use_connect = False
-            upper_body_bone.parent = None
-        # 清除 下半身 骨骼的父级
-        if lower_body_bone and lower_body_bone.parent:
-            lower_body_bone.use_connect = False
-            lower_body_bone.parent = None
 
-        # 确认上半身骨骼存在（已在 required_bones 验证中检查）
+        # === 校验阶段（必须在改动父级/位置之前完成，取消时不留下半改状态）===
         if not upper_body_bone:
             self.report({'ERROR'}, "上半身骨骼不存在")
             return {'CANCELLED'}
@@ -101,6 +86,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             self.report({'ERROR'}, f"计算出的骨骼长度无效: {bone_length:.3f}")
             return {'CANCELLED'}
 
+        # === 校验通过，构造标准骨骼属性（此阶段尚未改动任何数据）===
         # 先检测上半身链骨骼（上半身2, 上半身3, ...）
         upper_chain_bones = []
         for i in range(2, 6):
@@ -252,6 +238,80 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                         "parent": upper_chain_bones[idx - 1] if idx > 0 else "上半身",
                         "use_connect": False
                     }
+
+        # === 变更预览：列出将被移动/重挂的已有骨骼 ===
+        move_lines = []
+        new_bone_names = []
+        for bone_name, properties in bone_properties.items():
+            existing = edit_bones.get(bone_name)
+            if existing is None:
+                new_bone_names.append(bone_name)
+                continue
+            planned_head = (existing.head.copy() if bone_name in ("左足先EX", "右足先EX")
+                            else properties["head"])
+            head_move = (existing.head - planned_head).length
+            tail_move = (existing.tail - properties["tail"]).length
+            parent_now = existing.parent.name if existing.parent else None
+            parent_new = properties.get("parent")
+            connect_now = existing.use_connect
+            connect_new = properties.get("use_connect", False)
+            if (head_move > 1e-4 or tail_move > 1e-4
+                    or parent_now != parent_new or connect_now != connect_new):
+                move_lines.append(
+                    f"{bone_name}: 头 {head_move:.3f}m、尾 {tail_move:.3f}m、"
+                    f"父级 {parent_now or '无'}→{parent_new or '无'}"
+                    + ("、连接状态变化" if connect_now != connect_new else ""))
+
+        if move_lines:
+            self.report({'WARNING'},
+                        f"将移动/重挂 {len(move_lines)} 根已有骨骼，明细如下")
+            for i in range(0, len(move_lines), 4):
+                self.report({'INFO'}, "；".join(move_lines[i:i + 4]))
+            for line in move_lines:
+                print(f"[重建标准骨骼] {line}")
+        if new_bone_names:
+            self.report({'INFO'},
+                        f"将新建 {len(new_bone_names)} 根骨骼: {', '.join(new_bone_names)}")
+
+        # === 创建骨架备份（与重命名保持一致，先建新备份再替换旧的）===
+        bpy.ops.object.mode_set(mode='OBJECT')
+        backup_data = obj.data.copy()
+        backup_data.name = f"{obj.data.name}_backup_tmp"
+        backup_obj = bpy.data.objects.new(f"{obj.name}_backup_tmp", backup_data)
+        bpy.context.collection.objects.link(backup_obj)
+        backup_obj.matrix_world = obj.matrix_world
+        backup_obj.hide_viewport = True
+        backup_obj.hide_render = True
+
+        old_backup_name = f"{obj.name}_backup"
+        if old_backup_name in bpy.data.objects:
+            try:
+                bpy.data.objects.remove(bpy.data.objects[old_backup_name], do_unlink=True)
+            except Exception as e:
+                print(f"[重建标准骨骼] 删除旧备份失败: {e}")
+        backup_obj.name = f"{obj.name}_backup"
+        backup_data.name = f"{obj.data.name}_backup"
+        self.report({'INFO'}, f"已创建骨架备份: {backup_obj.name}")
+        bpy.ops.object.mode_set(mode='EDIT')
+        edit_bones = obj.data.edit_bones
+
+        # === 开始修改父子关系 ===
+        left_foot_bone = edit_bones.get("左足")
+        right_foot_bone = edit_bones.get("右足")
+        upper_body_bone = edit_bones.get("上半身")
+        lower_body_bone = edit_bones.get("下半身")
+        if left_foot_bone:
+            left_foot_bone.use_connect = False
+            left_foot_bone.parent = None
+        if right_foot_bone:
+            right_foot_bone.use_connect = False
+            right_foot_bone.parent = None
+        if upper_body_bone and upper_body_bone.parent:
+            upper_body_bone.use_connect = False
+            upper_body_bone.parent = None
+        if lower_body_bone and lower_body_bone.parent:
+            lower_body_bone.use_connect = False
+            lower_body_bone.parent = None
 
         # 按顺序检查并创建或更新骨骼
         for bone_name, properties in bone_properties.items():

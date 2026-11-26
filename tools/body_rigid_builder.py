@@ -315,15 +315,21 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
                 self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
                 return {'CANCELLED'}
 
-            bpy.ops.object.use_mmd_tools_convert()
+            convert_result = bpy.ops.object.use_mmd_tools_convert()
+            if 'CANCELLED' in convert_result:
+                self.report({'ERROR'}, "mmd_tools 转换未完成，已中止身体刚体构建")
+                return {'CANCELLED'}
 
             root = FnModel.find_root_object(armature)
             if not root:
                 self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
                 return {'CANCELLED'}
 
-            self._create_simple_body_rigid_bodies(context, armature, root)
-            self.report({'INFO'}, "简易身体刚体系统构建完成")
+            created = self._create_simple_body_rigid_bodies(context, armature, root)
+            if not created:
+                self.report({'WARNING'}, "未生成任何刚体：顶点权重数据不足或已存在同名刚体")
+                return {'CANCELLED'}
+            self.report({'INFO'}, f"简易身体刚体系统构建完成（共 {created} 个刚体）")
         except Exception as exc:
             self.report({'ERROR'}, f"构建失败：{exc}")
             print(traceback.format_exc())
@@ -408,6 +414,8 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
 
         if created_count < total:
             self.report({'WARNING'}, f"内存不足，已提前终止（创建 {created_count}/{total} 个刚体）")
+
+        return created_count
 
 
 def register():

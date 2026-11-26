@@ -63,6 +63,96 @@ def clear_ik_constraints(bone):
         if constraint.name in managed_names:
             bone.constraints.remove(constraint)
 
+LEG_BONE_NAMES = frozenset({
+    "左足", "右足", "左ひざ", "右ひざ", "左足首", "右足首",
+    "左足先EX", "右足先EX",
+    "左足D", "右足D", "左ひざD", "右ひざD", "左足首D", "右足首D",
+})
+
+
+def compute_mesh_ground_z(armature_obj):
+    """计算绑定网格在骨架局部空间的最低 Z（用于足IK親骨高度）。
+
+    只统计权重挂在腿骨（足/ひざ/足首/足先EX 及对应 D 骨）上的顶点，
+    避免被脚部以外的杂散几何带偏；完全没有腿骨权重顶点时回退到全部顶点。
+    返回 (最低Z, 参与计算的网格数, 是否使用腿骨权重)；没有可用网格时返回 (None, 0, False)。
+    """
+    meshes = bone_utils.get_bound_meshes(armature_obj)
+    if not meshes:
+        return None, 0, False
+
+    armature_inverse = armature_obj.matrix_world.inverted()
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+
+    def load_z_values(mesh_obj):
+        mesh = mesh_obj.data
+        row = (armature_inverse @ mesh_obj.matrix_world)[2]
+        if np is not None:
+            coords = np.empty(len(mesh.vertices) * 3, dtype=np.float32)
+            mesh.vertices.foreach_get("co", coords)
+            coords = coords.reshape(-1, 3)
+            return (coords @ np.array([row[0], row[1], row[2]], dtype=np.float32)
+                    + row[3])
+        return [row[0] * v.co.x + row[1] * v.co.y + row[2] * v.co.z + row[3]
+                for v in mesh.vertices]
+
+    def min_of(values, indices=None):
+        if np is not None:
+            picked = values if indices is None else values[indices]
+            return float(picked.min())
+        picked = values if indices is None else [values[i] for i in indices]
+        return min(picked)
+
+    checked = 0
+    leg_min = None
+    leg_vertex_count = 0
+
+    # 第一轮：只统计腿骨权重顶点
+    for mesh_obj in meshes:
+        mesh = mesh_obj.data
+        if mesh is None or len(mesh.vertices) == 0:
+            continue
+        try:
+            z_values = load_z_values(mesh_obj)
+            leg_group_indices = {vg.index for vg in mesh_obj.vertex_groups
+                                 if vg.name in LEG_BONE_NAMES}
+            if leg_group_indices:
+                indices = [
+                    v.index for v in mesh.vertices
+                    if any(g.weight > 0 and g.group in leg_group_indices
+                           for g in v.groups)
+                ]
+                if indices:
+                    leg_vertex_count += len(indices)
+                    mesh_min_z = min_of(z_values, indices)
+                    leg_min = mesh_min_z if leg_min is None else min(leg_min, mesh_min_z)
+            checked += 1
+        except Exception as exc:
+            print(f"[MMD IK] 跳过网格 {mesh_obj.name}: {exc}")
+
+    if leg_min is not None:
+        return leg_min, checked, True
+
+    # 第二轮（回退）：没有任何腿骨权重顶点时，用全部顶点最低点
+    all_min = None
+    for mesh_obj in meshes:
+        mesh = mesh_obj.data
+        if mesh is None or len(mesh.vertices) == 0:
+            continue
+        try:
+            mesh_min_z = min_of(load_z_values(mesh_obj))
+            all_min = mesh_min_z if all_min is None else min(all_min, mesh_min_z)
+        except Exception as exc:
+            print(f"[MMD IK] 跳过网格 {mesh_obj.name}: {exc}")
+
+    if all_min is None:
+        return None, 0, False
+    return all_min, checked, False
+
+
 # IK操作类
 class OBJECT_OT_add_ik(bpy.types.Operator):
     """为骨架添加MMD IK"""
@@ -93,15 +183,31 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         bone_length = bone_utils.calculate_bone_length(edit_bones)
         print(f"骨架高度: {bone_length * 8}")
         print(f"bone_length: {bone_length}")
+        # 脚底高度：优先只取腿骨权重顶点的最低点；取不到网格时回退到脚踝末端
+        mesh_ground_z, mesh_count, used_leg_weights = compute_mesh_ground_z(obj)
+        if mesh_ground_z is None:
+            ground_z = min(edit_bones["左足首"].tail.z, edit_bones["右足首"].tail.z)
+            self.report({'WARNING'},
+                        "未找到绑定到该骨架的网格，足IK親高度回退为脚踝末端最低点")
+        elif used_leg_weights:
+            ground_z = mesh_ground_z
+            self.report({'INFO'},
+                        f"足IK親高度取 {mesh_count} 个绑定网格中腿骨权重顶点的最低点"
+                        f"（骨架局部 Z={ground_z:.4f}）")
+        else:
+            ground_z = mesh_ground_z
+            self.report({'WARNING'},
+                        f"未找到任何腿骨权重顶点，足IK親高度回退为全部顶点最低点"
+                        f"（骨架局部 Z={ground_z:.4f}），可能受杂散几何影响")
         # IK骨骼属性定义
         IKbone_properties = {
-            "左足IK親": {"head": Vector((edit_bones["左ひざ"].tail.x, edit_bones["左ひざ"].tail.y, 0)),
+            "左足IK親": {"head": Vector((edit_bones["左ひざ"].tail.x, edit_bones["左ひざ"].tail.y, ground_z)),
                        "tail": edit_bones["左ひざ"].tail, "parent": "全ての親", "use_connect": False},
             "左足ＩＫ": {"head": edit_bones["左ひざ"].tail,
                       "tail": edit_bones["左ひざ"].tail + Vector((0, bone_length * 0.5, 0)), "parent": "左足IK親", "use_connect": False},
             "左つま先ＩＫ": {"head": edit_bones["左足首"].tail,
                          "tail": edit_bones["左足首"].tail + Vector((0, 0, -bone_length*0.4)), "parent": "左足ＩＫ", "use_connect": False},
-            "右足IK親": {"head": Vector((edit_bones["右ひざ"].tail.x, edit_bones["右ひざ"].tail.y, 0)),
+            "右足IK親": {"head": Vector((edit_bones["右ひざ"].tail.x, edit_bones["右ひざ"].tail.y, ground_z)),
                        "tail": edit_bones["右ひざ"].tail, "parent": "全ての親", "use_connect": False},
             "右足ＩＫ": {"head": edit_bones["右ひざ"].tail,
                       "tail": edit_bones["右ひざ"].tail + Vector((0, bone_length * 0.5, 0)), "parent": "右足IK親", "use_connect": False},

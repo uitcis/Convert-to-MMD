@@ -23,6 +23,7 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
 
         precision = 2
         connection_count = 0
+        ambiguous = []
 
         tail_map = {}
         for bone in edit_bones:
@@ -37,19 +38,27 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
                 continue
             head = child_bone.head
             key = (round(head.x, precision), round(head.y, precision), round(head.z, precision))
-            parent_bones = tail_map.get(key)
-            if parent_bones:
-                for parent_bone in parent_bones:
-                    if parent_bone != child_bone:
-                        child_bone.parent = parent_bone
-                        child_bone.use_connect = False
-                        connection_count += 1
-                        break
+            candidates = [b for b in tail_map.get(key, []) if b != child_bone]
+            if not candidates:
+                continue
+            if len(candidates) > 1:
+                # 坐标重合时无法确定唯一父级，跳过并提示，避免挂错父级
+                ambiguous.append((child_bone.name, [c.name for c in candidates]))
+                continue
+            child_bone.parent = candidates[0]
+            child_bone.use_connect = False
+            connection_count += 1
+
+        for child_name, candidate_names in ambiguous:
+            message = (f"{child_name} 的父级候选不唯一（{', '.join(candidate_names)}），已跳过")
+            self.report({'WARNING'}, message)
+            print(f"[自动连接] {message}")
 
         if obj.mode != original_mode:
             bpy.ops.object.mode_set(mode=original_mode)
 
-        self.report({'INFO'}, f"已自动连接 {connection_count} 个骨骼的父子关系")
+        self.report({'INFO'}, f"已自动连接 {connection_count} 个骨骼的父子关系"
+                              + (f"，跳过 {len(ambiguous)} 个歧义骨骼" if ambiguous else ""))
         return {'FINISHED'}
 
 
@@ -66,8 +75,8 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
             return {'CANCELLED'}
 
         # 锁定属性是姿态数据属性，任意模式下均可修改（无需切换模式）
+        # 只解除锁定，不改变 use_inherit_rotation 等绑定行为
         for pose_bone in obj.pose.bones:
-            pose_bone.bone.use_inherit_rotation = True
             pose_bone.lock_rotation[0] = False
             pose_bone.lock_rotation[1] = False
             pose_bone.lock_rotation[2] = False

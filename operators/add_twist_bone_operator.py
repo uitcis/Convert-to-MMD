@@ -244,7 +244,7 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
     @staticmethod
     def _setup_all_weights(obj):
         """设置所有捩骨骼的权重"""
-        mesh_objects = [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == obj]
+        mesh_objects = bone_utils.get_bound_meshes(obj)
 
         for mesh in mesh_objects:
             bpy.context.view_layer.objects.active = mesh
@@ -332,7 +332,8 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
             w_t3     = max(0, min(1.0, pos * 5 - 3, 4 - pos * 5))  # 细分3 (60-80%)
 
             total_base = w_base + w_main + w_t1 + w_t2 + w_t3
-            scale = 0.65
+            # 五段权重按原权重完整回填，不额外削减总权重
+            scale = 1.0
 
             if total_base > 0:
                 weights = [w_main / total_base * scale, w_t1 / total_base * scale,

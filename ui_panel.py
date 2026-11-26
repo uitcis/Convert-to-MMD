@@ -256,7 +256,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             # 添加重命名按钮和补全缺失骨骼按钮到同一行
             row = layout.row()
             row.operator("object.rename_to_mmd", text="1.重命名为MMD")
-            row.operator("object.complete_missing_bones", text="2.补全缺失骨骼")
+            row.operator("object.complete_missing_bones", text="2.重建标准骨骼")
 
             # 添加IK按钮和创建骨骼集合按钮到同一行
             row = layout.row()
@@ -344,7 +344,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.auto_connect_parent_bones", text="自动连接父级骨骼", icon='BONE_DATA')
             row.operator("object.unlock_all_bones", text="解锁所有骨骼", icon='UNLOCKED')
             row = general_tools_box.row()
-            row.operator("object.align_forearm_from_selection", text="对齐小臂", icon='ARROW_LEFTRIGHT')
+            row.operator("object.align_forearm_from_selection", text="对齐骨骼", icon='ARROW_LEFTRIGHT')
             row.operator("object.calculate_bone_rolls", text="设置骨骼扭转", icon='FILE_REFRESH')
             row = general_tools_box.row()
             row.operator("object.convert_bones_rotation_to_quaternion", text="转换为四元数旋转", icon='ORIENTATION_GLOBAL')

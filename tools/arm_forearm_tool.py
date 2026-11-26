@@ -33,9 +33,8 @@ def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
     upper_pbone = pose_bones[upper_name]
     lower_pbone = pose_bones[lower_name]
 
-    # 保存并设置旋转模式
+    # 计算期间使用四元数，结束后恢复用户原本的旋转模式
     old_mode = lower_pbone.rotation_mode
-    old_quat = lower_pbone.rotation_quaternion.copy() if old_mode == 'QUATERNION' else None
     lower_pbone.rotation_mode = 'QUATERNION'
 
     # 上臂当前世界方向
@@ -66,10 +65,17 @@ def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
             world_correction = lower_dir.rotation_difference(target_dir)
 
     # 转换为骨骼本地空间
-    parent_rot = upper_pbone.matrix.to_quaternion()
-    local_correction = parent_rot.inverted() @ world_correction
+    # 直接把世界空间的旋转作用到 pose 矩阵上（绕骨骼头部旋转），
+    # 由 Blender 反解局部旋转。这样直链和弯臂静置链都能真正对齐。
+    head = lower_pbone.matrix.translation.copy()
+    rotated_matrix = world_correction.to_matrix().to_4x4() @ lower_pbone.matrix
+    rotated_matrix.translation = head
+    lower_pbone.matrix = rotated_matrix
+    bpy.context.view_layer.update()
 
-    lower_pbone.rotation_quaternion = local_correction
+    # 恢复原有旋转模式（Blender 会自动把四元数结果转换为对应模式）
+    if old_mode != 'QUATERNION':
+        lower_pbone.rotation_mode = old_mode
 
     return True
 
@@ -79,9 +85,9 @@ def align_forearm_to_upper_arm(obj, upper_name, lower_name, elbow_angle=0.0):
 # ============================================================
 
 class OBJECT_OT_align_forearm_from_selection(bpy.types.Operator):
-    """基于当前选中的小臂骨骼，将其与父级上臂对齐"""
+    """将选中的骨骼与各自父骨骼方向对齐"""
     bl_idname = "object.align_forearm_from_selection"
-    bl_label = "对齐选中骨骼的小臂"
+    bl_label = "对齐骨骼"
     bl_options = {'REGISTER', 'UNDO'}
 
     elbow_angle: bpy.props.FloatProperty(

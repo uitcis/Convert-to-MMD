@@ -25,6 +25,20 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='EDIT')
         
         edit_bones = armature.data.edit_bones
+
+        # 前置校验：D 骨骼依赖的标准骨骼必须齐全，缺骨时给出提示而不是 KeyError
+        required_bones = [
+            "下半身",
+            "左足", "左ひざ", "左足首", "左足先EX",
+            "右足", "右ひざ", "右足首", "右足先EX",
+        ]
+        missing_bones = [name for name in required_bones if name not in edit_bones]
+        if missing_bones:
+            bpy.ops.object.mode_set(mode='OBJECT')
+            self.report({'ERROR'},
+                        f"缺失必需骨骼: {', '.join(missing_bones)}，请先执行「2.补全缺失骨骼」")
+            return {'CANCELLED'}
+
         D_bone_properties = {
             # 右侧骨骼
             "右足D": {
@@ -297,13 +311,12 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
                     # 移除目标剪切
                     shadow_constraint.remove_target_shear = False
                 
-                # 把标准骨骼对应的顶点组名字改成D骨骼的名字
-                for mesh in bpy.context.scene.objects:
-                    if mesh.type == 'MESH' and mesh.parent == armature:
-                        if original_name in mesh.vertex_groups:
-                            # 重命名顶点组
-                            vg = mesh.vertex_groups[original_name]
-                            vg.name = d_name
+                # 把标准骨骼对应的顶点组名字改成D骨骼的名字（覆盖所有绑定到该骨架的网格）
+                for mesh in bone_utils.get_bound_meshes(armature):
+                    if original_name in mesh.vertex_groups:
+                        # 重命名顶点组
+                        vg = mesh.vertex_groups[original_name]
+                        vg.name = d_name
         
         # 返回物体模式
         bpy.ops.object.mode_set(mode='OBJECT')

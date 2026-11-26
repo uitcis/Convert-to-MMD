@@ -214,8 +214,7 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
             self.report({'ERROR'}, "未选择骨骼")
             return {'CANCELLED'}
 
-        # 将第一个选定的骨骼填充到指定属性中
-        setattr(scene, self.bone_property, selected_bones[0])
+        # 将第一个选定的骨骼名称先记下来，位置校验通过后才写入字段
         current_bone_name = selected_bones[0]
         
         # 检查是否为左右对称骨骼属性，如果是则检测位置
@@ -231,8 +230,11 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
             is_correct, error_msg = check_single_bone_position(obj, current_bone_name, is_left, mode)
             print(f"检测结果：is_correct={is_correct}, error_msg={error_msg}")
             if not is_correct:
-                self.report({'WARNING'}, error_msg)
-                print(f"已发送警告：{error_msg}")
+                self.report({'ERROR'}, f"{error_msg}，请重新选择")
+                print(f"已拒绝写入：{error_msg}")
+                return {'CANCELLED'}
+
+        setattr(scene, self.bone_property, current_bone_name)
         
         # 如果是指骨的第一节，自动填充后续指节
         if auto_fill_finger_bones(scene, obj, self.bone_property):
@@ -291,11 +293,32 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
             self.report({'ERROR'}, f"加载预设失败：{str(e)}")
             return {'CANCELLED'}
 
-        for prop_name, value in preset.items():
-            if prop_name in get_bones_list():
-                setattr(scene, prop_name, value)
+        if not isinstance(preset, dict):
+            self.report({'ERROR'}, "预设文件格式错误：顶层必须是 JSON 对象")
+            return {'CANCELLED'}
 
-        self.report({'INFO'}, f"已从 {self.filepath} 导入预设")
+        known_props = set(get_bones_list())
+        imported = 0
+        unknown_props = []
+        invalid_values = []
+
+        for prop_name, value in preset.items():
+            if prop_name not in known_props:
+                unknown_props.append(prop_name)
+                continue
+            if not isinstance(value, str):
+                invalid_values.append(prop_name)
+                continue
+            setattr(scene, prop_name, value)
+            imported += 1
+
+        message = f"已从 {self.filepath} 导入 {imported} 项骨骼配置"
+        if unknown_props:
+            message += f"；忽略 {len(unknown_props)} 个未知字段"
+        if invalid_values:
+            message += (f"；忽略 {len(invalid_values)} 个非字符串值: "
+                        f"{', '.join(invalid_values[:5])}")
+        self.report({'WARNING'} if (unknown_props or invalid_values) else {'INFO'}, message)
         return {'FINISHED'}
 
     def invoke(self, context, event):
