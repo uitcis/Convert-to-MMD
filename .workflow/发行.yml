@@ -26,5 +26,5 @@ triggers:
   push:
     tags:
       prefix:
-        - __disabled__
+        - release-
 notify: []
