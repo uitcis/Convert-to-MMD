@@ -2,6 +2,56 @@ version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
 stages:
+- name: 检测变更
+  displayName: 检测 CHANGELOG 变更
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: build@nodejs
+    name: check_changelog
+    displayName: 校验 CHANGELOG.md 变更与版本号一致性
+    nodeVersion: 14.16.0
+    commands: |
+      cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || true
+      echo "工作目录: $(pwd)"
+      MSG="$GITEE_COMMIT_MESSAGE"
+      echo "GITEE_COMMIT_MESSAGE=[$MSG]"
+
+      # 1) 本次提交必须改了 CHANGELOG.md
+      FILES=$(git show --pretty=format: --name-only HEAD 2>/dev/null || true)
+      echo "本次提交变更文件:"
+      echo "$FILES"
+      if ! printf '%s\n' "$FILES" | grep -qx 'CHANGELOG.md'; then
+        echo "本次提交未修改 CHANGELOG.md，终止（下游发布阶段不会执行）"
+        exit 1
+      fi
+      echo "检测到 CHANGELOG.md 变更"
+
+      # 2) 从 CHANGELOG.md 版本条目解析版本号（权威来源）
+      #    形如 "## [1.4] - 2026-11-26"
+      LINE=$(grep -m1 -E '^## +\[?[0-9]+\.[0-9]+' CHANGELOG.md 2>/dev/null || true)
+      echo "CHANGELOG 版本条目: [$LINE]"
+      MD_VER=$(printf '%s' "$LINE" | sed -n 's/^## *\[*\([0-9][0-9.]*\).*/\1/p' || true)
+      if [ -z "$MD_VER" ]; then
+        echo "无法从 CHANGELOG.md 解析版本号，终止发版"
+        exit 1
+      fi
+      echo "CHANGELOG.md 版本号: $MD_VER"
+
+      # 3) 提交说明必须携带同一版本号
+      #    发布阶段的 releaseName/tagName 是渲染期字段，只能取系统变量
+      #    GITEE_COMMIT_MESSAGE，因此版本号必须由提交说明带入，
+      #    并在此处与 CHANGELOG.md 校验一致，防止两者脱节
+      MSG_VER=$(printf '%s' "$MSG" | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
+      if [ -z "$MSG_VER" ]; then
+        echo "提交说明必须包含版本号（如 V1.4），当前为: [$MSG]"
+        exit 1
+      fi
+      if [ "$MSG_VER" != "$MD_VER" ]; then
+        echo "版本号不一致：提交说明为 $MSG_VER，CHANGELOG.md 为 $MD_VER，终止发版"
+        exit 1
+      fi
+      echo "版本号一致: $MD_VER（发布阶段将以 GITEE_COMMIT_MESSAGE 作为 Release 名与标签）"
 - name: 发布
   displayName: 发布
   strategy: naturally
@@ -10,9 +60,10 @@ stages:
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
-    # Tag 推送时 GITEE_COMMIT_MESSAGE 取的是触发提交的提交信息（已验证，标签说明不生效）
-    # 约定：发版提交的提交信息只写版本号，如 "V1.3"
-    # 发版约定：CHANGELOG.md 每次只保留当前版本的内容，不保留历史版本条目
+    # 说明：releaseName / tagName 是流水线渲染期固化的字段，无法用运行时
+    # 解析出的变量注入（${} 会在渲染期被 variables 占位值替换）。
+    # 因此这里取系统变量 GITEE_COMMIT_MESSAGE —— 其值即触发提交的提交信息，
+    # 由「检测变更」阶段校验它与 CHANGELOG.md 的版本号一致后才放行。
     releaseName: "${GITEE_COMMIT_MESSAGE}"
     description: CHANGELOG.md
     tagName: "${GITEE_COMMIT_MESSAGE}"
@@ -27,7 +78,7 @@ stages:
         memory: "2"
 triggers:
   push:
-    tags:
-      prefix:
-        - release-
+    branches:
+      precise:
+        - main
 notify: []
