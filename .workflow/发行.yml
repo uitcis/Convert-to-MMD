@@ -2,7 +2,7 @@ version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
 variables:
-  # 占位值，实际由「解析版本号」阶段写入 GITEE_PARAMS 覆盖（跨阶段生效）
+  # 占位值，用于判别实验：若最终 Release 用此名，说明跨阶段参数回写不生效
   RELEASE_TAG: "V1.0.0"
 stages:
 - name: 解析版本
@@ -12,26 +12,20 @@ stages:
   steps:
   - step: build@nodejs
     name: parse_release_tag
-    displayName: 解析 release- 标签
+    displayName: 从 GITEE_COMMIT_MESSAGE 解析版本
     nodeVersion: 14.16.0
     commands: |
-      # 标签名不在 Gitee Go 系统变量中，用工作区仓库反查触发标签
-      TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
-      if [ -z "$TAG" ]; then
-        git fetch --tags --quiet >/dev/null 2>&1 || true
-        TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
+      MSG="$GITEE_COMMIT_MESSAGE"
+      echo "GITEE_COMMIT_MESSAGE=[$MSG]"
+      VERSION=$(printf '%s' "$MSG" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
+      if [ -n "$VERSION" ]; then
+        RELEASE_TAG="V${VERSION}"
+      else
+        # 判别标记：说明 GITEE_COMMIT_MESSAGE 里没有版本号
+        RELEASE_TAG="V1.0.1"
       fi
-      # 兜底：部分场景下工作区没有标签，Tag 触发的提交信息即标签说明
-      if [ -z "$TAG" ]; then TAG="$GITEE_COMMIT_MESSAGE"; fi
-      VERSION=$(printf '%s' "$TAG" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
-      if [ -z "$VERSION" ]; then
-        echo "无法解析版本号（触发标识：${TAG}），终止发版"
-        exit 1
-      fi
-      RELEASE_TAG="V${VERSION}"
       echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITEE_PARAMS"
-      echo "触发标识：${TAG}，发布标签：${RELEASE_TAG}"
-      cat "$GITEE_PARAMS"
+      echo "决定发布标签：${RELEASE_TAG}"
 - name: 发布
   displayName: 发布
   strategy: naturally
