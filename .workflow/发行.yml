@@ -1,31 +1,7 @@
 version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
-variables:
-  # 占位值，用于判别实验：若最终 Release 用此名，说明跨阶段参数回写不生效
-  RELEASE_TAG: "V1.0.0"
 stages:
-- name: 解析版本
-  displayName: 解析版本
-  strategy: naturally
-  trigger: auto
-  steps:
-  - step: build@nodejs
-    name: parse_release_tag
-    displayName: 从 GITEE_COMMIT_MESSAGE 解析版本
-    nodeVersion: 14.16.0
-    commands: |
-      MSG="$GITEE_COMMIT_MESSAGE"
-      echo "GITEE_COMMIT_MESSAGE=[$MSG]"
-      VERSION=$(printf '%s' "$MSG" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
-      if [ -n "$VERSION" ]; then
-        RELEASE_TAG="V${VERSION}"
-      else
-        # 判别标记：说明 GITEE_COMMIT_MESSAGE 里没有版本号
-        RELEASE_TAG="V1.0.1"
-      fi
-      echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITEE_PARAMS"
-      echo "决定发布标签：${RELEASE_TAG}"
 - name: 发布
   displayName: 发布
   strategy: naturally
@@ -34,9 +10,10 @@ stages:
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
-    releaseName: "${RELEASE_TAG}"
+    # Tag 推送时 GITEE_COMMIT_MESSAGE 即附注标签的说明，约定说明只写版本号（如 V1.3）
+    releaseName: "${GITEE_COMMIT_MESSAGE}"
     description: CHANGELOG.md
-    tagName: "${RELEASE_TAG}"
+    tagName: "${GITEE_COMMIT_MESSAGE}"
     upstreamArtifact: []
     assertFiles: []
     prerelease: false
