@@ -1,6 +1,9 @@
 version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
+variables:
+  # 占位值，实际由「解析版本号」步骤写入 GITEE_PARAMS 覆盖
+  RELEASE_TAG: "V1.0.0"
 stages:
 - name: 编译打包
   displayName: 编译打包
@@ -13,17 +16,26 @@ stages:
     nodeVersion: 14.16.0
     commands: |
       # 从触发标签 release-x.y 解析版本号；标签名不在系统变量中，只能用 git 反查
-      TAG=$(git tag --points-at "${GITEE_COMMIT}" 2>/dev/null | grep '^release-' | sort -V | tail -n1)
+      TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
+      if [ -z "$TAG" ]; then
+        git fetch --tags --quiet >/dev/null 2>&1 || true
+        TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
+      fi
       if [ -z "$TAG" ]; then TAG="$GITEE_COMMIT_MESSAGE"; fi
       VERSION=$(printf '%s' "$TAG" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
       if [ -z "$VERSION" ]; then
-        RELEASE_TAG="V1.${GITEE_PIPELINE_BUILD_NUMBER}"
-      else
-        RELEASE_TAG="V${VERSION}"
+        echo "无法从标签或提交信息解析版本号，终止发版"
+        exit 1
+      fi
+      RELEASE_TAG="V${VERSION}"
+      if [ -z "$GITEE_PARAMS" ]; then
+        echo "GITEE_PARAMS 未定义，无法回写版本号"
+        exit 1
       fi
       echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITEE_PARAMS"
-      echo "触发标签：${TAG}，发布标签：${RELEASE_TAG}"
+      echo "触发来源：${TAG}，发布标签：${RELEASE_TAG}"
   - step: release@gitee
+
     name: d49d02b4
     displayName: Gitee Release
     releaseName: "${RELEASE_TAG}"
