@@ -2,35 +2,41 @@ version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
 variables:
-  # 发版时由 AI 更新，必须与 release-x.y 触发标签的版本号一致（流水线会校验）
-  RELEASE_TAG: "V1.3"
+  # 占位值，实际由「解析版本号」阶段写入 GITEE_PARAMS 覆盖（跨阶段生效）
+  RELEASE_TAG: "V1.0.0"
 stages:
-- name: 编译打包
-  displayName: 编译打包
+- name: 解析版本
+  displayName: 解析版本
   strategy: naturally
   trigger: auto
   steps:
   - step: build@nodejs
-    name: check_release_tag
-    displayName: 校验版本号
+    name: parse_release_tag
+    displayName: 解析 release- 标签
     nodeVersion: 14.16.0
     commands: |
-      # 标签名不在 Gitee Go 系统变量中，用 git 反查触发标签
+      # 标签名不在 Gitee Go 系统变量中，用工作区仓库反查触发标签
       TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
       if [ -z "$TAG" ]; then
         git fetch --tags --quiet >/dev/null 2>&1 || true
         TAG=$(git tag --points-at HEAD 2>/dev/null | grep '^release-' | sort -V | tail -n1)
       fi
-      if [ -z "$TAG" ]; then
-        echo "未找到 release- 开头的触发标签，终止发版"
+      # 兜底：部分场景下工作区没有标签，Tag 触发的提交信息即标签说明
+      if [ -z "$TAG" ]; then TAG="$GITEE_COMMIT_MESSAGE"; fi
+      VERSION=$(printf '%s' "$TAG" | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
+      if [ -z "$VERSION" ]; then
+        echo "无法解析版本号（触发标识：${TAG}），终止发版"
         exit 1
       fi
-      EXPECTED="V$(printf '%s' "$TAG" | sed 's/^release-//')"
-      if [ "$EXPECTED" != "$RELEASE_TAG" ]; then
-        echo "触发标签 ${TAG} 与 yml 中的 RELEASE_TAG=${RELEASE_TAG} 不一致，请先更新 .workflow/发行.yml"
-        exit 1
-      fi
-      echo "版本校验通过：${RELEASE_TAG}"
+      RELEASE_TAG="V${VERSION}"
+      echo "RELEASE_TAG=${RELEASE_TAG}" >> "$GITEE_PARAMS"
+      echo "触发标识：${TAG}，发布标签：${RELEASE_TAG}"
+      cat "$GITEE_PARAMS"
+- name: 发布
+  displayName: 发布
+  strategy: naturally
+  trigger: auto
+  steps:
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
