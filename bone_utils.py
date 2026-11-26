@@ -97,6 +97,25 @@ def create_or_update_bone(edit_bones, name, head_position, tail_position, use_co
 
 
 
+def _bone_hierarchy_depth(bone):
+    """骨骼在骨架层级中的深度（根骨骼为 0）。"""
+    depth = 0
+    while bone.parent:
+        depth += 1
+        bone = bone.parent
+    return depth
+
+
+def _is_identity_matrix(matrix, tolerance=1e-6):
+    """判断矩阵是否为单位矩阵（用于跳过没有姿势变化的骨骼）。"""
+    for i in range(4):
+        for j in range(4):
+            expected = 1.0 if i == j else 0.0
+            if abs(matrix[i][j] - expected) > tolerance:
+                return False
+    return True
+
+
 def apply_armature_transforms(context, armature_obj=None):
     """自动应用骨架和网格对象的变换"""
     try:
@@ -110,13 +129,41 @@ def apply_armature_transforms(context, armature_obj=None):
             print("未找到骨架对象")
             return False
 
+        # transform_apply 只会改写静置骨骼数据，不会补偿姿势骨骼的位移/旋转，
+        # 骨架带非静置姿势时直接应用缩放会让姿势偏移按 1/scale 放大（模型跑偏）。
+        # 因此先记录每根骨骼在骨架空间的变形量，应用后按新静置姿态还原。
+        linear = armature.matrix_basis.to_3x3().to_4x4()
+        pose_deforms = {}
+        if armature.pose:
+            for pose_bone in armature.pose.bones:
+                deform = pose_bone.matrix @ pose_bone.bone.matrix_local.inverted()
+                if not _is_identity_matrix(deform):
+                    pose_deforms[pose_bone.name] = deform
+
         # 选择骨架层级并应用变换
         bpy.ops.object.select_all(action='DESELECT')
         armature.select_set(True)
         bpy.context.view_layer.objects.active = armature
         bpy.ops.object.select_hierarchy(direction='CHILD', extend=True)
         bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
-        
+
+        # 按层级从根到叶依次还原姿势（父骨骼先更新，子骨骼才能正确解算）
+        if pose_deforms:
+            linear_inverted = linear.inverted()
+            posed_bones = sorted(
+                (pb for pb in armature.pose.bones if pb.name in pose_deforms),
+                key=lambda pb: _bone_hierarchy_depth(pb.bone)
+            )
+            current_depth = None
+            for pose_bone in posed_bones:
+                depth = _bone_hierarchy_depth(pose_bone.bone)
+                if current_depth is not None and depth != current_depth:
+                    context.view_layer.update()
+                pose_bone.matrix = (linear @ pose_deforms[pose_bone.name]
+                                    @ linear_inverted @ pose_bone.bone.matrix_local)
+                current_depth = depth
+            context.view_layer.update()
+
         # 选择回骨架
         bpy.ops.object.select_all(action='DESELECT')
         armature.select_set(True)
