@@ -101,7 +101,6 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
         try:
             filled, low_conf, stats = solve_mapping(armature)
         except Exception as exc:  # 数据异常时给出可见反馈，而不是静默失败
-            print(f"[Convert-to-MMD] 自动骨骼映射失败: {exc}")
             self.report({'ERROR'}, f"自动骨骼映射失败: {exc}")
             return {'CANCELLED'}
 
@@ -119,11 +118,6 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
         if stats["low_conf"]:
             summary += f"，{stats['low_conf']} 个字段置信度不足（已标红）"
 
-        # 控制台只留一行摘要：逐字段的分数、依据、拓扑推导说明都在
-        # 「查看依据」报告里，点按钮才看，避免每次刷屏六十几行。
-        print(f"[Convert-to-MMD] 自动骨骼映射：{summary}。"
-              f"逐字段依据点「查看依据」")
-
         low_conf_lines = [f"{field_label(field)} {score:.2f}（{reason}）"
                           for field, score, reason in low_conf]
         scene.auto_map_summary = summary
@@ -138,7 +132,8 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
                 handle.write(_build_report(filled, low_conf, stats, armature.name))
             scene.auto_map_report_path = path
         except OSError as exc:
-            print(f"[Convert-to-MMD] 写入映射依据报告失败: {exc}")
+            # 报告写不出来时「查看依据」会失效，必须在通知栏说一声
+            self.report({'WARNING'}, f"映射依据报告写入失败，无法查看依据：{exc}")
 
         self.report({'INFO'}, summary)
         return {'FINISHED'}
