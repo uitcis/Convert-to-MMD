@@ -1,4 +1,5 @@
 *.pyc
 /test/*
 /参考/
+参考/
 .codebuddy/
