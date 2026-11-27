@@ -24,9 +24,16 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             layout.menu("TOPBAR_MT_file_import", text="Import", icon='IMPORT')
             return
 
+        # 低置信度字段集合：用于把对应行标红提示
+        low_conf_fields = set(
+            name for name in scene.auto_map_low_conf_fields.split(",") if name
+        )
+
         # 添加带有标签、prop_search用于骨骼和填充按钮的行的函数
         def add_bone_row_with_button(layout, label_text, prop_name):
             row = layout.row(align=True)
+            if prop_name in low_conf_fields:
+                row.alert = True
             split_name = row.split(factor=0.1, align=True)
             # 左侧部分：骨骼名称
             split_name.label(text=label_text)
@@ -50,6 +57,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         def add_symmetric_bones_with_buttons(layout, label_text, left_prop, right_prop):
             # 第一层划分：将行分为 0.2 和 0.8 两部分
             row = layout.row(align=True)
+            if left_prop in low_conf_fields or right_prop in low_conf_fields:
+                row.alert = True
             # 骨骼名字（Name）使用0.2
             split_name = row.split(factor=0.1, align=True)
             split_name.label(text=label_text)  # 显示骨骼名字
@@ -106,6 +115,9 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             split_ratio = (1-2*divider_ratio)/3
             # 第一层划分：将行分为 0.2 和 0.8 两部分
             row = layout.row(align=True)
+            if (first_prop in low_conf_fields or second_prop in low_conf_fields
+                    or third_prop in low_conf_fields):
+                row.alert = True
             # 骨骼名字（Name）使用0.2
             split_name = row.split(factor=0.1, align=True)
             split_name.label(text=label_text)  # 显示骨骼名字
@@ -185,6 +197,27 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.import_preset", text="导入预设")
             row.operator("object.export_preset", text="导出预设")
             row.operator("object.clear_bone_selection", text="", icon='X')
+
+            # 自动识别骨骼映射：结果直接写入下方字段
+            row = layout.row(align=True)
+            row.operator("object.auto_detect_bone_mapping",
+                         text="自动识别骨骼映射", icon='AUTO')
+
+            # 自动映射摘要与低置信度提示（低于阈值的字段已留空，对应行标红）
+            if scene.auto_map_summary:
+                box = layout.box()
+                box.label(text=scene.auto_map_summary, icon='INFO')
+                low_conf_lines = [line for line in
+                                  scene.auto_map_low_confidence.splitlines() if line]
+                if low_conf_lines:
+                    col = box.column(align=True)
+                    col.scale_y = 0.75
+                    col.alert = True
+                    col.label(text="以下字段置信度不足，已留空：")
+                    for line in low_conf_lines[:6]:
+                        col.label(text=line)
+                    if len(low_conf_lines) > 6:
+                        col.label(text=f"……等 {len(low_conf_lines)} 项，详见控制台")
         
             main_col = layout.column(align=True)
             # 全ての親到下半身骨骼部分

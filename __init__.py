@@ -34,6 +34,7 @@ from .operators import correct_bones_operator
 from .operators import add_leg_d_bones_operator
 from .operators import add_twist_bone_operator
 from .operators import add_shoulder_p_bones_operator
+from .operators import auto_mapping_operator
 
 # 辅助工具操作符 (tools/)
 from .tools import export_bones_info_operator
@@ -114,6 +115,7 @@ CLASSES = [
     preset_operator.OBJECT_OT_import_preset,
     preset_operator.OBJECT_OT_use_mmd_tools_convert,
     preset_operator.OBJECT_OT_clear_bone_selection,
+    auto_mapping_operator.OBJECT_OT_auto_detect_bone_mapping,
     pose_operator.OBJECT_OT_convert_to_apose,
     ik_operator.OBJECT_OT_add_ik,
     collection_operator.OBJECT_OT_create_bone_group,
@@ -167,6 +169,23 @@ def register():
         default='option1'
     )
 
+    # 自动骨骼映射结果摘要（供面板显示与低置信度高亮）
+    bpy.types.Scene.auto_map_summary = bpy.props.StringProperty(
+        name="自动映射摘要",
+        description="最近一次自动骨骼映射的结果摘要",
+        default="",
+    )
+    bpy.types.Scene.auto_map_low_confidence = bpy.props.StringProperty(
+        name="低置信度详情",
+        description="置信度低于阈值、已留空的字段及最佳候选分数",
+        default="",
+    )
+    bpy.types.Scene.auto_map_low_conf_fields = bpy.props.StringProperty(
+        name="低置信度字段",
+        description="置信度不足的字段名（逗号分隔），用于面板高亮",
+        default="",
+    )
+
 
 def unregister():
     encoding_patch.remove_encoding_patch()
@@ -179,7 +198,8 @@ def unregister():
     properties.unregister_convert_options()
 
     # 安全删除属性，忽略不存在的情况
-    for attr_name in ["preset_enum", "my_enum"]:
+    for attr_name in ["preset_enum", "my_enum", "auto_map_summary",
+                      "auto_map_low_confidence", "auto_map_low_conf_fields"]:
         try:
             delattr(bpy.types.Scene, attr_name)
         except AttributeError:
