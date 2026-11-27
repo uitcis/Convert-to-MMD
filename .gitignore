@@ -2,5 +2,7 @@
 /test/*
 /参考/
 参考/
+# 本地参考资料，随 dev/ 迁移；不随插件发布
+/dev/reference/
 .codebuddy/
 .workbuddy/
