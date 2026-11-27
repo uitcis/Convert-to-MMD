@@ -1,3 +1,14 @@
+# ============================================================
+# 发版流程（必须两次提交，否则发行失败）
+#   1) 提交更新：代码 / 功能 / CHANGELOG 内容变更，提交说明正常写。
+#   2) 提交发行触发：单独一次提交，提交说明只有纯版本号（如 V1.5），
+#      且本次提交必须改 CHANGELOG.md，用于打 tag 并触发本流水线。
+# 原因：下方 releaseName / tagName 直接取 GITEE_COMMIT_MESSAGE 当 tag 名，
+#       提交说明带任何描述文字（含空格）都会生成非法 tag 导致发行失败。
+# CHANGELOG 约定：每次发版只保留当前版本条目，旧条目不要堆叠。
+# 版本号：__init__.py 的 bl_info.version 长期为 (2, 6)，与 CHANGELOG
+#         的 1.x 发版标签是两套编号，不要擅自同步。
+# ============================================================
 version: "1.0"
 name: tag-auto-release
 displayName: Tag自动发版
@@ -38,10 +49,11 @@ stages:
       fi
       echo "CHANGELOG.md 版本号: $MD_VER"
 
-      # 3) 提交说明必须携带同一版本号
+      # 3) 提交说明必须是纯版本号（如 V1.5），且与 CHANGELOG 一致
       #    发布阶段的 releaseName/tagName 是渲染期字段，只能取系统变量
-      #    GITEE_COMMIT_MESSAGE，因此版本号必须由提交说明带入，
-      #    并在此处与 CHANGELOG.md 校验一致，防止两者脱节
+      #    GITEE_COMMIT_MESSAGE，因此它会被整体当作 tag 名；说明里带描述
+      #    文字（含空格）会产生非法 tag。此处解析出版本号与 CHANGELOG.md
+      #    校验一致，防止两者脱节。
       MSG_VER=$(printf '%s' "$MSG" | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
       if [ -z "$MSG_VER" ]; then
         echo "提交说明必须包含版本号（如 V1.4），当前为: [$MSG]"
