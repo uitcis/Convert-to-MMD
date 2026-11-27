@@ -3,11 +3,14 @@
 #   1) 提交更新：代码 / 功能 / CHANGELOG 内容变更，提交说明正常写。
 #   2) 提交发行触发：单独一次提交，提交说明只有纯版本号（如 V1.5），
 #      且本次提交必须改 CHANGELOG.md，用于打 tag 并触发本流水线。
-# 原因：下方 releaseName / tagName 直接取 GITEE_COMMIT_MESSAGE 当 tag 名，
-#       提交说明带任何描述文字（含空格）都会生成非法 tag 导致发行失败。
+# 原因：下方 releaseName / tagName / 压缩包名都取 GITEE_COMMIT_MESSAGE
+#       当版本标识，提交说明带任何描述文字（含空格）都会生成非法 tag，
+#       也会让附件名带空格导致发行失败。
 # CHANGELOG 约定：每次发版只保留当前版本条目，旧条目不要堆叠。
 # 版本号：__init__.py 的 bl_info.version 长期为 (2, 6)，与 CHANGELOG
 #         的 1.x 发版标签是两套编号，不要擅自同步。
+# 发行包命名：Convert-to-MMD-<提交说明>.zip，如 Convert-to-MMD-V1.5.zip；
+#             zip 内顶层目录为 Convert-to-MMD/，符合 Blender 插件安装结构。
 # ============================================================
 version: "1.0"
 name: tag-auto-release
@@ -63,24 +66,79 @@ stages:
         echo "版本号不一致：提交说明为 $MSG_VER，CHANGELOG.md 为 $MD_VER，终止发版"
         exit 1
       fi
-      echo "版本号一致: $MD_VER（发布阶段将以 GITEE_COMMIT_MESSAGE 作为 Release 名与标签）"
+      echo "版本号一致: $MD_VER（压缩包与 Release 均使用 $MSG）"
 - name: 发布
-  displayName: 发布
+  displayName: 打包并发布
   strategy: naturally
   trigger: auto
   steps:
+  - step: build@nodejs
+    name: package_addon
+    displayName: 打包 Convert-to-MMD-<版本号>.zip
+    nodeVersion: 14.16.0
+    commands: |
+      cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" || true
+      echo "工作目录: $(pwd)"
+
+      VER="${GITEE_COMMIT_MESSAGE}"
+      echo "版本号(来自提交说明): [$VER]"
+      if [ -z "$VER" ]; then
+        echo "GITEE_COMMIT_MESSAGE 为空，终止打包"
+        exit 1
+      fi
+      ZIP="Convert-to-MMD-${VER}.zip"
+      STAGE="_release_stage"
+      echo "目标压缩包: $ZIP"
+
+      # zip 内顶层目录为 Convert-to-MMD/，Blender 可直接安装
+      rm -rf "$STAGE" "$ZIP"
+      mkdir -p "$STAGE/Convert-to-MMD"
+      cp -r \
+        __init__.py properties.py ui_panel.py \
+        bone_map_and_group.py bone_utils.py encoding_patch.py \
+        operators presets tools \
+        README.md LICENSE CHANGELOG.md \
+        "$STAGE/Convert-to-MMD/"
+      if command -v zip >/dev/null 2>&1; then
+        (cd "$STAGE" && zip -r "../$ZIP" Convert-to-MMD \
+          -x '*__pycache__*' '*.pyc' '*.pyo' '*.DS_Store')
+      elif command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+      import os, sys, zipfile
+      stage, out = sys.argv[1], sys.argv[2]
+      with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+          for root, dirs, files in os.walk(stage):
+              dirs[:] = [d for d in dirs if d != '__pycache__']
+              for f in files:
+                  if f.endswith(('.pyc', '.pyo')) or f == '.DS_Store':
+                      continue
+                  p = os.path.join(root, f)
+                  z.write(p, os.path.relpath(p, stage))
+      " "$STAGE" "$ZIP"
+      else
+        echo "zip 与 python3 均不可用，终止打包"
+        exit 1
+      fi
+      rm -rf "$STAGE"
+
+      echo "发行包内容:"
+      unzip -l "$ZIP" 2>/dev/null | head -n 40 || true
+      echo "发行包文件:"
+      ls -lh "$ZIP"
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
-    # 说明：releaseName / tagName 是流水线渲染期固化的字段，无法用运行时
-    # 解析出的变量注入（${} 会在渲染期被 variables 占位值替换）。
-    # 因此这里取系统变量 GITEE_COMMIT_MESSAGE —— 其值即触发提交的提交信息，
+    # 说明：releaseName / tagName / assertFiles 是流水线渲染期固化的字段，
+    # 无法用运行时脚本解析出的变量注入（${} 会在渲染期被 variables 替换）。
+    # 这里统一取系统变量 GITEE_COMMIT_MESSAGE —— 其值即触发提交的提交信息，
     # 由「检测变更」阶段校验它与 CHANGELOG.md 的版本号一致后才放行。
+    # 压缩包由上一打包步骤按同名规则生成，两者自动对齐。
     releaseName: "${GITEE_COMMIT_MESSAGE}"
     description: CHANGELOG.md
     tagName: "${GITEE_COMMIT_MESSAGE}"
     upstreamArtifact: []
-    assertFiles: []
+    assertFiles:
+      - Convert-to-MMD-${GITEE_COMMIT_MESSAGE}.zip
     prerelease: false
     allowUpdate: true
     strategy:
