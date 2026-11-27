@@ -23,4 +23,8 @@
 - 最小场景 Blender 4.0 / 4.2 / 4.5 / 5.0 / 5.2 全部 6/6 通过
 - 真实工程 TESTMIKU1（日文骨架）4.5 / 5.0 / 5.2 与 TESTMIKU（英文骨架）5.2 全部 7/7 通过
 
+### 发行包
+
+- 发行包改为自动命名 `Convert-to-MMD-<版本号>.zip`，Release 附带可直接安装的压缩包
+
 <!-- V1.6 release trigger -->
