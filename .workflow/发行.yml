@@ -10,7 +10,8 @@
 # 版本号：__init__.py 的 bl_info.version 长期为 (2, 6)，与 CHANGELOG
 #         的 1.x 发版标签是两套编号，不要擅自同步。
 # 发行包命名：Convert-to-MMD-<提交说明>.zip，如 Convert-to-MMD-V1.5.zip；
-#             zip 内顶层目录为 Convert-to-MMD/，符合 Blender 插件安装结构。
+#             zip 内顶层目录为 Convert-to-MMD/，符合 Blender 插件安装结构；
+#             排除 __pycache__、.workflow、.workbuddy 等非插件内容。
 # ============================================================
 version: "1.0"
 name: tag-auto-release
@@ -99,16 +100,18 @@ stages:
         operators presets tools \
         README.md LICENSE CHANGELOG.md \
         "$STAGE/Convert-to-MMD/"
+      # 排除项：构建缓存、流水线配置、工作区数据（即使白名单未来放宽也不进包）
+      EXCLUDES='*__pycache__* *.pyc *.pyo *.DS_Store */.workflow/* */.workbuddy/* .workflow/* .workbuddy/*'
       if command -v zip >/dev/null 2>&1; then
-        (cd "$STAGE" && zip -r "../$ZIP" Convert-to-MMD \
-          -x '*__pycache__*' '*.pyc' '*.pyo' '*.DS_Store')
+        (cd "$STAGE" && zip -r "../$ZIP" Convert-to-MMD -x $EXCLUDES)
       elif command -v python3 >/dev/null 2>&1; then
         python3 -c "
       import os, sys, zipfile
       stage, out = sys.argv[1], sys.argv[2]
+      SKIP_DIRS = {'__pycache__', '.workflow', '.workbuddy'}
       with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
           for root, dirs, files in os.walk(stage):
-              dirs[:] = [d for d in dirs if d != '__pycache__']
+              dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
               for f in files:
                   if f.endswith(('.pyc', '.pyo')) or f == '.DS_Store':
                       continue
