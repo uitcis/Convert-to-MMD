@@ -3,6 +3,7 @@ import math
 from mathutils import Matrix
 from .. import bone_utils
 from ..bone_utils import apply_armature_transforms
+from ..tools import apose_validate
 # 新增的T-Pose到A-Pose转换操作符
 class OBJECT_OT_convert_to_apose(bpy.types.Operator):
     """将骨架转换为 A-Pose 并应用为新的静置姿态"""
@@ -17,28 +18,26 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         scene = context.scene
 
-        # 前置校验：上半身/首必须已设置且存在（左右轴改用左右上臂骨，肩骨不参与）
+        # 前置校验（必须在任何副作用之前）：6 个身体参考字段是否都指向
+        # 存在的骨骼。原先只校验上半身/首，手臂字段等到进编辑模式后才用
+        # 下标直接取，某项为空就抛 KeyError，用户只看到一句
+        # 「转换 A-Pose 时出错：'bpy_prop_collection[key]: key "" not found'」。
+        # 现在一次性列出所有不可用项（含侧别、部位、状态），再给输入要求。
+        issues = apose_validate.collect_issues(
+            lambda field: getattr(scene, field, ""), set(obj.data.bones.keys()))
+        if issues:
+            for line in apose_validate.build_detail_lines(issues):
+                print(line)
+            self.report({'ERROR'}, apose_validate.build_message(issues))
+            return {'CANCELLED'}
+
         body_names = {
             "上半身": getattr(scene, "upper_body_bone", ""),
             "首": getattr(scene, "neck_bone", ""),
         }
-        missing = []
-        for label in ("上半身", "首"):
-            name = body_names[label]
-            if not name:
-                missing.append(f"{label}（未设置）")
-            elif name not in obj.data.bones:
-                missing.append(f"{label}（骨骼 '{name}' 不存在）")
-        if missing:
-            self.report({'ERROR'},
-                        "请先设置身体参考骨骼，当前缺少：" + "、".join(missing))
-            return {'CANCELLED'}
 
-        # 前置校验：实际参与建系的字段不得重复；空字段自动跳过
-        conflict = bone_utils.check_duplicate_bone_fields(body_names.items())
-        if conflict:
-            self.report({'ERROR'}, conflict)
-            return {'CANCELLED'}
+        # 注：字段重复指向（如左右上臂选到同一根骨）已由上面的
+        # collect_issues 统一检查并列出，这里不再重复校验。
 
         # 构造身体坐标系（此时尚未产生任何副作用）
         def _build_body_frame():
@@ -63,25 +62,42 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 left = left - up * left.dot(up)
                 if left.length > 1e-6:
                     return up, left.normalized(), f"上臂骨 head({la}/{ra})", None
-                reason = f"上臂骨({la}/{ra})的 head 位置重合或与上下轴平行"
+                reason = (f"左腕('{la}') 与右腕('{ra}') 的 head 位置重合，"
+                          f"或两点连线与身体上下轴平行")
             else:
-                reason = "左右上臂骨未配置或不存在"
+                # 前置校验已保证左右上臂可用，走到这里说明骨架在校验后
+                # 被改动过；仍按侧别指出具体哪一项失效。
+                bad = []
+                if not la:
+                    bad.append("左腕（未设置）")
+                elif la not in data_bones:
+                    bad.append(f"左腕（骨骼 '{la}' 不存在）")
+                if not ra:
+                    bad.append("右腕（未设置）")
+                elif ra not in data_bones:
+                    bad.append(f"右腕（骨骼 '{ra}' 不存在）")
+                reason = "、".join(bad) if bad else "左右上臂骨不可用"
             return up, None, None, reason
 
         body_up, body_left, left_source, frame_error = _build_body_frame()
         if body_up.length < 1e-6:
-            self.report({'ERROR'}, "上半身与首的位置重合或过于接近，无法确定身体上下方向")
+            self.report({'ERROR'},
+                        f"无法确定身体上下方向：上半身('{body_names['上半身']}') 与 "
+                        f"首('{body_names['首']}') 的 head 位置重合或过于接近，"
+                        f"请确认这两个字段指向的是不同的躯干骨骼")
             return {'CANCELLED'}
         if body_left is None:
-            self.report({'ERROR'}, "无法确定身体左右轴：" + frame_error +
-                        "，请检查左右上臂骨的配置")
+            self.report({'ERROR'},
+                        "无法确定身体左右轴：" + frame_error +
+                        "。左右轴由左腕与右腕的 head 差值确定，"
+                        "请确认左右上臂骨分别指向身体两侧的骨骼")
             return {'CANCELLED'}
 
         if not apply_armature_transforms(context, obj):
             self.report({'ERROR'}, "应用骨架变换失败")
             return {'CANCELLED'}
         
-        # 获取骨骼名称
+        # 获取骨骼名称（前置校验已确认四项都存在）
         arm_bones = {
             "left_upper_arm": getattr(scene, "left_upper_arm_bone", ""),
             "right_upper_arm": getattr(scene, "right_upper_arm_bone", ""),
@@ -89,10 +105,6 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             "right_lower_arm": getattr(scene, "right_lower_arm_bone", ""),          
         }
 
-        # 检查是否有设置骨骼
-        if not any(arm_bones.values()):
-            self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
-            return {'CANCELLED'}
         # 烘顶点时只临时改动形态键 value 与非 Armature 修改器的显示开关，
         # 不再复制/应用修改器，也不再删除重建形态键。
         saved_sk_values = {}     # 网格名 -> {形态键名: value}
@@ -184,17 +196,36 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                             break
 
             if not meshes_with_armature:
-                self.report({'WARNING'}, "未找到有上臂权重的网格，跳过网格姿态调整")
+                self.report({'WARNING'},
+                            "未找到绑定到该骨架的网格，将只调整骨骼、不烘顶点"
+                            "（可先确认网格上有指向本骨架的 Armature 修改器）")
 
             # 切换到编辑模式，将upper_arm的尾部连接到lowerarm的头部
             bpy.ops.object.mode_set(mode='EDIT')
             edit_bones = obj.data.edit_bones
 
-            # 获取骨骼位置（先验证骨骼是否存在）
-            missing = [f"{k}='{v}'" for k, v in arm_bones.items() if v and v not in edit_bones]
+            # 防御性复查（前置校验已确认存在；此处防骨架在两步之间被改动）。
+            # 标签用面板骨骼名，不用内部字段名，便于用户直接对照。
+            label_of = {field: label for field, label, _s, _p, _r
+                        in apose_validate.APOSE_FIELDS}
+            prop_of_key = {
+                "left_upper_arm": "left_upper_arm_bone",
+                "right_upper_arm": "right_upper_arm_bone",
+                "left_lower_arm": "left_lower_arm_bone",
+                "right_lower_arm": "right_lower_arm_bone",
+            }
+            missing = []
+            for key, name in arm_bones.items():
+                if not name:
+                    missing.append(f"{label_of[prop_of_key[key]]}（未设置）")
+                elif name not in edit_bones:
+                    missing.append(
+                        f"{label_of[prop_of_key[key]]}（骨骼 '{name}' 不存在）")
             if missing:
                 bpy.ops.object.mode_set(mode='OBJECT')
-                self.report({'ERROR'}, f"编辑模式中未找到以下骨骼：{'; '.join(missing)}")
+                self.report({'ERROR'},
+                            "手臂骨骼在编辑模式中不可用：" + "、".join(missing) +
+                            "。" + apose_validate.REQUIREMENT_TEXT)
                 return {'CANCELLED'}
 
             left_upper_arm = edit_bones[arm_bones["left_upper_arm"]]
@@ -283,15 +314,29 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 converted_bones.append(bone_name)
 
             # 处理上臂
+            skipped_sides = []
             for bone_type, bone_name in arm_bones.items():
                 if "lower_arm" in bone_type:
                     continue
                 if bone_name and bone_name in pose_bones and bone_name in edit_bones:
                     _rotate_bone_to_target(bone_name, bone_type, upper_arm_target)
+                else:
+                    side_label = "左腕" if "left" in bone_type else "右腕"
+                    if not bone_name:
+                        skipped_sides.append(f"{side_label}（未设置）")
+                    else:
+                        skipped_sides.append(
+                            f"{side_label}（骨骼 '{bone_name}' 在姿态模式下不可用）")
 
             if not converted_bones:
-                self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
+                self.report({'WARNING'},
+                            "没有可旋转的上臂骨骼：" + "、".join(skipped_sides) +
+                            "。" + apose_validate.REQUIREMENT_TEXT)
                 return {'CANCELLED'}
+            if skipped_sides:
+                self.report({'WARNING'},
+                            "仅部分上臂完成转换，以下未处理：" +
+                            "、".join(skipped_sides))
 
             # 8. 记录手臂链以外骨骼的局部姿态：后续只把手臂链烘进静置，
             #    避免把面部等其它骨骼的既有姿态一并写进静置姿态。
