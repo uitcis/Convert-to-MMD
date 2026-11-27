@@ -22,3 +22,5 @@
 - 新增 `tools/apose_operator_verify.py`（真实工程端到端）与 `tools/apose_operator_smoke.py`（最小场景跨版本）
 - 最小场景 Blender 4.0 / 4.2 / 4.5 / 5.0 / 5.2 全部 6/6 通过
 - 真实工程 TESTMIKU1（日文骨架）4.5 / 5.0 / 5.2 与 TESTMIKU（英文骨架）5.2 全部 7/7 通过
+
+<!-- V1.6 release trigger -->
