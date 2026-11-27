@@ -118,6 +118,50 @@ CHAIN_PAIRS = [
 FINGER_FIELDS = [f for f in FIELD_ORDER
                  if re.match(r"^(left|right)_(thumb|index|middle|ring|pinky)_", f)]
 
+
+def _finger_joint_pairs():
+    """同一根手指内任意两节的父子对：近端节必须是远端节的祖先。
+
+    这是**所有**人形手都成立的解剖约束，与命名、骨架风格无关：
+    一根手指的骨架必然是 hand → 指根 → 中节 → 末节的单链。
+    没有这条约束时，名称兜底会把同一字段的三节填到三条不同链上
+    （实测：几何形态不规范的 4 指骨架里，拇指 0/1/2 节分别落在
+    Finger0/Finger2/Finger3 三条链上，成了「拼凑手指」）。
+
+    取**所有**配对而非仅相邻配对：祖先关系可传递，约束等价；而当中间
+    某节没填上时（如 pinky 只有 1、3 节），相邻配对会失效，全配对仍能
+    拦住「1 节在 A 链、3 节在 B 链」的跨链错配。
+
+    按字段名的节号自动分组，不假定指头数量，也不假定每指节数。
+    """
+    groups = {}
+    for field in FINGER_FIELDS:
+        side, finger, joint = field.split("_")
+        groups.setdefault((side, finger), []).append(int(joint))
+    pairs = []
+    for (side, finger), joints in groups.items():
+        joints.sort()
+        for i, lo in enumerate(joints):
+            for hi in joints[i + 1:]:
+                pairs.append((f"{side}_{finger}_{lo}", f"{side}_{finger}_{hi}"))
+    return pairs
+
+
+CHAIN_PAIRS.extend(_finger_joint_pairs())
+_FINGER_FIELD_SET = frozenset(FINGER_FIELDS)
+
+
+def _build_chain_index():
+    """字段 -> ((作为哪一侧, 对端字段), ...)，供 chain_ok 快速查询。"""
+    index = {}
+    for parent_field, child_field in CHAIN_PAIRS:
+        index.setdefault(parent_field, []).append((True, child_field))
+        index.setdefault(child_field, []).append((False, parent_field))
+    return index
+
+
+_CHAIN_INDEX = _build_chain_index()
+
 # 字段优先级：能靠 _post_complete 拓扑推导的辅助骨是低优先级，冲突时
 # 让位给必须独立匹配的真实骨。低优先级仅限 MMD 特有的推导骨——上半身
 # 2~5 与胸親父级；四肢/頭/腰虽然在链里有父子关系，但都有独立骨骼，
@@ -1015,7 +1059,12 @@ def infer_finger_roles(features, span, side_axis=None, up_axis=2):
     result = {}
     sides = {}
     domains = {}
-    for palm_name, chains in by_palm.items():
+    # 按键名排序遍历：_find_palm_bones 返回的是 set，而 Blender 内嵌
+    # Python 的字符串哈希每进程随机（PYTHONHASHSEED 不生效），直接遍历
+    # 会让同侧多根候选手掌骨的覆盖顺序随机，进而使结果不可复现
+    # （实测 DNF 同一模型在不同进程给出 54/58 两种解）。
+    for palm_name in sorted(by_palm):
+        chains = by_palm[palm_name]
         # 不限指头数量：由 _infer_one_hand 按几何自动判定能填几根，
         # 这里只挡掉明显过少（连三根都不到，不可能是手）。
         if len(chains) < 3:
@@ -1038,7 +1087,11 @@ def infer_finger_roles(features, span, side_axis=None, up_axis=2):
         if side:
             # 上肢域：手掌骨及其全部子孙骨。手指骨必然长在这条分支上，
             # 域外的骨（躯干、腿、头发、眼球）一律不能当手指候选。
-            domains[side] = _subtree_bones(features, palm_name)
+            # 同侧可能识别出多根「手掌状」骨（如 DNF 的 GD Hand Scl L
+            # 与 GD Fist L），域取并集而非后写覆盖，否则填哪一根会
+            # 取决于遍历顺序。
+            domains.setdefault(side, set()).update(
+                _subtree_bones(features, palm_name))
     return result, sides, domains
 
 
@@ -1879,13 +1932,25 @@ def height_order_ok(field, bone, assignments, features, ctx):
 
 
 def chain_ok(field, bone, assignments, features, ctx=None):
-    """字段候选是否满足拓扑与高度序约束。"""
-    for parent_field, child_field in CHAIN_PAIRS:
-        if field == child_field and parent_field in assignments:
-            if not _is_ancestor(features, assignments[parent_field]["bone"], bone):
+    """字段候选是否满足拓扑与高度序约束。
+
+    按字段预索引约束（_CHAIN_INDEX），只检查与该字段相关的几条，
+    不遍历整张 CHAIN_PAIRS——回溯每个搜索节点都要调这里，
+    约束表从 19 条涨到 39 条后，全表遍历会让大骨架（DNF 715 骨）
+    提前撞上 MAX_SEARCH_NODES 搜索上限而退化。
+    """
+    for as_parent, other_field in _CHAIN_INDEX.get(field, ()):
+        entry = assignments.get(other_field)
+        if entry is None:
+            continue
+        other_bone = entry["bone"]
+        if as_parent:
+            # field 是父：bone 必须是 other 的祖先
+            if not _is_ancestor(features, bone, other_bone):
                 return False
-        if field == parent_field and child_field in assignments:
-            if not _is_ancestor(features, bone, assignments[child_field]["bone"]):
+        else:
+            # field 是子：bone 必须挂在 other 之下
+            if not _is_ancestor(features, other_bone, bone):
                 return False
     if ctx is not None and not height_order_ok(field, bone, assignments,
                                               features, ctx):
@@ -2501,6 +2566,14 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
                                          features, ctx)):
                         free = mirror
         if free is None:
+            # 手指节例外：同指各节必须是一条连续链，填一条别的链上的
+            # 指骨只会让 MMD 变形错乱（实测畸形骨架里拇指第 3 节被填到
+            # 另一根手指的根骨上），比留空更糟。其余字段仍按「照填 + 标红」
+            # 处理，让用户看到候选而不是空着。
+            if field in _FINGER_FIELD_SET:
+                low_conf.append((field, free_list[0]["score"],
+                                 "与同指其它节不同链，未填入"))
+                continue
             free = free_list[0]
         chosen = dict(free)
         chosen["low_confidence"] = True

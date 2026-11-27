@@ -1739,5 +1739,161 @@ class EndToEndTests(unittest.TestCase):
         return depth
 
 
+class FingerChainConsistencyTests(unittest.TestCase):
+    """同一根手指的各节骨必须落在同一条链上（不许「拼凑手指」）。
+
+    这是与命名无关的解剖事实：一根手指必然是 hand → 指根 → 中节 →
+    末节的单链。原先约束表只覆盖肢体主干，名称兜底会把同一字段的三节
+    填到三条不同链上。
+    """
+
+    def _build_degenerate_hand(self):
+        """搭一副「几何上不像手」的骨架。
+
+        四指沿手臂方向依次排开、每节竖直向下 2cm——几何推断认不出手指，
+        只能走名称兜底。这里用 Mixamo 式的 FingerN_Seg 命名，正是最容易
+        被凑成跨链手指的场景。
+        """
+        definitions = [
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Waist", "Root", (0.0, 0.0, 0.5)),
+            ("Chest", "Waist", (0.0, 0.0, 1.0)),
+            ("Shoulder", "Chest", (0.5, 0.0, 1.2)),
+            ("Arm", "Shoulder", (0.8, 0.0, 1.1)),
+            ("ForeArm", "Arm", (0.95, 0.0, 1.05)),
+            ("Hand", "ForeArm", (1.0, 0.0, 1.0)),
+        ]
+        for index in range(4):
+            x = 1.06 + 0.06 * index
+            y = (index - 1.5) * 0.035
+            parent = "Hand"
+            for seg in range(3):
+                name = f"Finger{index}_{seg}"
+                definitions.append((name, parent, (x, y, 1.0 - 0.02 * seg)))
+                parent = name
+        features = {}
+        for name, parent, head in definitions:
+            features[name] = make_feature(
+                name, head=head, tail=(head[0], head[1], head[2] - 0.06),
+                parent=parent,
+                children=[n for n, p, _ in definitions if p == name],
+                depth=AdaptiveFingerCountTests._depth(definitions, name),
+                length=0.06, z_pct=head[2] / 3.2)
+        return features
+
+    def test_chain_pairs_cover_every_finger_group(self):
+        """约束表要为每根手指、每一对相邻节生成父子对。"""
+        pairs = set(core.CHAIN_PAIRS)
+        groups = {}
+        for field in core.FINGER_FIELDS:
+            side, finger, joint = field.split("_")
+            groups.setdefault((side, finger), []).append(int(joint))
+        self.assertTrue(groups, "手指字段清单为空")
+        for (side, finger), joints in groups.items():
+            joints.sort()
+            for lo, hi in zip(joints, joints[1:]):
+                self.assertIn((f"{side}_{finger}_{lo}",
+                               f"{side}_{finger}_{hi}"), pairs,
+                              f"{side} {finger} 的 {lo}→{hi} 节缺父子约束")
+
+    def test_no_cross_chain_finger_after_solve(self):
+        """整副解算后，同一手指的各节必须互为祖先/后代。"""
+        features = self._build_degenerate_hand()
+        stats = core.load_preset_stats()
+        filled, low_conf, _ = core.solve(
+            core.FIELD_ORDER, features, span=2.0, diagonal=2.0, z_min=0.0,
+            up_axis=2, side_axis=0, stats=stats)
+        for side in ("left", "right"):
+            for finger in ("thumb", "index", "middle", "ring", "pinky"):
+                bones = [filled[f]["bone"] for f in core.FINGER_FIELDS
+                         if f.startswith(f"{side}_{finger}_") and f in filled]
+                for i in range(len(bones)):
+                    for j in range(i + 1, len(bones)):
+                        self.assertTrue(
+                            core._is_ancestor(features, bones[i], bones[j])
+                            or core._is_ancestor(features, bones[j], bones[i]),
+                            f"{side} {finger} 的 {bones[i]} 与 {bones[j]} "
+                            f"不在同一条链上")
+        # 被拒的节要在理由里说清楚，而不是静默丢
+        rejected = [reason for _f, _s, reason in low_conf
+                    if "不同链" in reason]
+        self.assertTrue(rejected, "跨链的手指节应带明确理由")
+
+    def _build_two_palm_hand(self):
+        """同一侧搭两根「手掌骨」（各挂 3 条平行指链）。
+
+        真实骨架里也有这种情况：DNF 的 GD Hand Scl L 与 GD Fist L 都能
+        被认成手掌。域若按遍历顺序后写覆盖，最终域大小就取决于 set 的
+        遍历次序，结果不可复现。
+        """
+        definitions = [
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Waist", "Root", (0.0, 0.0, 0.5)),
+            ("Chest", "Waist", (0.0, 0.0, 1.0)),
+            ("Shoulder", "Chest", (0.5, 0.0, 1.2)),
+            ("Arm", "Shoulder", (0.8, 0.0, 1.1)),
+            ("ForeArm", "Arm", (0.95, 0.0, 1.05)),
+        ]
+        # 两根手掌骨，各自挂 3 条平行指链 + 1 条明显偏角的拇指链
+        for palm, base_x in (("Hand", 1.00), ("HandB", 1.00)):
+            definitions.append((palm, "ForeArm", (base_x, 0.0, 1.0)))
+            for index in range(3):
+                x = base_x + 0.20
+                y = (index - 1) * 0.03 + (0.0 if palm == "Hand" else 0.10)
+                parent = palm
+                for seg in range(3):
+                    name = f"{palm}_f{index}_{seg}"
+                    definitions.append(
+                        (name, parent, (x + 0.03 * seg, y, 1.0)))
+                    parent = name
+            # 拇指：与四指明显不同向（约 60°），否则整只手认不出来
+            parent = palm
+            for seg in range(3):
+                name = f"{palm}_thumb_{seg}"
+                offset = 0.10 if palm == "HandB" else 0.0
+                definitions.append(
+                    (name, parent,
+                     (base_x + 0.05 + 0.02 * seg, -0.05 - 0.035 * seg + offset,
+                      1.0)))
+                parent = name
+        features = {}
+        for name, parent, head in definitions:
+            is_finger = "_f" in name or "_thumb" in name
+            features[name] = make_feature(
+                name, head=head,
+                tail=(head[0] + (0.03 if is_finger else 0.0), head[1], head[2]),
+                parent=parent,
+                children=[n for n, p, _ in definitions if p == name],
+                depth=AdaptiveFingerCountTests._depth(definitions, name),
+                length=0.03 if is_finger else 0.15,
+                z_pct=head[2] / 3.2)
+        return features
+
+    def test_palm_domains_union_instead_of_overwrite(self):
+        """同侧识别出多根手掌骨时，上肢域取并集，不按遍历顺序覆盖。"""
+        features = self._build_two_palm_hand()
+        span = 2.0
+        palms = core._find_palm_bones(features, span)
+        self.assertGreaterEqual(len(palms), 2,
+                                f"应识别出至少两根手掌骨，实得 {palms}")
+        expected = set()
+        for palm_name in palms:
+            expected |= core._subtree_bones(features, palm_name)
+        _roles, _sides, domains = core.infer_finger_roles(
+            features, span, side_axis=0, up_axis=2)
+        self.assertTrue(domains, "应至少判出一侧的上肢域")
+        for side, bones in domains.items():
+            self.assertTrue(bones, f"{side} 上肢域为空")
+            # 并集语义：同侧每根手掌骨的子树都必须进来。若写成后写覆盖，
+            # 这里只会剩下最后遍历到的那一根手掌的子树。
+            self.assertTrue(expected.issubset(bones),
+                            f"{side} 上肢域未覆盖全部手掌子树"
+                            f"（{len(bones)} < {len(expected)}）")
+        # 反复调用内容必须一致（遍历 set 的顺序可能不同）
+        _r2, _s2, domains2 = core.infer_finger_roles(
+            features, span, side_axis=0, up_axis=2)
+        self.assertEqual(domains, domains2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
