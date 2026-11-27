@@ -93,87 +93,93 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         if not any(arm_bones.values()):
             self.report({'ERROR'}, "请先在UI中设置要转换的骨骼")
             return {'CANCELLED'}
-        #作用：备份所有网格的形态键，包括基础键
-        def backup_shape_keys(mesh_obj):
-            backup = {}
-            if mesh_obj.data.shape_keys and mesh_obj.data.shape_keys.key_blocks:
-                basis = mesh_obj.data.shape_keys.key_blocks[0]
-                for key_block in mesh_obj.data.shape_keys.key_blocks[1:]:
-                    affected = {}
-                    for i, v in enumerate(key_block.data):
-                        if v.co != basis.data[i].co:
-                            affected[i] = v.co - basis.data[i].co
-                    backup[key_block.name] = {
-                        'affected': affected,
-                        'relative_key': key_block.relative_key.name if key_block.relative_key else None,
-                        'slider_min': key_block.slider_min,
-                        'slider_max': key_block.slider_max,
-                        'mute': key_block.mute,
-                        'value': key_block.value
-                    }
-            if mesh_obj.data.shape_keys:
-                keys_to_remove = list(mesh_obj.data.shape_keys.key_blocks)
-                for key_block in reversed(keys_to_remove):
-                    mesh_obj.shape_key_remove(key_block)
-            return backup
+        # 烘顶点时只临时改动形态键 value 与非 Armature 修改器的显示开关，
+        # 不再复制/应用修改器，也不再删除重建形态键。
+        saved_sk_values = {}     # 网格名 -> {形态键名: value}
+        saved_mod_flags = {}     # 网格名 -> {修改器名: show_viewport}
+        baked_coords = {}        # 网格名 -> [局部坐标, ...]
 
-        def restore_shape_keys(mesh_obj, backup):
-            if not backup:
-                return
-            context.view_layer.objects.active = mesh_obj
-            bpy.ops.object.shape_key_add(from_mix=False)
-            new_basis = mesh_obj.data.shape_keys.key_blocks[0]
-            for key_name, key_data in backup.items():
-                new_key = mesh_obj.shape_key_add(name=key_name)
-                for i, delta in key_data['affected'].items():
-                    new_key.data[i].co = new_basis.data[i].co + delta
-                new_key.slider_min = key_data['slider_min']
-                new_key.slider_max = key_data['slider_max']
-                new_key.mute = key_data['mute']
-                new_key.value = key_data['value']
-                if key_data['relative_key'] and key_data['relative_key'] in mesh_obj.data.shape_keys.key_blocks:
-                    new_key.relative_key = mesh_obj.data.shape_keys.key_blocks[key_data['relative_key']]
+        def _restore_bake_states():
+            """恢复烘顶点前临时关闭的形态键 value / 修改器开关（幂等）。"""
+            for mesh_name, values in saved_sk_values.items():
+                mesh_obj = bpy.data.objects.get(mesh_name)
+                if mesh_obj is None or mesh_obj.type != 'MESH':
+                    continue
+                sk = mesh_obj.data.shape_keys
+                if sk:
+                    for kb in sk.key_blocks:
+                        if kb.name in values:
+                            kb.value = values[kb.name]
+            for mesh_name, flags in saved_mod_flags.items():
+                mesh_obj = bpy.data.objects.get(mesh_name)
+                if mesh_obj is None:
+                    continue
+                for mod in mesh_obj.modifiers:
+                    if mod.name in flags:
+                        mod.show_viewport = flags[mod.name]
+
+        def _bake_pose_into_vertices():
+            """把当前姿态经 Armature 修改器算出的顶点写回 Basis / mesh 顶点。
+
+            形态键 value 先归零，避免表情形变混进 Basis；非 Armature 修改器
+            临时关闭，避免把细分/镜像等效果一起烘进去。修改器栈与形态键本体
+            全程保留。
+            """
+            for mesh_obj in meshes_with_armature:
+                sk = mesh_obj.data.shape_keys
+                values = {}
+                if sk:
+                    # Basis（索引 0）不参与形变，归零它在 Blender 4.5 上无法恢复
+                    for kb in sk.key_blocks[1:]:
+                        values[kb.name] = kb.value
+                        kb.value = 0.0
+                saved_sk_values[mesh_obj.name] = values
+
+                flags = {}
+                for mod in mesh_obj.modifiers:
+                    if mod.type != 'ARMATURE':
+                        flags[mod.name] = mod.show_viewport
+                        mod.show_viewport = False
+                saved_mod_flags[mesh_obj.name] = flags
+
+            # 关掉形态键/修改器后必须刷新依赖图，否则读到的还是旧顶点
+            context.view_layer.update()
+            dg = context.evaluated_depsgraph_get()
+            for mesh_obj in meshes_with_armature:
+                ev = mesh_obj.evaluated_get(dg)
+                em = ev.to_mesh()   # 返回对象局部坐标，无需矩阵换算
+                try:
+                    baked_coords[mesh_obj.name] = [tuple(v.co) for v in em.vertices]
+                finally:
+                    ev.to_mesh_clear()
+
+            _restore_bake_states()
+
+            for mesh_obj in meshes_with_armature:
+                coords = baked_coords.get(mesh_obj.name)
+                if not coords:
+                    continue
+                sk = mesh_obj.data.shape_keys
+                if sk:
+                    basis = sk.key_blocks[0]
+                    for i, co in enumerate(coords):
+                        basis.data[i].co = co
+                else:
+                    for i, co in enumerate(coords):
+                        mesh_obj.data.vertices[i].co = co
+                mesh_obj.data.update()
 
         meshes_with_armature = []
-        shape_key_backups = {}
-        created_modifiers = []
-        restored_meshes = set()
         saved_basis = {}
         finished = False
         original_mode = context.mode
         restore_mode = bone_utils.context_mode_to_mode_set(original_mode)
-
-        def restore_all_shape_keys():
-            for mesh_name, backup in shape_key_backups.items():
-                if mesh_name in restored_meshes:
-                    continue
-                mesh_obj = bpy.data.objects.get(mesh_name)
-                if mesh_obj is None:
-                    restored_meshes.add(mesh_name)
-                    continue
-                try:
-                    if bpy.context.object and bpy.context.object.mode != 'OBJECT':
-                        bpy.ops.object.mode_set(mode='OBJECT')
-                    restore_shape_keys(mesh_obj, backup)
-                except Exception as e:
-                    print(f"[A-Pose] 恢复形态键失败 {mesh_name}: {e}")
-                restored_meshes.add(mesh_name)
-
-        def remove_created_modifiers():
-            for mesh_obj, mod_name in created_modifiers:
-                try:
-                    mod = mesh_obj.modifiers.get(mod_name)
-                    if mod is not None:
-                        mesh_obj.modifiers.remove(mod)
-                except (ReferenceError, RuntimeError) as e:
-                    print(f"[A-Pose] 移除临时修改器失败 {mod_name}: {e}")
 
         try:
             for mesh_obj in bpy.data.objects:
                 if mesh_obj.type == 'MESH':
                     for modifier in mesh_obj.modifiers:
                         if modifier.type == 'ARMATURE' and modifier.object == obj:
-                            shape_key_backups[mesh_obj.name] = backup_shape_keys(mesh_obj)
                             meshes_with_armature.append(mesh_obj)
                             break
 
@@ -200,36 +206,21 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             left_upper_arm.tail = left_lower_arm.head
             right_upper_arm.tail = right_lower_arm.head
 
-            # 5. 为每个网格复制骨骼修改器，但保留原始修改器
-            for mesh_obj in meshes_with_armature:
-                for modifier in mesh_obj.modifiers:
-                    if modifier.type == 'ARMATURE' and modifier.object == obj:
-                        # 复制修改器
-                        new_modifier = mesh_obj.modifiers.new(name=modifier.name + "_copy", type='ARMATURE')
-                        new_modifier.object = modifier.object
-                        new_modifier.use_vertex_groups = modifier.use_vertex_groups
-                        new_modifier.use_bone_envelopes = modifier.use_bone_envelopes
-                        created_modifiers.append((mesh_obj, new_modifier.name))
-                        break
-
-            # 6. 切换到姿态模式设置A-Pose
+            # 5. 切换到姿态模式设置A-Pose
             context.view_layer.objects.active = obj
             bpy.ops.object.mode_set(mode='POSE')
 
             pose_bones = obj.pose.bones
 
-            # 7. 仅清除手臂链的既有姿态，保留面部等其它骨骼的姿态
-            bpy.ops.pose.select_all(action='DESELECT')
+            # 6. 仅清除手臂链的既有姿态，保留面部等其它骨骼的姿态。
+            #    直接重置 matrix_basis，不依赖 PoseBone.select：
+            #    4.5 用 Bone.select、5.x 用 PoseBone.select，跨版本行为不一致。
             for arm_bone_name in arm_bones.values():
                 if arm_bone_name and arm_bone_name in pose_bones:
-                    pose_bones[arm_bone_name].select = True
-            bpy.ops.pose.rot_clear()
-            bpy.ops.pose.scale_clear()
-            bpy.ops.pose.loc_clear()
-            bpy.ops.pose.select_all(action='DESELECT')
+                    pose_bones[arm_bone_name].matrix_basis = Matrix.Identity(4)
             context.view_layer.update()
 
-            # 8. 构造身体坐标系（校验阶段已确认可用，此处按变换后的矩阵重算）
+            # 7. 构造身体坐标系（校验阶段已确认可用，此处按变换后的矩阵重算）
             body_up, body_left, left_source, _ = _build_body_frame()
             body_fwd = body_left.cross(body_up).normalized()
             print(f"[A-Pose] 身体坐标系来源：上半身({body_names['上半身']})/首({body_names['首']})，"
@@ -302,7 +293,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 self.report({'WARNING'}, "没有找到匹配的骨骼可以转换")
                 return {'CANCELLED'}
 
-            # 9. 记录手臂链以外骨骼的局部姿态：后续只把手臂链烘进静置，
+            # 8. 记录手臂链以外骨骼的局部姿态：后续只把手臂链烘进静置，
             #    避免把面部等其它骨骼的既有姿态一并写进静置姿态。
             arm_pose_names = {name for name in arm_bones.values() if name}
             saved_basis = {
@@ -313,47 +304,38 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                 pose_bones[pb_name].matrix_basis = Matrix.Identity(4)
             context.view_layer.update()
 
-            # 10. 应用第二个修改器（复制的修改器）来调整网格姿态
-            for mesh_obj in meshes_with_armature:
-                context.view_layer.objects.active = mesh_obj
+            # 9. 把当前姿态烘进网格顶点（形态键 value / 修改器开关自动恢复）
+            if meshes_with_armature:
+                context.view_layer.objects.active = obj
                 bpy.ops.object.mode_set(mode='OBJECT')
-                for modifier in mesh_obj.modifiers:
-                    if modifier.type == 'ARMATURE' and modifier.object == obj and "_copy" in modifier.name:
-                        bpy.ops.object.modifier_apply(modifier=modifier.name)
-                        break
-                if mesh_obj.name in shape_key_backups:
-                    restore_shape_keys(mesh_obj, shape_key_backups[mesh_obj.name])
-                restored_meshes.add(mesh_obj.name)
+                _bake_pose_into_vertices()
 
-            # 11. 切换回骨骼对象
+            # 10. 切换回骨骼对象
             context.view_layer.objects.active = obj
             bpy.ops.object.mode_set(mode='POSE')
 
-            # 12. 应用当前姿态为新的静置姿态（此时其它骨骼姿态已归零，只会烘入手臂链）
+            # 11. 应用当前姿态为新的静置姿态（此时其它骨骼姿态已归零，只会烘入手臂链）
             bpy.ops.pose.armature_apply()
 
-            # 13. 恢复手臂链以外骨骼的姿态
+            # 12. 恢复手臂链以外骨骼的姿态
             for pb_name, basis in saved_basis.items():
                 pb = pose_bones.get(pb_name)
                 if pb is not None:
                     pb.matrix_basis = basis
             context.view_layer.update()
 
-            # 14. 清理临时创建的网格
-            for mesh_obj in meshes_with_armature:
-                if mesh_obj.get("is_temp_mesh"):
-                    bpy.data.objects.remove(mesh_obj, do_unlink=True)
-
             finished = True
-            self.report({'INFO'}, f"已完成A-Pose转换并应用为新的静置姿态")
+            self.report({'INFO'}, "已完成A-Pose转换并应用为新的静置姿态")
             return {'FINISHED'}
-        except RuntimeError as e:
+        except Exception as e:
             self.report({'ERROR'}, f"转换 A-Pose 时出错：{str(e)}")
             return {'CANCELLED'}
         finally:
-            # 无论成功、取消还是异常，都恢复形态键并清除临时修改器
-            restore_all_shape_keys()
-            remove_created_modifiers()
+            # 无论成功、取消还是异常，都恢复临时关闭的形态键 value 与修改器开关
+            try:
+                _restore_bake_states()
+            except (ReferenceError, RuntimeError) as e:
+                print(f"[A-Pose] 恢复烘顶点状态失败: {e}")
             if not finished:
                 for pb_name, basis in saved_basis.items():
                     try:

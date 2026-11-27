@@ -162,6 +162,8 @@ def _restore_shape_keys(mesh_obj, backup, delta_matrix):
     bpy.ops.object.shape_key_add(from_mix=False)
     basis = mesh_obj.data.shape_keys.key_blocks[0]
     basis.name = backup[0]['name']
+    # 新建 Basis 的 value 在 4.5 默认为 0（5.x 为 1），需按备份恢复
+    basis.value = backup[0]['value']
     restored = {basis.name: basis}
 
     for item in backup[1:]:
