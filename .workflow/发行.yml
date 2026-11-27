@@ -128,6 +128,13 @@ stages:
       unzip -l "$ZIP" 2>/dev/null | head -n 40 || true
       echo "发行包文件:"
       ls -lh "$ZIP"
+    # 关键：构建产物必须声明为 artifact，Release 插件才能通过
+    # upstreamArtifact 取到；否则插件只会去 commit 仓库找同名文件，
+    # 运行时生成的 zip 不在仓库中，报 file not exists。
+    artifacts:
+      - name: ADDON_PACKAGE
+        path:
+          - Convert-to-MMD-${GITEE_COMMIT_MESSAGE}.zip
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
@@ -135,11 +142,13 @@ stages:
     # 无法用运行时脚本解析出的变量注入（${} 会在渲染期被 variables 替换）。
     # 这里统一取系统变量 GITEE_COMMIT_MESSAGE —— 其值即触发提交的提交信息，
     # 由「检测变更」阶段校验它与 CHANGELOG.md 的版本号一致后才放行。
-    # 压缩包由上一打包步骤按同名规则生成，两者自动对齐。
+    # 压缩包由上一打包步骤按同名规则生成并声明为 ADDON_PACKAGE 产物，
+    # 这里通过 upstreamArtifact 引用，assertFiles 用同一文件名取附件。
     releaseName: "${GITEE_COMMIT_MESSAGE}"
     description: CHANGELOG.md
     tagName: "${GITEE_COMMIT_MESSAGE}"
-    upstreamArtifact: []
+    upstreamArtifact:
+      - ADDON_PACKAGE
     assertFiles:
       - Convert-to-MMD-${GITEE_COMMIT_MESSAGE}.zip
     prerelease: false
