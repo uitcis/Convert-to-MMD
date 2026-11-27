@@ -13,7 +13,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "未选择骨架对象")
+            self.report({'WARNING'}, "未选择骨架对象")
             return {'CANCELLED'} 
 
         scene = context.scene
@@ -28,7 +28,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
         if issues:
             for line in apose_validate.build_detail_lines(issues):
                 print(line)
-            self.report({'ERROR'}, apose_validate.build_message(issues))
+            self.report({'WARNING'}, apose_validate.build_message(issues))
             return {'CANCELLED'}
 
         body_names = {
@@ -81,20 +81,20 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
 
         body_up, body_left, left_source, frame_error = _build_body_frame()
         if body_up.length < 1e-6:
-            self.report({'ERROR'},
+            self.report({'WARNING'},
                         f"无法确定身体上下方向：上半身('{body_names['上半身']}') 与 "
                         f"首('{body_names['首']}') 的 head 位置重合或过于接近，"
                         f"请确认这两个字段指向的是不同的躯干骨骼")
             return {'CANCELLED'}
         if body_left is None:
-            self.report({'ERROR'},
+            self.report({'WARNING'},
                         "无法确定身体左右轴：" + frame_error +
                         "。左右轴由左腕与右腕的 head 差值确定，"
                         "请确认左右上臂骨分别指向身体两侧的骨骼")
             return {'CANCELLED'}
 
         if not apply_armature_transforms(context, obj):
-            self.report({'ERROR'}, "应用骨架变换失败")
+            self.report({'WARNING'}, "应用骨架变换失败")
             return {'CANCELLED'}
         
         # 获取骨骼名称（前置校验已确认四项都存在）
@@ -223,7 +223,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
                         f"{label_of[prop_of_key[key]]}（骨骼 '{name}' 不存在）")
             if missing:
                 bpy.ops.object.mode_set(mode='OBJECT')
-                self.report({'ERROR'},
+                self.report({'WARNING'},
                             "手臂骨骼在编辑模式中不可用：" + "、".join(missing) +
                             "。" + apose_validate.REQUIREMENT_TEXT)
                 return {'CANCELLED'}
@@ -373,7 +373,7 @@ class OBJECT_OT_convert_to_apose(bpy.types.Operator):
             self.report({'INFO'}, "已完成A-Pose转换并应用为新的静置姿态")
             return {'FINISHED'}
         except Exception as e:
-            self.report({'ERROR'}, f"转换 A-Pose 时出错：{str(e)}")
+            self.report({'WARNING'}, f"转换 A-Pose 时出错：{str(e)}")
             return {'CANCELLED'}
         finally:
             # 无论成功、取消还是异常，都恢复临时关闭的形态键 value 与修改器开关
