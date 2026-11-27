@@ -192,6 +192,25 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
         row.prop(scene, "my_enum", expand=True)
         if scene.my_enum == 'option1':
 
+            # 转换流程按钮区块：置于主界面最上方，便于快速访问
+            row = layout.row()
+            row.operator("object.convert_to_apose", text="转换为A-Pose")
+            row.operator("object.correct_bones", text="归正骨架位置")
+
+            row = layout.row()
+            row.operator("object.rename_to_mmd", text="1.重命名为MMD")
+            row.operator("object.complete_missing_bones", text="2.重建标准骨骼")
+
+            row = layout.row()
+            row.operator("object.add_mmd_ik", text="3.添加MMD IK")
+            row.operator("object.create_bone_group", text="4.创建骨骼集合")
+
+            layout.prop(scene, "preserve_original_materials",
+                        text="保留原材质（仅转换模型结构）")
+            layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
+
+            layout.separator()
+
             row = layout.row(align=True)
             row.prop(scene, "preset_enum", text="")
             row.operator("object.import_preset", text="导入预设")
@@ -202,6 +221,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row = layout.row(align=True)
             row.operator("object.auto_detect_bone_mapping",
                          text="自动识别骨骼映射", icon='AUTO')
+            row.operator("object.view_auto_mapping_report",
+                         text="查看依据", icon='TEXT')
 
             # 自动映射摘要与低置信度提示（低于阈值的字段已留空，对应行标红）
             if scene.auto_map_summary:
@@ -218,7 +239,8 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                         col.label(text=line)
                     if len(low_conf_lines) > 6:
                         col.label(text=f"……等 {len(low_conf_lines)} 项，详见控制台")
-        
+
+
             main_col = layout.column(align=True)
             # 全ての親到下半身骨骼部分
             full_body_box = main_col.box()
@@ -280,26 +302,6 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             add_finger_bones_with_buttons(col, "右薬指", "right_ring_1", "right_ring_2", "right_ring_3")
             add_finger_bones_with_buttons(col, "右小指", "right_pinky_1", "right_pinky_2", "right_pinky_3")
 
-            row = layout.row()
-            # 添加T-Pose到A-Pose转换按钮
-            row.operator("object.convert_to_apose", text="转换为A-Pose")
-            # 添加第 0 步归正骨骼按钮
-            row.operator("object.correct_bones", text="归正骨架位置")
-            
-            # 添加重命名按钮和补全缺失骨骼按钮到同一行
-            row = layout.row()
-            row.operator("object.rename_to_mmd", text="1.重命名为MMD")
-            row.operator("object.complete_missing_bones", text="2.重建标准骨骼")
-
-            # 添加IK按钮和创建骨骼集合按钮到同一行
-            row = layout.row()
-            row.operator("object.add_mmd_ik", text="3.添加MMD IK")
-            row.operator("object.create_bone_group", text="4.创建骨骼集合")
-
-            # 添加“使用mmdtools转换格式”按钮到最下方
-            layout.prop(scene, "preserve_original_materials",
-                        text="保留原材质（仅转换模型结构）")
-            layout.operator("object.use_mmd_tools_convert", text="5.使用mmdtools转换格式")
         # 次标准骨骼选项卡
         elif scene.my_enum == 'option2':
             # 上部分：次标准骨骼

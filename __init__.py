@@ -116,6 +116,7 @@ CLASSES = [
     preset_operator.OBJECT_OT_use_mmd_tools_convert,
     preset_operator.OBJECT_OT_clear_bone_selection,
     auto_mapping_operator.OBJECT_OT_auto_detect_bone_mapping,
+    auto_mapping_operator.OBJECT_OT_view_auto_mapping_report,
     pose_operator.OBJECT_OT_convert_to_apose,
     ik_operator.OBJECT_OT_add_ik,
     collection_operator.OBJECT_OT_create_bone_group,
@@ -185,6 +186,11 @@ def register():
         description="置信度不足的字段名（逗号分隔），用于面板高亮",
         default="",
     )
+    bpy.types.Scene.auto_map_report_path = bpy.props.StringProperty(
+        name="映射依据报告路径",
+        description="最近一次自动骨骼映射依据的临时文件路径",
+        default="",
+    )
 
 
 def unregister():
@@ -199,7 +205,8 @@ def unregister():
 
     # 安全删除属性，忽略不存在的情况
     for attr_name in ["preset_enum", "my_enum", "auto_map_summary",
-                      "auto_map_low_confidence", "auto_map_low_conf_fields"]:
+                      "auto_map_low_confidence", "auto_map_low_conf_fields",
+                      "auto_map_report_path"]:
         try:
             delattr(bpy.types.Scene, attr_name)
         except AttributeError:
