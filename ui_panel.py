@@ -238,7 +238,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                     for line in low_conf_lines[:6]:
                         col.label(text=line)
                     if len(low_conf_lines) > 6:
-                        col.label(text=f"……等 {len(low_conf_lines)} 项，详见控制台")
+                        col.label(text=f"……等 {len(low_conf_lines)} 项，详见「查看依据」")
 
 
             main_col = layout.column(align=True)

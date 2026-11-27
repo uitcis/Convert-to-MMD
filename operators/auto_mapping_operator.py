@@ -112,29 +112,17 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
         for field, candidate in filled.items():
             setattr(scene, field, candidate["bone"])
 
-        # 控制台保留简洁摘要，完整依据写入临时文件供「查看」按钮打开
-        print("[Convert-to-MMD] 自动骨骼映射结果：")
-        for field in FIELD_ORDER:
-            if field not in filled:
-                continue
-            candidate = filled[field]
-            derived = f" [{candidate['derived']}]" if candidate.get("derived") else ""
-            guess = "（低置信度，建议核对）" if candidate.get("low_confidence") else ""
-            print(f"  {field}: {candidate['bone']} "
-                  f"({candidate['score']:.2f}){derived}{guess} "
-                  f"依据: {candidate.get('reason', '')}")
-        if low_conf:
-            print("  以下字段置信度不足，已填入并在面板标红，请人工核对：")
-            for field, score, reason in low_conf:
-                print(f"  {field_label(field)}: {score:.2f}（{reason}）")
-        print(f"  搜索节点: {stats.get('search_nodes', 0)}")
-
         summary = (
             f"已填写 {stats['filled']}/{len(FIELD_ORDER)} 字段，"
             f"平均置信度 {stats['average']:.2f}，可识别骨骼 {stats['bone_count']} 根"
         )
         if stats["low_conf"]:
             summary += f"，{stats['low_conf']} 个字段置信度不足（已标红）"
+
+        # 控制台只留一行摘要：逐字段的分数、依据、拓扑推导说明都在
+        # 「查看依据」报告里，点按钮才看，避免每次刷屏六十几行。
+        print(f"[Convert-to-MMD] 自动骨骼映射：{summary}。"
+              f"逐字段依据点「查看依据」")
 
         low_conf_lines = [f"{field_label(field)} {score:.2f}（{reason}）"
                           for field, score, reason in low_conf]
