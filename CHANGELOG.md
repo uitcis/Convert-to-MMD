@@ -25,6 +25,6 @@
 
 ### 发行包
 
-- 发行包改为自动命名 `Convert-to-MMD-<版本号>.zip`，Release 附带可直接安装的压缩包
+- 发行包改为自动命名 `Convert-to-MMD-<版本号>.zip`，Release 附带可直接安装的压缩包（排除验证截图等非插件内容）
 
 <!-- V1.6 release trigger -->
