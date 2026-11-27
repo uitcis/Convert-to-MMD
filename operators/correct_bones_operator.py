@@ -11,7 +11,7 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "没有选择骨架对象")
+            self.report({'WARNING'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -19,18 +19,18 @@ class OBJECT_OT_correct_bones(bpy.types.Operator):
         # 获取上半身骨骼
         upper_body_bone_name = getattr(scene, "upper_body_bone", None)
         if not upper_body_bone_name:
-            self.report({'ERROR'}, "请先设置上半身骨骼")
+            self.report({'WARNING'}, "请先设置上半身骨骼")
             return {'CANCELLED'}
 
         upper_body_bone = obj.pose.bones.get(upper_body_bone_name)
         if not upper_body_bone:
-            self.report({'ERROR'}, f"未找到上半身骨骼：{upper_body_bone_name}")
+            self.report({'WARNING'}, f"未找到上半身骨骼：{upper_body_bone_name}")
             return {'CANCELLED'}
 
         # 获取上半身骨骼的头部位置（世界坐标）
         upper_body_bone_obj = obj.data.bones.get(upper_body_bone_name)
         if not upper_body_bone_obj:
-            self.report({'ERROR'}, f"未找到骨骼数据：{upper_body_bone_name}")
+            self.report({'WARNING'}, f"未找到骨骼数据：{upper_body_bone_name}")
             return {'CANCELLED'}
 
         # 创建骨架备份（校验通过后再创建，避免失败时留下备份对象）

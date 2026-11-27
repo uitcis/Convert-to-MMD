@@ -46,7 +46,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
         """
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "没有选择骨架")
+            self.report({'WARNING'}, "没有选择骨架")
             return {'CANCELLED'}
 
         # 确保当前处于编辑模式 (EDIT mode)
@@ -61,7 +61,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
                           "右肩", "右腕", "右ひじ", "右足首"]
         missing_bones = [name for name in required_bones if name not in edit_bones]
         if missing_bones:
-            self.report({'ERROR'}, f"缺失必需骨骼: {', '.join(missing_bones)}")
+            self.report({'WARNING'}, f"缺失必需骨骼: {', '.join(missing_bones)}")
             return {'CANCELLED'}
 
         # 获取需要修改的骨骼
@@ -72,7 +72,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # === 校验阶段（必须在改动父级/位置之前完成，取消时不留下半改状态）===
         if not upper_body_bone:
-            self.report({'ERROR'}, "上半身骨骼不存在")
+            self.report({'WARNING'}, "上半身骨骼不存在")
             return {'CANCELLED'}
 
         # 获取 上半身 骨骼的坐标
@@ -84,7 +84,7 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
 
         # 验证 bone_length 有效性
         if bone_length <= 0 or bone_length > 10:  # 10m 为合理上限
-            self.report({'ERROR'}, f"计算出的骨骼长度无效: {bone_length:.3f}")
+            self.report({'WARNING'}, f"计算出的骨骼长度无效: {bone_length:.3f}")
             return {'CANCELLED'}
 
         # === 校验通过，构造标准骨骼属性（此阶段尚未改动任何数据）===
@@ -267,11 +267,11 @@ class OBJECT_OT_complete_missing_bones(bpy.types.Operator):
             }
         }  # bone_properties 结束
         except KeyError as e:
-            self.report({'ERROR'}, f"骨骼属性构建失败，缺少必需骨骼: {e}")
+            self.report({'WARNING'}, f"骨骼属性构建失败，缺少必需骨骼: {e}")
             print(f"[Convert-to-MMD] 骨骼属性构建错误: {e}")
             return {'CANCELLED'}
         except Exception as e:
-            self.report({'ERROR'}, f"骨骼属性构建失败: {e}")
+            self.report({'WARNING'}, f"骨骼属性构建失败: {e}")
             print(f"[Convert-to-MMD] 骨骼属性构建异常: {e}")
             return {'CANCELLED'}
 

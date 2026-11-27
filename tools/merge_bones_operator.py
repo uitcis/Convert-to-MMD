@@ -94,7 +94,7 @@ class OBJECT_OT_merge_bones_base(bpy.types.Operator):
     def execute(self, context):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "请选择一个骨架")
+            self.report({'WARNING'}, "请选择一个骨架")
             return {'CANCELLED'}
         
         mmd_bones = self.get_mmd_bones()
@@ -161,20 +161,20 @@ class OBJECT_OT_merge_selected_bones_base(OBJECT_OT_merge_bones_base):
         if original_mode == 'EDIT':
             active_bone = context.active_bone
             if not active_bone:
-                self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
+                self.report({'WARNING'}, "请选择一个活动骨骼作为目标")
                 return {'CANCELLED'}
             target_bone_name = active_bone.name
             selected_bone_names = [b.name for b in armature.data.edit_bones if b.select and b.name != target_bone_name]
         else:
             active_bone = context.active_pose_bone
             if not active_bone:
-                self.report({'ERROR'}, "请选择一个活动骨骼作为目标")
+                self.report({'WARNING'}, "请选择一个活动骨骼作为目标")
                 return {'CANCELLED'}
             target_bone_name = active_bone.name
             selected_bone_names = [p_bone.name for p_bone in armature.pose.bones if p_bone.select and p_bone.name != target_bone_name]
 
         if not selected_bone_names:
-            self.report({'ERROR'}, "请选择要合并的骨骼")
+            self.report({'WARNING'}, "请选择要合并的骨骼")
             return {'CANCELLED'}
 
         merged_count = 0

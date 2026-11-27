@@ -162,7 +162,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "没有选择骨架对象")
+            self.report({'WARNING'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
         original_mode = context.mode
@@ -176,7 +176,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         if missing_bones:
             if context.mode != original_mode:
                 bpy.ops.object.mode_set(mode=restore_mode)
-            self.report({'ERROR'}, f"缺失基础骨骼: {', '.join(missing_bones)}，请先补全骨骼")
+            self.report({'WARNING'}, f"缺失基础骨骼: {', '.join(missing_bones)}，请先补全骨骼")
             return {'CANCELLED'}
 
         # 计算骨架高度和bone_length
@@ -233,7 +233,7 @@ class OBJECT_OT_add_ik(bpy.types.Operator):
         if missing_pose_bones:
             if context.mode != original_mode:
                 bpy.ops.object.mode_set(mode=restore_mode)
-            self.report({'ERROR'}, f"姿态骨骼同步失败: {', '.join(missing_pose_bones)}")
+            self.report({'WARNING'}, f"姿态骨骼同步失败: {', '.join(missing_pose_bones)}")
             return {'CANCELLED'}
 
         left_hiza = pose_bones["左ひざ"]

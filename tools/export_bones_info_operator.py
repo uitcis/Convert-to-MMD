@@ -45,7 +45,7 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "没有选择骨架对象")
+            self.report({'WARNING'}, "没有选择骨架对象")
             return {'CANCELLED'}
         
         # 获取选中的骨骼和对应的edit_bones（用于获取roll值）
@@ -69,12 +69,12 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
                 selected_bones = list(obj.data.bones)
                 exported_all_in_object_mode = True
             else:
-                self.report({'ERROR'}, "没有选中任何骨骼")
+                self.report({'WARNING'}, "没有选中任何骨骼")
                 return {'CANCELLED'}
         
         # 如果没有选中的骨骼，返回错误
         if not selected_bones:
-            self.report({'ERROR'}, "没有选中任何骨骼")
+            self.report({'WARNING'}, "没有选中任何骨骼")
             return {'CANCELLED'}
         
         # 收集骨骼信息
@@ -132,7 +132,7 @@ class OBJECT_OT_export_selected_bones_info(bpy.types.Operator, ExportHelper):
             else:
                 self.report({'INFO'}, f"已成功导出{len(selected_bones)}个骨骼的信息到 {self.filepath}")
         except Exception as e:
-            self.report({'ERROR'}, f"导出失败: {str(e)}")
+            self.report({'WARNING'}, f"导出失败: {str(e)}")
             return {'CANCELLED'}
         
         return {'FINISHED'}

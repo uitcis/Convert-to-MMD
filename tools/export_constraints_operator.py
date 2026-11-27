@@ -27,7 +27,7 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelp
         
         # 1. 基础检查
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
+            self.report({'WARNING'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
         # 约束是姿态数据属性，任意模式下均可读取（无需切换到姿态模式）
@@ -109,7 +109,7 @@ class OBJECT_OT_export_selected_bones_constraints(bpy.types.Operator, ExportHelp
                 f.write(json_output)
             self.report({'INFO'}, f"导出成功！文件已保存至: {self.filepath}")
         except Exception as e:
-            self.report({'ERROR'}, f"导出失败: {str(e)}")
+            self.report({'WARNING'}, f"导出失败: {str(e)}")
             return {'CANCELLED'}
 
         return {'FINISHED'}

@@ -129,7 +129,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         try:
             armature = bone_utils.resolve_armature(context)
             if not armature:
-                self.report({'ERROR'}, "请选择骨架对象")
+                self.report({'WARNING'}, "请选择骨架对象")
                 return {'CANCELLED'}
 
             # 先校验胸骨参数，再执行不可逆操作：
@@ -139,19 +139,19 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             right_bone = context.scene.right_chest_bone if hasattr(context.scene, "right_chest_bone") else ""
 
             if not left_bone or not right_bone:
-                self.report({'ERROR'}, "请先选择左/右胸部骨骼")
+                self.report({'WARNING'}, "请先选择左/右胸部骨骼")
                 return {'CANCELLED'}
 
             missing = [name for name in (left_bone, right_bone)
                        if name not in armature.data.bones]
             if missing:
-                self.report({'ERROR'},
+                self.report({'WARNING'},
                             f"胸部骨骼不存在: {', '.join(missing)}，请重新选择后再执行")
                 return {'CANCELLED'}
 
             convert_result = bpy.ops.object.use_mmd_tools_convert()
             if 'CANCELLED' in convert_result:
-                self.report({'ERROR'}, "mmd_tools 转换未完成，已中止乳房物理构建")
+                self.report({'WARNING'}, "mmd_tools 转换未完成，已中止乳房物理构建")
                 return {'CANCELLED'}
 
             context.scene.frame_set(context.scene.frame_start)
@@ -170,11 +170,11 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
 
             self.report({'INFO'}, "乳房物理系统构建完成")
         except MemoryError as me:
-            self.report({'ERROR'}, str(me))
+            self.report({'WARNING'}, str(me))
             print(f"内存错误: {me}")
             return {'CANCELLED'}
         except Exception as exc:
-            self.report({'ERROR'}, f"乳房物理构建失败: {exc}")
+            self.report({'WARNING'}, f"乳房物理构建失败: {exc}")
             print(f"[乳房物理] 未预期错误: {exc}")
             import traceback
             traceback.print_exc()
@@ -192,12 +192,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
         fits = {}
         for prefix, user_bone in (("左", left_bone), ("右", right_bone)):
             if user_bone not in eb:
-                self.report({'ERROR'}, f"骨骼 '{user_bone}' 不存在")
+                self.report({'WARNING'}, f"骨骼 '{user_bone}' 不存在")
                 bpy.ops.object.mode_set(mode='OBJECT')
                 return {'CANCELLED'}
             fit = calculate_breast_sphere_fit(armature, user_bone, weight_threshold=0)
             if fit is None:
-                self.report({'ERROR'}, f"无法计算{prefix}侧乳房球形拟合，请检查顶点权重")
+                self.report({'WARNING'}, f"无法计算{prefix}侧乳房球形拟合，请检查顶点权重")
                 bpy.ops.object.mode_set(mode='OBJECT')
                 return {'CANCELLED'}
             fits[prefix] = fit
@@ -210,7 +210,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             # Fallback: 使用左/右胸骨骼作为位置参考
             reference_bone = eb.get(left_bone) or eb.get(right_bone)
             if reference_bone is None:
-                self.report({'ERROR'}, "未找到胸親父级骨骼或胸部骨骼")
+                self.report({'WARNING'}, "未找到胸親父级骨骼或胸部骨骼")
                 bpy.ops.object.mode_set(mode='OBJECT')
                 return {'CANCELLED'}
         reference_y = reference_bone.head.y
@@ -300,12 +300,12 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
     # 乳房刚体构建
     def _create_rigid_bodies(self, context, armature, breast_data):
         if not MMD_TOOLS_AVAILABLE:
-            self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
+            self.report({'WARNING'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
             return None
 
         root = FnModel.find_root_object(armature)
         if not root:
-            self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
+            self.report({'WARNING'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
             return None
 
         rigid_grp_obj = FnModel.ensure_rigid_group_object(context, root)
@@ -364,7 +364,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
             left_rb = rb_objects.get("左胸上 2")
             right_rb = rb_objects.get("右胸上 2")
             if not left_rb or not right_rb:
-                self.report({'ERROR'}, "无法找到左/右胸刚体，胸親刚体位置无法设置")
+                self.report({'WARNING'}, "无法找到左/右胸刚体，胸親刚体位置无法设置")
                 return None
             rb_parent.location = (left_rb.location + right_rb.location) / 2
             rb_parent.rotation_euler = Euler((0, -math.pi / 2, 0), 'YXZ')
@@ -403,7 +403,7 @@ class OBJECT_OT_auto_physics_builder(bpy.types.Operator):
     # 乳房弹簧构建
     def _create_spring_joints(self, context, armature, rb_objects):
         if not MMD_TOOLS_AVAILABLE:
-            self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
+            self.report({'WARNING'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
             return None
 
         root = FnModel.find_root_object(armature)

@@ -85,7 +85,7 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
     def execute(self, context):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "未选择骨架对象")
+            self.report({'WARNING'}, "未选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -101,11 +101,11 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
         try:
             filled, low_conf, stats = solve_mapping(armature)
         except Exception as exc:  # 数据异常时给出可见反馈，而不是静默失败
-            self.report({'ERROR'}, f"自动骨骼映射失败: {exc}")
+            self.report({'WARNING'}, f"自动骨骼映射失败: {exc}")
             return {'CANCELLED'}
 
         if not stats:
-            self.report({'ERROR'}, "骨架中没有可用于识别的骨骼")
+            self.report({'WARNING'}, "骨架中没有可用于识别的骨骼")
             return {'CANCELLED'}
 
         for field, candidate in filled.items():
@@ -158,9 +158,9 @@ class OBJECT_OT_view_auto_mapping_report(bpy.types.Operator):
             try:
                 subprocess.Popen(["xdg-open", path])
             except OSError as exc:
-                self.report({'ERROR'}, f"无法打开报告: {exc}")
+                self.report({'WARNING'}, f"无法打开报告: {exc}")
                 return {'CANCELLED'}
         except OSError as exc:
-            self.report({'ERROR'}, f"无法打开报告: {exc}")
+            self.report({'WARNING'}, f"无法打开报告: {exc}")
             return {'CANCELLED'}
         return {'FINISHED'}

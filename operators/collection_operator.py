@@ -51,11 +51,11 @@ class OBJECT_OT_create_bone_group(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "未选择骨架对象")
+            self.report({'WARNING'}, "未选择骨架对象")
             return {'CANCELLED'}
 
         if self.use_presets and not BONE_GROUP_PRESETS:
-            self.report({'ERROR'}, "未找到有效的骨骼分组配置，请检查bone_map_and_group.py文件")
+            self.report({'WARNING'}, "未找到有效的骨骼分组配置，请检查bone_map_and_group.py文件")
             return {'CANCELLED'}
 
         # 根据API特性自动适配版本

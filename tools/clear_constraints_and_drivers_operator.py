@@ -13,7 +13,7 @@ class OBJECT_OT_clear_all_bone_constraints(bpy.types.Operator):
         obj = bone_utils.resolve_armature(context)
 
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
+            self.report({'WARNING'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
         # 约束是姿态数据属性，任意模式下均可清除（无需切换到姿态模式）
@@ -46,7 +46,7 @@ class OBJECT_OT_clear_all_bone_drivers(bpy.types.Operator):
         obj = bone_utils.resolve_armature(context)
 
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
+            self.report({'WARNING'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
         # 统计被清除的驱动器数量

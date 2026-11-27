@@ -15,7 +15,7 @@ class OBJECT_OT_calculate_bone_rolls(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
+            self.report({'WARNING'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
         original_mode = context.mode

@@ -75,7 +75,7 @@ class OBJECT_OT_convert_bones_rotation_to_quaternion(bpy.types.Operator):
         obj = bone_utils.resolve_armature(context)
 
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架物体 (Armature)。")
+            self.report({'WARNING'}, "请选中一个骨架物体 (Armature)。")
             return {'CANCELLED'}
 
         # rotation_mode 是姿态数据属性，任意模式下均可修改（无需切换到姿态模式）

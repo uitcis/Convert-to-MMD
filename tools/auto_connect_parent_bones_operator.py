@@ -13,7 +13,7 @@ class OBJECT_OT_auto_connect_parent_bones(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "请选择一个骨架对象")
+            self.report({'WARNING'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 
         original_mode = obj.mode
@@ -71,7 +71,7 @@ class OBJECT_OT_unlock_all_bones(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "请选择一个骨架对象")
+            self.report({'WARNING'}, "请选择一个骨架对象")
             return {'CANCELLED'}
 
         # 锁定属性是姿态数据属性，任意模式下均可修改（无需切换模式）

@@ -13,7 +13,7 @@ class OBJECT_OT_add_shoulder_p_bones(bpy.types.Operator):
     def execute(self, context):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "请选择一个骨架")
+            self.report({'WARNING'}, "请选择一个骨架")
             return {'CANCELLED'}
         
         original_mode = context.mode

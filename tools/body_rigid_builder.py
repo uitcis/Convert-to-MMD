@@ -308,21 +308,21 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
         try:
             armature = bone_utils.resolve_armature(context)
             if not armature:
-                self.report({'ERROR'}, "请选择骨架对象")
+                self.report({'WARNING'}, "请选择骨架对象")
                 return {'CANCELLED'}
 
             if not MMD_TOOLS_AVAILABLE:
-                self.report({'ERROR'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
+                self.report({'WARNING'}, "mmd_tools 未安装，请先安装 mmd_tools 扩展")
                 return {'CANCELLED'}
 
             convert_result = bpy.ops.object.use_mmd_tools_convert()
             if 'CANCELLED' in convert_result:
-                self.report({'ERROR'}, "mmd_tools 转换未完成，已中止身体刚体构建")
+                self.report({'WARNING'}, "mmd_tools 转换未完成，已中止身体刚体构建")
                 return {'CANCELLED'}
 
             root = FnModel.find_root_object(armature)
             if not root:
-                self.report({'ERROR'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
+                self.report({'WARNING'}, "未找到 MMD 模型根对象，请先使用 mmd_tools 转换模型")
                 return {'CANCELLED'}
 
             created = self._create_simple_body_rigid_bodies(context, armature, root)
@@ -331,7 +331,7 @@ class OBJECT_OT_build_simple_body_rigid(bpy.types.Operator):
                 return {'CANCELLED'}
             self.report({'INFO'}, f"简易身体刚体系统构建完成（共 {created} 个刚体）")
         except Exception as exc:
-            self.report({'ERROR'}, f"构建失败：{exc}")
+            self.report({'WARNING'}, f"构建失败：{exc}")
             print(traceback.format_exc())
             return {'CANCELLED'}
 

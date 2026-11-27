@@ -196,7 +196,7 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "未选择骨架对象")
+            self.report({'WARNING'}, "未选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -207,11 +207,11 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
         elif mode == 'EDIT_ARMATURE':
             selected_bones = [bone.name for bone in obj.data.edit_bones if bone.select]
         else:
-            self.report({'ERROR'}, "请在姿态模式或编辑模式下选择骨骼")
+            self.report({'WARNING'}, "请在姿态模式或编辑模式下选择骨骼")
             return {'CANCELLED'}
 
         if not selected_bones:
-            self.report({'ERROR'}, "未选择骨骼")
+            self.report({'WARNING'}, "未选择骨骼")
             return {'CANCELLED'}
 
         # 将第一个选定的骨骼名称先记下来，位置校验通过后才写入字段
@@ -230,7 +230,7 @@ class OBJECT_OT_fill_from_selection_specific(bpy.types.Operator):
             is_correct, error_msg = check_single_bone_position(obj, current_bone_name, is_left, mode)
             print(f"检测结果：is_correct={is_correct}, error_msg={error_msg}")
             if not is_correct:
-                self.report({'ERROR'}, f"{error_msg}，请重新选择")
+                self.report({'WARNING'}, f"{error_msg}，请重新选择")
                 print(f"已拒绝写入：{error_msg}")
                 return {'CANCELLED'}
 
@@ -290,11 +290,11 @@ class OBJECT_OT_import_preset(bpy.types.Operator):
             with open(self.filepath, 'r') as file:
                 preset = json.load(file)
         except Exception as e:
-            self.report({'ERROR'}, f"加载预设失败：{str(e)}")
+            self.report({'WARNING'}, f"加载预设失败：{str(e)}")
             return {'CANCELLED'}
 
         if not isinstance(preset, dict):
-            self.report({'ERROR'}, "预设文件格式错误：顶层必须是 JSON 对象")
+            self.report({'WARNING'}, "预设文件格式错误：顶层必须是 JSON 对象")
             return {'CANCELLED'}
 
         known_props = set(get_bones_list())
@@ -533,16 +533,45 @@ def auto_detect_upper_body_chain(scene, armature):
     return len(chain) > 0
 
 
+#: MMD Tools 的 Blender 官方扩展页面。
+#: Blender 4.2+ 的「偏好设置 → 获取扩展」里搜 MMD Tools 也能直接装，
+#: 这里给出网页地址供手动下载（zip 用「从磁盘安装」）。
+MMD_TOOLS_URL = "https://extensions.blender.org/add-ons/mmd-tools/"
+
+
+def mmd_tools_available():
+    """mmd_tools 是否已安装并启用。
+
+    不能用 ``hasattr(bpy.ops.mmd_tools, "convert_to_mmd_model")`` 判断——
+    ``bpy.ops`` 的子模块是惰性代理，未注册时属性访问同样返回真。
+    ``get_rna_type()`` 在 operator 未注册时抛 KeyError，才是可靠判据。
+    """
+    try:
+        bpy.ops.mmd_tools.convert_to_mmd_model.get_rna_type()
+        return True
+    except Exception:
+        return False
+
+
 class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
     """调用mmdtools进行格式转换"""
     bl_idname = "object.use_mmd_tools_convert"
     bl_label = "Convert to MMD Model"
-    bl_description = "使用mmd_tools插件转换模型格式（需要先安装mmd_tools插件）"
+    bl_description = ("使用mmd_tools插件转换模型格式"
+                      "（未安装时会提示安装方式）")
 
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "未选择骨架对象")
+            self.report({'WARNING'}, "未选择骨架对象")
+            return {'CANCELLED'}
+
+        # 未安装就只做提示：不备份材质、不切模式，也不替用户打开浏览器。
+        if not mmd_tools_available():
+            self.report(
+                {'WARNING'},
+                "未安装 MMD Tools。请在 Blender「编辑 → 偏好设置 → 获取扩展」"
+                "搜索 MMD Tools 安装，或访问 " + MMD_TOOLS_URL)
             return {'CANCELLED'}
 
         # mmd_tools 转换需要在物体模式下执行
@@ -555,6 +584,7 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
         preserve = bool(getattr(context.scene, "preserve_original_materials", False))
         backups = self._backup_materials(obj) if preserve else []
 
+        failure = None
         try:
             # 必须转换材质节点：mmd_tools 会把原有的 EMISSION/BSDF 节点替换成 mmd_shader，
             # 关掉该选项时旧材质节点已被移除、新的 mmd_shader 又不会建立，
@@ -562,17 +592,18 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             bpy.ops.mmd_tools.convert_to_mmd_model(
                 convert_material_nodes=True
             )
-        except (TypeError, AttributeError):
+        except TypeError:
+            # 旧版 mmd_tools 的 operator 没有 convert_material_nodes 参数
             try:
                 bpy.ops.mmd_tools.convert_to_mmd_model()
-            except (TypeError, AttributeError):
-                self._discard_material_backups(backups)
-                bpy.context.window_manager.popup_menu(
-                    self.draw_error_menu,
-                    title="MMD Tools 未安装",
-                    icon='ERROR'
-                )
-                return {'CANCELLED'}
+            except Exception as exc:
+                failure = exc
+        except Exception as exc:
+            failure = exc
+        if failure is not None:
+            self._discard_material_backups(backups)
+            self.report({'WARNING'}, f"MMD Tools 转换失败：{failure}")
+            return {'CANCELLED'}
 
         if backups:
             self._restore_materials(backups)
@@ -645,20 +676,6 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
         for _, _, saved in backups:
             if saved.users == 0:
                 bpy.data.materials.remove(saved)
-
-    def draw_error_menu(self, menu, context):
-        layout = menu.layout
-        layout.separator()
-        layout.operator(
-            "wm.url_open",
-            text="前往下载页面",
-            icon='URL'
-        ).url = "https://extensions.blender.org/add-ons/mmd-tools/"
-        layout.operator(
-            "wm.url_open",
-            text="查看使用文档",
-            icon='HELP'
-        ).url = "https://mmd-blender.fandom.com/wiki/MMD_Tools_Documentation"
 
 
 class OBJECT_OT_clear_bone_selection(bpy.types.Operator):

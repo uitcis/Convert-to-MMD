@@ -83,12 +83,12 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
     def invoke(self, context, event):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "请选择一个骨架")
+            self.report({'WARNING'}, "请选择一个骨架")
             return {'CANCELLED'}
 
         bones_to_remove, info = self.collect_plan(armature)
         if bones_to_remove is None:
-            self.report({'ERROR'}, info)
+            self.report({'WARNING'}, info)
             return {'CANCELLED'}
         if not bones_to_remove:
             self.report({'INFO'}, f"没有需要删除的无权重骨骼（检查了 {info} 个绑定网格）")
@@ -113,14 +113,14 @@ class OBJECT_OT_clear_unweighted_bones(bpy.types.Operator):
     def execute(self, context):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "请选择一个骨架")
+            self.report({'WARNING'}, "请选择一个骨架")
             return {'CANCELLED'}
 
         bones_to_remove = list(getattr(self, "_pending_bones", []) or [])
         if not bones_to_remove:
             bones_to_remove, info = self.collect_plan(armature)
             if bones_to_remove is None:
-                self.report({'ERROR'}, info)
+                self.report({'WARNING'}, info)
                 return {'CANCELLED'}
             if not bones_to_remove:
                 self.report({'INFO'}, f"没有需要删除的无权重骨骼（检查了 {info} 个绑定网格）")

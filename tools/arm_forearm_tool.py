@@ -102,16 +102,16 @@ class OBJECT_OT_align_forearm_from_selection(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "请选中一个骨架对象")
+            self.report({'WARNING'}, "请选中一个骨架对象")
             return {'CANCELLED'}
 
         if context.mode != 'POSE':
-            self.report({'ERROR'}, "请在姿态模式下使用此功能")
+            self.report({'WARNING'}, "请在姿态模式下使用此功能")
             return {'CANCELLED'}
 
         selected_bones = [b for b in context.selected_pose_bones]
         if not selected_bones:
-            self.report({'ERROR'}, "请先选中骨骼")
+            self.report({'WARNING'}, "请先选中骨骼")
             return {'CANCELLED'}
 
         success_count = 0

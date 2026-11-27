@@ -17,7 +17,7 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
     def execute(self, context):
         armature = bone_utils.resolve_armature(context)
         if not armature:
-            self.report({'ERROR'}, "请选择一个骨架")
+            self.report({'WARNING'}, "请选择一个骨架")
             return {'CANCELLED'}
         
         # 切换到编辑模式
@@ -35,7 +35,7 @@ class OBJECT_OT_add_leg_d_bones(bpy.types.Operator):
         missing_bones = [name for name in required_bones if name not in edit_bones]
         if missing_bones:
             bpy.ops.object.mode_set(mode='OBJECT')
-            self.report({'ERROR'},
+            self.report({'WARNING'},
                         f"缺失必需骨骼: {', '.join(missing_bones)}，请先执行「2.补全缺失骨骼」")
             return {'CANCELLED'}
 

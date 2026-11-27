@@ -14,7 +14,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if not obj:
-            self.report({'ERROR'}, "没有选择骨架对象")
+            self.report({'WARNING'}, "没有选择骨架对象")
             return {'CANCELLED'}
 
         scene = context.scene
@@ -34,7 +34,7 @@ class OBJECT_OT_rename_to_mmd(bpy.types.Operator):
             for prop_name, new_name in self.mmd_bone_map.items()
         )
         if conflict:
-            self.report({'ERROR'}, conflict)
+            self.report({'WARNING'}, conflict)
             return {'CANCELLED'}
 
         # 记录进入时的模式，结束时恢复（尽量复用已有模式窗口，减少切换）

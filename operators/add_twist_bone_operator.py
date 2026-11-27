@@ -45,7 +45,7 @@ class OBJECT_OT_add_twist_bone(bpy.types.Operator):
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
         if obj is None:
-            self.report({'ERROR'}, "请先选择一个骨架对象")
+            self.report({'WARNING'}, "请先选择一个骨架对象")
             return {'CANCELLED'}
 
         bpy.ops.object.mode_set(mode='EDIT')
