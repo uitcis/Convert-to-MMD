@@ -11,7 +11,7 @@
 #         的 1.x 发版标签是两套编号，不要擅自同步。
 # 发行包命名：Convert-to-MMD-<提交说明>.zip，如 Convert-to-MMD-V1.5.zip；
 #             zip 内顶层目录为 Convert-to-MMD/，符合 Blender 插件安装结构；
-#             排除 __pycache__、.workflow、.workbuddy 等非插件内容。
+#             排除 __pycache__、.workflow、.workbuddy、验证截图等非插件内容。
 # ============================================================
 version: "1.0"
 name: tag-auto-release
@@ -68,8 +68,8 @@ stages:
         exit 1
       fi
       echo "版本号一致: $MD_VER（压缩包与 Release 均使用 $MSG）"
-- name: 发布
-  displayName: 打包并发布
+- name: 打包
+  displayName: 打包发行包
   strategy: naturally
   trigger: auto
   steps:
@@ -100,8 +100,8 @@ stages:
         operators presets tools \
         README.md LICENSE CHANGELOG.md \
         "$STAGE/Convert-to-MMD/"
-      # 排除项：构建缓存、流水线配置、工作区数据（即使白名单未来放宽也不进包）
-      EXCLUDES='*__pycache__* *.pyc *.pyo *.DS_Store */.workflow/* */.workbuddy/* .workflow/* .workbuddy/*'
+      # 排除项：构建缓存、流水线配置、工作区数据、验证截图等非插件内容
+      EXCLUDES='*__pycache__* *.pyc *.pyo *.DS_Store */.workflow/* */.workbuddy/* .workflow/* .workbuddy/* *.png *.jpg *.jpeg *.gif *.webp'
       if command -v zip >/dev/null 2>&1; then
         (cd "$STAGE" && zip -r "../$ZIP" Convert-to-MMD -x $EXCLUDES)
       elif command -v python3 >/dev/null 2>&1; then
@@ -109,11 +109,12 @@ stages:
       import os, sys, zipfile
       stage, out = sys.argv[1], sys.argv[2]
       SKIP_DIRS = {'__pycache__', '.workflow', '.workbuddy'}
+      SKIP_EXT = ('.pyc', '.pyo', '.png', '.jpg', '.jpeg', '.gif', '.webp')
       with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
           for root, dirs, files in os.walk(stage):
               dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
               for f in files:
-                  if f.endswith(('.pyc', '.pyo')) or f == '.DS_Store':
+                  if f.endswith(SKIP_EXT) or f == '.DS_Store':
                       continue
                   p = os.path.join(root, f)
                   z.write(p, os.path.relpath(p, stage))
@@ -135,6 +136,11 @@ stages:
       - name: ADDON_PACKAGE
         path:
           - Convert-to-MMD-${GITEE_COMMIT_MESSAGE}.zip
+- name: 发布
+  displayName: Gitee Release
+  strategy: naturally
+  trigger: auto
+  steps:
   - step: release@gitee
     name: d49d02b4
     displayName: Gitee Release
