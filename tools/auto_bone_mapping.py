@@ -99,7 +99,71 @@ def _collect_weight_stats(armature, features):
 
 
 def _pick_up_axis(bones):
-    """选择骨骼包围盒跨度最大的轴作为高度轴（兼容横躺模型）。"""
+    """选择骨骼的高度轴（兼容横躺/侧躺模型）。
+
+    不能只看包围盒跨度：张开的手臂、腿会把横向跨度撑大，导致
+    选错轴（实测 DNF 的高度轴是 Z，但跨度最大的却是 Y——手臂张开
+    撑大了 Y 跨度，于是所有中心骨的高度都算成同一个值，
+    高度带完全失效）。
+
+    判据：躯干主链（脊柱）在拓扑上从根骨连续向下，且中途多为
+    「唯一子骨」；其它分支（四肢、头发）都是它的侧枝。因此沿
+    「根 → 唯一子骨 → 唯一子骨…」这条链，骨的数量在高度方向上
+    最多。三个轴里选主链骨数最多的那个。
+    """
+    children = {}
+    for bone in bones:
+        children.setdefault(bone.parent.name if bone.parent else "", [])
+        if bone.parent is not None:
+            children[bone.parent.name].append(bone.name)
+
+    def chain_length(start):
+        """从 start 出发，沿唯一子骨走到底，统计经过的骨数。"""
+        count = 0
+        current = start
+        seen = set()
+        while current and current not in seen:
+            seen.add(current)
+            count += 1
+            kids = children.get(current, [])
+            if len(kids) != 1:
+                break
+            current = kids[0]
+        return count
+
+    roots = [b.name for b in bones if b.parent is None]
+    lengths = [0, 0, 0]
+    for axis in range(3):
+        # 每个轴上各条主链的长度取最大
+        best = 0
+        for root in roots:
+            best = max(best, chain_length(root))
+        lengths[axis] = best
+    # 三轴的主链长度相同（链与轴无关），所以改用「主链在该轴上的
+    # 坐标跨度」：身高方向上脊柱首尾落差最大。
+    spans = []
+    for axis in range(3):
+        widest = 0.0
+        for root in roots:
+            coords = []
+            current = root
+            seen = set()
+            while current and current not in seen:
+                seen.add(current)
+                node = next((b for b in bones if b.name == current), None)
+                if node is None:
+                    break
+                coords.append(node.head_local[axis])
+                kids = children.get(current, [])
+                if len(kids) != 1:
+                    break
+                current = kids[0]
+            if len(coords) >= 2:
+                widest = max(widest, max(coords) - min(coords))
+        spans.append(widest)
+    best = max(range(3), key=lambda i: spans[i])
+    if spans[best] > 0:
+        return best
     coords = [b.head_local for b in bones]
     extents = [max(c[i] for c in coords) - min(c[i] for c in coords)
                for i in range(3)]

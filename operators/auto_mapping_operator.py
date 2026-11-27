@@ -38,9 +38,10 @@ def _build_report(filled, low_conf, stats, armature_name):
         geometry = sum(parts.get(key, 0.0)
                        for key in ("side", "height", "direction"))
         derived = "（拓扑推导）" if candidate.get("derived") else ""
+        guess = "（置信度不足，建议核对）" if candidate.get("low_confidence") else ""
         lines.append(
             f"{field_label(field)}  {candidate['bone']}  "
-            f"{candidate['score']:.2f}{derived}"
+            f"{candidate['score']:.2f}{derived}{guess}"
         )
         lines.append(
             f"    名称 {parts.get('name', 0.0):.2f}  "
@@ -54,19 +55,19 @@ def _build_report(filled, low_conf, stats, armature_name):
     lines += [
         "",
         "=" * 64,
-        f"留空字段（{len(low_conf)} 项，置信度不足或冲突）",
+        f"需人工核对（{len(low_conf)} 项）",
         "=" * 64,
     ]
     if low_conf:
         for field, score, reason in low_conf:
-            lines.append(f"{field_label(field)}  最佳候选 {score:.2f}（{reason}）")
+            lines.append(f"{field_label(field)}  置信度 {score:.2f}（{reason}）")
     else:
         lines.append("无")
 
     lines += [
         "",
         "说明：名称为原始贡献分（合计 1.20），置信度为归一到 0~1 后的值。",
-        "      低于 0.55 的字段留空并在面板标红，可手动指定。",
+        "      低于 0.55 的字段仍会填入，但在面板标红提示，需人工核对。",
     ]
     return "\n".join(lines)
 
@@ -77,7 +78,7 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
     bl_label = "自动识别骨骼映射"
     bl_description = (
         "根据名称、拓扑、几何、权重四类证据打分并做全局约束求解，"
-        "把结果写入下方预设字段；置信度不足的字段保持为空并在面板高亮"
+        "把结果写入下方预设字段；置信度不足的字段照常填入但在面板高亮警告"
     )
     bl_options = {'REGISTER', 'UNDO'}
 
@@ -118,13 +119,14 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
                 continue
             candidate = filled[field]
             derived = f" [{candidate['derived']}]" if candidate.get("derived") else ""
+            guess = "（低置信度，建议核对）" if candidate.get("low_confidence") else ""
             print(f"  {field}: {candidate['bone']} "
-                  f"({candidate['score']:.2f}){derived} "
+                  f"({candidate['score']:.2f}){derived}{guess} "
                   f"依据: {candidate.get('reason', '')}")
         if low_conf:
-            print("  以下字段置信度不足，已留空：")
+            print("  以下字段置信度不足，已填入并在面板标红，请人工核对：")
             for field, score, reason in low_conf:
-                print(f"  {field_label(field)}: 最佳候选 {score:.2f}（{reason}）")
+                print(f"  {field_label(field)}: {score:.2f}（{reason}）")
         print(f"  搜索节点: {stats.get('search_nodes', 0)}")
 
         summary = (
@@ -132,7 +134,7 @@ class OBJECT_OT_auto_detect_bone_mapping(bpy.types.Operator):
             f"平均置信度 {stats['average']:.2f}，可识别骨骼 {stats['bone_count']} 根"
         )
         if stats["low_conf"]:
-            summary += f"，{stats['low_conf']} 个字段留空"
+            summary += f"，{stats['low_conf']} 个字段置信度不足（已标红）"
 
         low_conf_lines = [f"{field_label(field)} {score:.2f}（{reason}）"
                           for field, score, reason in low_conf]

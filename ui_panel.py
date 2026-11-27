@@ -224,7 +224,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
             row.operator("object.view_auto_mapping_report",
                          text="查看依据", icon='TEXT')
 
-            # 自动映射摘要与低置信度提示（低于阈值的字段已留空，对应行标红）
+            # 自动映射摘要与低置信度提示（低置信度字段已照填，对应行标红）
             if scene.auto_map_summary:
                 box = layout.box()
                 box.label(text=scene.auto_map_summary, icon='INFO')
@@ -234,7 +234,7 @@ class OBJECT_PT_skeleton_hierarchy(bpy.types.Panel):
                     col = box.column(align=True)
                     col.scale_y = 0.75
                     col.alert = True
-                    col.label(text="以下字段置信度不足，已留空：")
+                    col.label(text="以下字段置信度不足，已填入，请核对：")
                     for line in low_conf_lines[:6]:
                         col.label(text=line)
                     if len(low_conf_lines) > 6:
