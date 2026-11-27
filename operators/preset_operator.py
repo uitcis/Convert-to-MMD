@@ -558,7 +558,7 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
     bl_idname = "object.use_mmd_tools_convert"
     bl_label = "Convert to MMD Model"
     bl_description = ("使用mmd_tools插件转换模型格式"
-                      "（未安装时会提示安装方式）")
+                      "（未安装时自动打开扩展页面）")
 
     def execute(self, context):
         obj = bone_utils.resolve_armature(context)
@@ -566,12 +566,19 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
             self.report({'WARNING'}, "未选择骨架对象")
             return {'CANCELLED'}
 
-        # 未安装就只做提示：不备份材质、不切模式，也不替用户打开浏览器。
+        # 未安装：直接把官方扩展页交给系统浏览器，用户在上面点 Install
+        # 或下载 zip 即可。不做材质备份、不切模式，避免留下转换到一半的痕迹。
         if not mmd_tools_available():
-            self.report(
-                {'WARNING'},
-                "未安装 MMD Tools。请在 Blender「编辑 → 偏好设置 → 获取扩展」"
-                "搜索 MMD Tools 安装，或访问 " + MMD_TOOLS_URL)
+            if self._open_download_page():
+                self.report(
+                    {'WARNING'},
+                    "未安装 MMD Tools，已在浏览器打开扩展页面；"
+                    "装好后重新点一次「使用mmdtools转换格式」")
+            else:
+                self.report(
+                    {'WARNING'},
+                    "未安装 MMD Tools，且无法自动打开浏览器。请手动访问："
+                    + MMD_TOOLS_URL)
             return {'CANCELLED'}
 
         # mmd_tools 转换需要在物体模式下执行
@@ -612,6 +619,20 @@ class OBJECT_OT_use_mmd_tools_convert(bpy.types.Operator):
         context.view_layer.objects.active = obj
         obj.select_set(True)
         return {'FINISHED'}
+
+    @staticmethod
+    def _open_download_page():
+        """用系统浏览器打开 MMD Tools 扩展页面。
+
+        走 ``wm.url_open``（调用系统默认浏览器），不用 Blender 自己弹窗：
+        装插件这件事必须在浏览器/偏好设置里完成，插件只能把人送过去。
+        返回是否成功唤起浏览器，失败时由调用方给出可手动复制的地址。
+        """
+        try:
+            bpy.ops.wm.url_open(url=MMD_TOOLS_URL)
+            return True
+        except Exception:
+            return False
 
     @staticmethod
     def _model_meshes(armature):
