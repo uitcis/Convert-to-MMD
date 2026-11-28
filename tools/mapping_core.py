@@ -527,6 +527,27 @@ AMBIGUOUS_PRIMARY = {
 
 _PRESET_STATS = None
 _NAME_SCORE_CACHE = {}
+# 纯函数结果缓存。候选生成阶段这几个函数被调用数十万次，而输入
+# （骨名）的取值空间只有骨数那么多——同一根骨名会被 64 个字段各问
+# 一遍，每次都重跑正则拆分/归一化。实测 Tifa_rig（1792 骨）：
+# _tokens 87 万次、re.sub 296 万次，占 solve 总耗时约 20%。
+_NORM_CACHE = {}
+_TOKENS_CACHE = {}
+_SUPPORT_BONE_CACHE = {}
+_CATEGORY_MATCH_CACHE = {}
+_RATIO_CACHE = {}
+# 缓存的输入是骨名，跨模型会累加；超限整体清空即可，不清也不会算错。
+_CACHE_LIMIT = 40000
+
+
+def _trim_caches():
+    """缓存规模过大时清空，避免长会话里跨模型无限增长。"""
+    if len(_NORM_CACHE) <= _CACHE_LIMIT:
+        return
+    for cache in (_NORM_CACHE, _TOKENS_CACHE, _SUPPORT_BONE_CACHE,
+                  _CATEGORY_MATCH_CACHE, _RATIO_CACHE,
+                  _NAME_SCORE_CACHE):
+        cache.clear()
 
 
 # ---------------------------------------------------------------- 基础工具
@@ -587,10 +608,14 @@ def _field_side(field):
 
 def _normalize(name):
     """归一化骨骼名：全角数字转半角、去常见前缀、去分隔符、小写。"""
+    cached = _NORM_CACHE.get(name)
+    if cached is not None:
+        return cached
     n = name.lower()
     n = n.translate(str.maketrans("０１２３４５６７８９", "0123456789"))
     n = re.sub(r"^(mixamorig|bip0?0?1|vrm|armature)[:._ -]*", "", n)
     n = re.sub(r"[^0-9a-z\u3040-\u30ff\u4e00-\u9fff]+", "", n)
+    _NORM_CACHE[name] = n
     return n
 
 
@@ -655,10 +680,20 @@ COMMON_NAMES = _build_common_names()
 
 
 def _tokens(name):
+    """拆词结果。返回 tuple——可缓存，调用方只读不改性。
+
+    切分规则与列表版完全一致（驼峰 / 字母数字 / 分隔符），
+    仅返回类型从 list 换成 tuple 以便进缓存。
+    """
+    cached = _TOKENS_CACHE.get(name)
+    if cached is not None:
+        return cached
     s = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
     s = re.sub(r"([A-Za-z])(\d)", r"\1 \2", s)
     s = re.sub(r"([_.:\- ])+", " ", s)
-    return [t.lower() for t in s.split() if t]
+    result = tuple(t.lower() for t in s.split() if t)
+    _TOKENS_CACHE[name] = result
+    return result
 
 
 def _band_score(band, value):
@@ -674,29 +709,18 @@ def _band_score(band, value):
 def detect_side_axis(features, up_axis=2):
     """用成对左右骨的实际坐标差推断左右轴，避免硬编码 X。
 
-    识别 left_/right_、l_/r_、.L/.R 等常见命名；找不到配对时回退：
-    高度轴不是 X 就用 X，否则用 Z。
-    """
-    left = {}
-    right = {}
-    for name, feature in features.items():
-        lower = name.lower()
-        match = re.match(r"^(left|right)[._ -]", lower)
-        if match:
-            target = left if match.group(1) == "left" else right
-            target[lower[match.end():]] = feature.head
-            continue
-        match = re.match(r"^([lr])[._ -]", lower)
-        if match:
-            target = left if match.group(1) == "l" else right
-            target[lower[match.end():]] = feature.head
-            continue
-        if lower.endswith((".l", "_l")):
-            left[lower[:-2]] = feature.head
-        elif lower.endswith((".r", "_r")):
-            right[lower[:-2]] = feature.head
+    配对统一走 _named_side_pairs——它支持前缀（LeftArm）、中间
+    （Bip001-L-Finger0）、后缀（arm.L / arm_L）三类写法。这里曾有一份
+    只认前缀与后缀的独立解析，中间式骨架（3ds Max Biped 系导出）配对
+    为空，于是回退到 X 轴：实测 Vipe 的第一人称骨架左右轴其实是 Y，
+    侧向分为 0，左肩拿到右锁骨、中心骨整片空掉。
 
-    pairs = [(left[key], right[key]) for key in left if key in right]
+    找不到配对时回退：高度轴不是 X 就用 X，否则用 Z。
+    """
+    pairs = [(features[left_name].head, features[right_name].head)
+             for left_name, right_name in _named_side_pairs(
+                 features, include_middle=True)
+             if left_name in features and right_name in features]
     if not pairs:
         return 0 if up_axis != 0 else 2
     differences = [sum(abs(l[i] - r[i]) for l, r in pairs) / len(pairs)
@@ -716,10 +740,15 @@ _SIDE_PREFIX_PATTERNS = (
 )
 
 
-def _named_side_pairs(features):
+def _named_side_pairs(features, include_middle=False):
     """找出命名成对的左右骨，返回 [(左骨名, 右骨名), ...]。
 
     识别 left_/right_、l_/r_、.L/.R、左/右、LeftArm 等常见命名。
+
+    include_middle=True 时额外认中间式（Bip001-L-Finger0）。只有轴判定
+    用它：Biped 系骨架全篇是中间式，不认就配不出对；而镜像兜底不用它，
+    是因为中间式的键要重组前缀与后缀，与后缀式的键可能撞车，改变兜底
+    选骨（实测 TP 骨架填充从 58 掉到 43）。
     """
     left = {}
     right = {}
@@ -741,12 +770,23 @@ def _named_side_pairs(features):
             break
         if matched:
             continue
-        # 后缀式：arm.L / arm_L。用独立前缀标记，避免与前缀式的
-        # 同名键（如 LeftArm 与 arm.L 的键都是 "arm"）互相覆盖。
-        if lower.endswith((".l", "_l")):
-            left["~" + lower[:-2]] = name
-        elif lower.endswith((".r", "_r")):
-            right["~" + lower[:-2]] = name
+        if include_middle:
+            # 中间式：Bip001-L-Finger0 / arm_L_01 / arm.L.001
+            match = re.match(r"^(.+?)[._: -]([lr])[._: -](.+)$", lower)
+            if match:
+                key = f"{match.group(1)}~{match.group(3)}"
+                (left if match.group(2) == "l" else right)[key] = name
+                continue
+        # 后缀式：arm.L / arm_L / G Clavicle L。用独立前缀标记，避免与
+        # 前缀式的同名键（如 LeftArm 与 arm.L 的键都是 "arm"）互相覆盖。
+        # 空格分隔是 3ds Max 系骨架的常态（DNF 全篇 G Thigh L / G
+        # Clavicle R），不认它整副骨架配不出一对：中轴会回退到「侧向
+        # 跨度中点」，被单侧武器/披风拉偏——暗刃实测偏 0.109（5.5%
+        # 身高），head / neck / upper_body 三个核心骨全被挤出中轴容差。
+        tail = re.search(r"[ ._\-]([lr])$", lower)
+        if tail:
+            key = "~" + lower[:tail.start()]
+            (left if tail.group(1) == "l" else right)[key] = name
     return [(left[key], right[key]) for key in left if key in right]
 
 
@@ -763,10 +803,20 @@ def detect_spine_chain(features, up_axis=2):
     """找出脊柱主链：从骨架根骨出发，沿「最高的子骨」连续向下。
 
     每层有多个子骨时（躯干分出四肢），脊柱是那个继续向上的——
-    高度最大的那个。这样得到的是脊柱而非四肢分支。
+    子树顶端最高的那个。这样得到的是脊柱而非四肢分支。
 
     比「离中轴多远」可靠：髋关节距中轴约身高的 5%，纯距离阈值
     很难卡准；而脊柱链是拓扑事实。
+
+    两条补充判据（都是真实模型踩出来的）：
+      - **多根骨架**（xps 转出的常见形态：一根空的 Body 占位骨 + 一根
+        真正的 G Root）只从第一个根走会走进空占位骨，整条链只剩它
+        自己，中心骨字段因此全空。改为遍历全部根，取子树最深的那条。
+      - **悬空道具骨**（HIT2 手里飘在头顶上方的 Orb_BONE，up=178 而
+        躯干顶只有 154）自身最高，但它下面没有任何延伸，选它链就断。
+        所以先排除**不能继续延伸**的叶子，必要时按 1% 身高内的高度差
+        用子树深度决胜——骨盆层选「脊柱」而不是「裙摆」，差的正是
+        这 0.09。
     """
     if not features:
         return set()
@@ -779,25 +829,36 @@ def detect_spine_chain(features, up_axis=2):
             roots.append(name)
     if not roots:
         return set()
-    def subtree_top(name):
-        """子树中最高处的坐标（用于判断哪条分支是脊柱）。"""
-        best = features[name].head[up_axis]
-        stack = [name]
-        seen = set()
+
+    _cache = {}
+
+    def subtree_info(name):
+        """(子树最高处的归一化高度, 子树最深深度)。"""
+        if name in _cache:
+            return _cache[name]
+        node = features[name]
+        top = node.z_pct
+        deepest = node.depth
+        stack = list(children.get(name, []))
+        seen = {name}
         while stack:
             current = stack.pop()
             if current in seen:
                 continue
             seen.add(current)
-            node = features.get(current)
-            if node is None:
+            child = features.get(current)
+            if child is None:
                 continue
-            best = max(best, node.head[up_axis])
+            top = max(top, child.z_pct)
+            deepest = max(deepest, child.depth)
             stack.extend(children.get(current, []))
-        return best
+        _cache[name] = (top, deepest)
+        return _cache[name]
 
-    # 从最低的根骨出发
-    current = min(roots, key=lambda n: features[n].head[up_axis])
+    # 从「子树最深」的根骨出发：多根骨架里，真正的身体根能一直延伸到
+    # 末梢，占位空骨下面什么都没有。平手时取最低的（身体根通常贴地）。
+    current = max(roots, key=lambda n: (subtree_info(n)[1],
+                                        -features[n].head[up_axis]))
     chain = set()
     seen = set()
     while current and current not in seen:
@@ -806,11 +867,17 @@ def detect_spine_chain(features, up_axis=2):
         kids = children.get(current, [])
         if not kids:
             break
-        # 脊柱 = **子树顶端最高**的子骨分支。不能只看自身 head：
-        # 特效骨（如 Gley 的 Fx_Screen）自身位置偏高，但它没有向上的
-        # 子树；真正的脊柱分支（Bip001-Pelvis → Spine → … → Head）
-        # 子树能延伸到头顶。
-        current = max(kids, key=subtree_top)
+        # 先排除叶子：悬空的法球/武器挂点自身可能最高，但一走就断。
+        extendable = [k for k in kids
+                      if features[k].child_count > 0]
+        pool = extendable or kids
+        # 1% 身高内的高度差视为并列，用子树深度决胜（脊柱比裙摆长）。
+        # 仍平手时按骨名排序取第一个——Blender 内嵌 Python 的集合遍历
+        # 顺序每进程随机，排序键必须完全确定。
+        best = max(subtree_info(k)[0] for k in pool)
+        near = [k for k in pool if best - subtree_info(k)[0] <= 0.01]
+        near.sort(key=lambda k: (-subtree_info(k)[1], k))
+        current = near[0]
     return chain
 
 
@@ -960,6 +1027,12 @@ def _find_palm_bones(features, span):
     max_depth = max((f.depth for f in features.values()), default=0)
     if max_depth <= 0:
         return set()
+    # 脊柱链只有在真的走到头顶时才可信——半身/单手骨架（测试用的合成
+    # 骨架、只有上半身的扫描件）里它会被臂骨带偏，此时不启用下面的
+    # 「挂在脊柱上的不是手」过滤。
+    spine = detect_spine_chain(features)
+    if max((features[n].z_pct for n in spine), default=0.0) < 0.8:
+        spine = set()
     palms = set()
     for name, feature in features.items():
         chains = _collect_finger_chains(features, feature, max_len)
@@ -968,9 +1041,19 @@ def _find_palm_bones(features, span):
         # 不作为指头数量的假定。
         if len(chains) < 3 or len(chains) > MAX_PALM_CHAINS:
             continue
-        # 手掌在骨架末端：深度需达到整体深度的 35% 以上。
-        # 实测手部约 0.36~0.59，胸腔/头部/骨盆等中段挂点约 0.11~0.29。
-        if feature.depth < max_depth * 0.35:
+        # 手掌在骨架末端：自身深度够大。比例取 0.30——xps 转出的骨架
+        # 常多一根占位根骨（DNF 本体里 02A Body 与 G Root 并列为根），
+        # 全身深度各 +1，手掌的比例就从 0.36 掉到 0.33，原来的 0.35
+        # 会把手掌整个刷掉，连带躯干字段全空。
+        if feature.depth < max_depth * 0.30:
+            continue
+        # 分叉必须发生在**手掌这一层**：手直接挂着 3 根以上细长骨，
+        # 而前臂只挂手掌一根（它的 6 条链是穿过手掌数出来的），两者
+        # 深度只差一层、方向完全一致，只有这条能分开。DNF 的拇指/无名
+        # 指另挂在 Fist 下，手掌仍直挂 A/B/C 三根，故门槛取 3 不取 5。
+        direct = [c for c in feature.children
+                  if c in features and features[c].length <= max_len]
+        if len(direct) < 3:
             continue
         roots = [features[chain[0]] for chain in chains]
         # 根部聚集度：各链根都应靠近手掌骨（手掌末端的同一小片区域），
@@ -1003,6 +1086,13 @@ def _find_palm_bones(features, span):
             best_parallel = max(best_parallel, aligned)
         if best_parallel < 2:
             continue  # 连两条都平行不了，方向杂乱，不是手
+        # 手掌的父骨是前臂，不在脊柱上。帽子、胸腔装饰、裙摆这些
+        # 「挂几条细链又聚在一小片」的部位全挂在脊柱链的骨（头、胸、
+        # 骨盆）下面——漫游实测 GU Hat 8 条帽穗挂 Head 下、GDP Chest
+        # Scl 15 条胸饰挂 Chest 下，它们通过前面所有几何判据，会把
+        # 手指推断带偏到衣领骨上。
+        if feature.parent in spine:
+            continue
         palms.add(name)
     return palms
 
@@ -1045,7 +1135,7 @@ def infer_finger_roles(features, span, side_axis=None, up_axis=2):
     # 按手掌骨分组收集手指链
     palms = _find_palm_bones(features, span)
     if not palms:
-        return {}
+        return {}, {}, {}
     max_len = FINGER_LEN_RATIO * span
     by_palm = {}
     for palm_name in palms:
@@ -1107,6 +1197,53 @@ def _compute_limb_domains(features, palm_names):
         limb |= _subtree_bones(features, palm_name)
     torso = set(features.keys()) - limb
     return limb, torso
+
+
+def _compute_arm_domains(features, palm_names, span, side_axis):
+    """上肢域：手掌骨自身，加上沿父链往上的手臂骨（手指链不含）。
+
+    手指域只含手掌子树——上臂、小臂、锁骨都是手掌的**祖先**，不在其中，
+    所以手臂字段没有域可依。不设域时上臂会退而求其次拿到任意「同侧、
+    同高度」的骨：实测蒂法把头发骨 DEF-Hair_E_05.L 填进上臂（0.385，
+    名称证据为零），镜把头发物理骨填进小腿和手。
+
+    也不能一路走到根：那样躯干、头发、头饰全都成了合法候选。截断条件
+    取「骨根贴近身体中轴」——锁骨的根就在中轴附近，那里正是上肢与
+    躯干的交界，对任意命名体系都成立。
+
+    Returns:
+        dict: {"left"/"right": 骨名集合}；识别不出手掌时为空 dict
+    """
+    domains = {}
+    tolerance = max(span * MIDLINE_TOLERANCE, 1e-6)
+    for palm_name in sorted(palm_names):
+        palm = features.get(palm_name)
+        if palm is None:
+            continue
+        side = "left" if palm.head[side_axis] >= 0 else "right"
+        domain = domains.setdefault(side, set())
+        # 只收手掌骨自身与它的祖先链，**不收**手掌子树：子树是手指与
+        # 掌骨附属骨（DNF 的 GDU Bake L 5、蒂法的 DEF-Knuckle_Root.L），
+        # 收进来会让「肩」「上臂」拿到手掌骨，整条链反向断裂。
+        domain.add(palm_name)
+        node = palm_name
+        while True:
+            current = features.get(node)
+            if current is None:
+                break
+            parent = features.get(current.parent) if current.parent else None
+            if parent is None:
+                break
+            if abs(parent.head[side_axis]) <= tolerance:
+                # 交界骨本身（锁骨/胸骨）可能就贴在中轴附近，它仍是
+                # 合法的「肩」候选（DNF 的 G Clavicle L 就是这样，漏了
+                # 它会让肩字段整根空掉）。收下它，但不再继续往上走，
+                # 否则脊柱、胸、头都会进上肢域。
+                domain.add(parent.name)
+                break
+            domain.add(parent.name)
+            node = parent.name
+    return domains
 
 
 def _subtree_bones(features, root_name):
@@ -1403,7 +1540,14 @@ def name_contribution(field, bone_name, stats):
     for known in table:
         if abs(len(known) - len(norm)) > 6:
             continue
-        ratio = SequenceMatcher(None, norm, known).ratio()
+        # ratio 按 (骨名, 已知名) 缓存：同一个已知名会出现在多个字段的
+        # 预设表里（spine/hips/chest 这类），同一根骨名被各字段分别
+        # 问一遍时会重复算同一个 (norm, known)。比值是纯函数，缓存安全。
+        key_ratio = (norm, known)
+        ratio = _RATIO_CACHE.get(key_ratio)
+        if ratio is None:
+            ratio = SequenceMatcher(None, norm, known).ratio()
+            _RATIO_CACHE[key_ratio] = ratio
         if ratio > best:
             best = ratio
     if best >= EDIT_MIN_RATIO:
@@ -1470,6 +1614,10 @@ def _bone_matches_category(bone_name, category):
     """
     if _is_support_bone_name(bone_name):
         return False
+    key = (bone_name, category)
+    cached = _CATEGORY_MATCH_CACHE.get(key)
+    if cached is not None:
+        return cached
     if category == "finger":
         tokens = _tokens(bone_name)
         joined = set(tokens)
@@ -1478,16 +1626,21 @@ def _bone_matches_category(bone_name, category):
         for groups in FINGER_ALIASES.values():
             for group in groups:
                 if set(group).issubset(joined):
+                    _CATEGORY_MATCH_CACHE[key] = True
                     return True
+        _CATEGORY_MATCH_CACHE[key] = False
         return False
     wanted = _category_alias_words(category)
     if not wanted:
+        _CATEGORY_MATCH_CACHE[key] = False
         return False
     tokens = _tokens(bone_name)
     joined = set(tokens)
     for index in range(len(tokens) - 1):
         joined.add(tokens[index] + tokens[index + 1])
-    return any(word in joined for word in wanted)
+    result = any(word in joined for word in wanted)
+    _CATEGORY_MATCH_CACHE[key] = result
+    return result
 
 
 def _shadowed_by_main_bone(field, feature, features):
@@ -1541,6 +1694,16 @@ def chain_relation_violated(field, feature, features):
         if _bone_matches_category(feature.name, other):
             return True
     parent_category, child_category = neighbors
+    # 名称已强命中的骨，不再用父子骨语义推翻它。
+    #
+    # 有些 rig 把肩部形变骨挂在上臂**之下**（实测 Vipe：正确的上臂骨
+    # Bip001-L-UpperArm001 的子骨叫 Bip001-L-Shoulder001），按「子骨
+    # 属于上一节」判定会把正确的上臂骨整根否决，上臂只能退而求其次
+    # 拿到大腿的扭转骨，整条手臂链断裂。这类骨架里父子关系是设计
+    # 差异而非错配，名称强证据优先；真错配（上臂字段拿到 ForeArm）
+    # 由上面第 1 条自身类别判定兜住，不依赖父子语义。
+    if _strong_alias_hit(field, _tokens(feature.name)):
+        return False
     if parent_category:
         parent_name = feature.parent
         parent = features.get(parent_name) if parent_name else None
@@ -1575,13 +1738,47 @@ SUPPORT_BONE_TOKENS = frozenset((
 ))
 
 
+# 语义命名：兜底候选要不要卡「名称证据」的前提。
+#
+# 名称分为 0 的候选只剩左右/高度/方向这类位置证据，无法区分上臂与
+# 头发（蒂法实测），所以语义骨架必须卡。但「左大臂 / 左小臂」这种
+# 全中文骨架压根没有可用的肢体别名——它的拓扑满分档同样靠名称判定
+# （_has_child_of 查子骨别名），一起卡会把整条腿臂链卡空、字段整体
+# 错位一级。
+#
+# 判据只看**肢体字段**：躯干别名（上半身/首/頭）在中文骨架里常有，
+# 但它们不参与链式判断，不能作为「这是语义骨架」的证据。
+_LIMB_PROBE_FIELDS = (
+    "left_upper_arm_bone", "left_lower_arm_bone", "left_hand_bone",
+    "left_thigh_bone", "left_calf_bone", "left_foot_bone",
+)
+
+
+def _has_limb_semantics(features, stats):
+    """骨架里是否有任何一根骨带**有效**的肢体别名证据。
+
+    阈值取包含档：编辑距离给的零头分（「左手」对 hand 得 0.075）不算
+    证据，否则部分命名的骨架会被误判成语义骨架，回头把几何候选全卡死。
+    """
+    for feature in features.values():
+        for field in _LIMB_PROBE_FIELDS:
+            if name_contribution(field, feature.name, stats)[0] >= NAME_CONTAINS:
+                return True
+    return False
+
+
 def _is_support_bone_name(bone_name):
     """骨名是否带辅助骨限定词（缩放/扭曲/挂点）。"""
+    cached = _SUPPORT_BONE_CACHE.get(bone_name)
+    if cached is not None:
+        return cached
     tokens = _tokens(bone_name)
     joined = set(tokens)
     for index in range(len(tokens) - 1):
         joined.add(tokens[index] + tokens[index + 1])
-    return any(word in joined for word in SUPPORT_BONE_TOKENS)
+    result = any(word in joined for word in SUPPORT_BONE_TOKENS)
+    _SUPPORT_BONE_CACHE[bone_name] = result
+    return result
 
 
 def _strong_alias_hit(field, tokens):
@@ -1631,6 +1828,12 @@ def _has_child_of(feature, features, category):
     nxt = _NEXT_CATEGORY.get(category)
     if nxt is None:
         return feature.child_count >= 1
+    if nxt == "finger":
+        # 下一节是手指：STRONG_ALIAS_TOKENS 里没有 finger 这个键
+        # （手指按 thumb/index/… 分字段），查它会永远落空，手掌因此
+        # 拿不到满档拓扑分。改走类别判定，认「finger/thumb/index…」。
+        return any(_bone_matches_category(child_name, "finger")
+                   for child_name in feature.children)
     wanted = STRONG_ALIAS_TOKENS.get(f"left_{nxt}_bone", ())
     for child_name in feature.children:
         child = features.get(child_name)
@@ -1798,34 +2001,28 @@ def weight_contribution(field, feature, features, ctx):
 
 
 def score_candidate(field, feature, features, ctx):
+    # 执行顺序约定：**所有与名称无关的硬否决先做完，最后才算名称证据**。
+    # name_contribution 要跑编辑距离，是整条流水线最贵的一步（实测占
+    # solve 总耗时 40% 以上）；而脊柱链 / 中轴距离 / 手指域 / 手臂域这些
+    # 否决只是集合成员测试和坐标比较。否决之间是 AND 关系，谁先谁后
+    # 不影响结果，但先判便宜的能把绝大多数「明显不相关」的骨挡在
+    # 名称计算之外（大骨架里 70% 以上的骨是被域过滤掉的）。
+    #
     # 左右符号按 0.15 权重参与几何分，而非硬过滤：即使左右轴判定有偏差，
     # 名称证据仍有机会入选，由镜像约束在成对字段间兜底。
     # 例外：左右胸是成对侧别骨，中轴胸腔骨（Chest/Spine）名字含 chest 会误命中
     # 别名，须硬过滤掉，否则与上半身2抢同一根骨并导致左右胸留空。
+    category = _category(field)
     side = _field_side(field)
-    if side is not None and _category(field) == "chest":
+    if side is not None and category == "chest":
         coord = feature.head[ctx["side_axis"]]
         if abs(coord) <= 1e-6 or (coord > 0) != (side == "L"):
             return None
-    name_raw, name_reason = name_contribution(field, feature.name, ctx["stats"])
-    topo_raw, topo_reason = topology_contribution(field, feature, features)
-    # 语义字段缺少命名证据时，单靠高度带会命中头发、脚趾等无关骨骼。
-    # 阈值用 NAME_CONTAINS(0.25) 而不是 >0——编辑距离给的零头分
-    # （如「LeftToe_End」对 eye 得 0.01）不算有效证据。
-    if name_raw < NAME_CONTAINS and _category(field) in ("eye", "chest"):
-        return None
-    # 父子关系反了 → 否决：把子骨当父骨（如上臂字段拿到小臂骨）
-    # 是结构性错误，不是分数高低问题，直接排除。
-    if chain_relation_violated(field, feature, features):
-        return None
-    # 同父下有正牌主骨时，辅助骨让位
-    if _shadowed_by_main_bone(field, feature, features):
-        return None
     # 几何推断出的手指骨只归手指字段：非手指字段（手臂、腿、躯干等）
     # 若拿手指骨当候选，回溯会把手臂字段抢到手指骨上，导致
     # 手指字段无骨可用、出现半截手指。
-    if (_category(field) != "finger"
-            and feature.name in (ctx.get("finger_roles") or {})):
+    finger_roles = ctx.get("finger_roles") or {}
+    if category != "finger" and feature.name in finger_roles:
         return None
     # 反向约束（手指字段）：
     #   ① 骨必须长在同侧的上肢分支上——手指骨必然是手掌骨的后代，
@@ -1855,21 +2052,47 @@ def score_candidate(field, feature, features, ctx):
             low, high = band
             if not (low <= feature.z_pct <= high):
                 return None
-    if _category(field) in ("torso", "center", "hip"):
+    if category in ("torso", "center", "hip"):
         torso_domain = ctx.get("torso_domain")
         if torso_domain and feature.name not in torso_domain:
             return None
 
-    if _category(field) == "finger":
-        side = "left" if field.startswith("left_") else "right"
-        domains = ctx.get("finger_domains") or {}
-        domain = domains.get(side)
+    # 上肢字段的候选必须在同侧上肢域内。域 = 手掌骨子树 + 沿父链向上的
+    # 手臂骨（到贴近中轴处停），见 _compute_arm_domains。没有这条约束时，
+    # 上臂/小臂/手的候选会退化成「同侧、同高度的任意骨」——蒂法实测把
+    # 头发骨填进上臂，镜把头发物理骨填进小腿和手。
+    if category in ("shoulder", "upper_arm", "lower_arm", "hand"):
+        arm_domains = ctx.get("arm_domains") or {}
+        arm_side = "left" if side == "L" else "right"
+        domain = arm_domains.get(arm_side)
+        if domain and feature.name not in domain:
+            return None
+
+    if category == "finger":
+        domain = (ctx.get("finger_domains") or {}).get(
+            "left" if field.startswith("left_") else "right")
         if domain is not None and feature.name not in domain:
             return None
-        has_name_evidence = name_raw > 0.0
-        in_finger_roles = feature.name in (ctx.get("finger_roles") or {})
-        if not (has_name_evidence or in_finger_roles):
-            return None
+
+    # 父子关系反了 → 否决：把子骨当父骨（如上臂字段拿到小臂骨）
+    # 是结构性错误，不是分数高低问题，直接排除。
+    if chain_relation_violated(field, feature, features):
+        return None
+    # 同父下有正牌主骨时，辅助骨让位
+    if _shadowed_by_main_bone(field, feature, features):
+        return None
+
+    name_raw, name_reason = name_contribution(field, feature.name, ctx["stats"])
+    # 语义字段缺少命名证据时，单靠高度带会命中头发、脚趾等无关骨骼。
+    # 阈值用 NAME_CONTAINS(0.25) 而不是 >0——编辑距离给的零头分
+    # （如「LeftToe_End」对 eye 得 0.01）不算有效证据。
+    if name_raw < NAME_CONTAINS and category in ("eye", "chest"):
+        return None
+    if category == "finger" and not (name_raw > 0.0
+                                     or feature.name in finger_roles):
+        return None
+
+    topo_raw, topo_reason = topology_contribution(field, feature, features)
     geo_parts, geo_reason = geometry_contributions(field, feature, features, ctx)
     if geo_parts is None:
         # 几何推断判定该骨的手指身份与字段冲突，排除此候选
@@ -2029,12 +2252,35 @@ def _solve_backtrack(candidates, field_order, features, ctx):
             len(candidates.get(field, [])))
 
     order = sorted(field_order, key=sort_key)
-    remaining = [0.0] * (len(order) + 1)
-    for index in range(len(order) - 1, -1, -1):
-        field = order[index]
-        best = max((c["score"] for c in candidates.get(field, [])), default=0.0)
-        remaining[index] = (remaining[index + 1] + best + FILL_BONUS
-                            + field_bonus(field))
+    # 没有候选的字段一点分都拿不到（DFS 里根本不会给它赋值），
+    # 不能计入上界。否则上界虚高：一个空字段白送 FILL_BONUS(0.15)
+    # + field_bonus(核心骨 0.12)，60 个字段就是 11 分，
+    # 而最优解通常只有 10~20 分 —— 剪枝条件 total+remaining<=best
+    # 永远不成立，退化成全树遍历。实测仅 10 根骨的服装骨架
+    # （DashBikini_Bottom）也会跑满 200k 节点上限。
+    # 顺带把空字段剔出 order：它们无论如何都填不上，留在搜索路径上
+    # 只是白白增加 2^空字段数 的节点深度。
+    order = [f for f in order if candidates.get(f)]
+    count = len(order)
+    gains = []
+    for field in order:
+        best = max(c["score"] for c in candidates[field])
+        gains.append(best + FILL_BONUS + field_bonus(field))
+
+    # 上界不能逐字段求和：同一根骨只能分给一个字段。若剩余 L 个字段
+    # 的候选骨并集只有 U 根（L > U），实际最多填 U 个字段。
+    # 服装/头发这类骨架常是十几个字段抢三五根骨（Flex_Bra 16 骨、
+    # Nyao Tail 23 骨），简单求和得上界 15 分而最优解只有 4 分，
+    # 虚高 4 倍 → 剪枝永不触发，200k 节点跑满。
+    remaining = [0.0] * (count + 1)
+    suffix_bones = [frozenset()] * (count + 1)
+    for index in range(count - 1, -1, -1):
+        suffix_bones[index] = (
+            suffix_bones[index + 1]
+            | frozenset(c["bone"] for c in candidates[order[index]]))
+        pool = sorted(gains[index:], reverse=True)
+        capacity = min(len(pool), len(suffix_bones[index]))
+        remaining[index] = sum(pool[:capacity])
 
     # 先按同一顺序求一个贪心解当保底下界：搜索被节点上限截断时也有结果，
     # 且强下界能让后续剪枝提前生效。
@@ -2288,6 +2534,7 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
     """
     if not features:
         return {}, [], {}
+    _trim_caches()
     if stats is None:
         stats = load_preset_stats(preset_dir) if preset_dir else load_preset_stats()
     ctx = {
@@ -2304,6 +2551,11 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
         symmetric, symmetry_error = True, 0.0
     ctx["symmetric"] = symmetric
     ctx["symmetry_error"] = symmetry_error
+    # 骨架是否用了肢体语义命名：决定兜底候选是否必须带名称证据
+    try:
+        ctx["limb_semantics"] = _has_limb_semantics(features, stats)
+    except Exception:
+        ctx["limb_semantics"] = True
     # 身体中轴与脊柱主链：中心骨必须在脊柱上且贴近中轴
     try:
         ctx["midline"] = detect_midline(features, side_axis)
@@ -2340,8 +2592,11 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
         palm_names = list(_find_palm_bones(features, span))
         _limb, torso = _compute_limb_domains(features, palm_names)
         ctx["torso_domain"] = torso
+        ctx["arm_domains"] = _compute_arm_domains(
+            features, palm_names, span, side_axis)
     except Exception:
         ctx["torso_domain"] = set()
+        ctx["arm_domains"] = {}
 
     candidates = {}
     best_scores = {}
@@ -2355,10 +2610,23 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
             candidate = score_candidate(field, feature, features, ctx)
             if not candidate:
                 continue
+            # 候选必须有「名称」或「满档拓扑」支持（语义骨架才卡，见
+            # _semantic_coverage）。名称分为 0 时剩下的只有左右 / 高度 /
+            # 方向这类位置证据，总分天花板约 0.46——足够跨过正式候选线，
+            # 却完全无法区分上臂与头发。蒂法实测上臂被填成头发骨
+            # DEF-Hair_E_05.L（0.385，名称 0），整条手臂链反向断裂；
+            # 镜的腿和手被十几根头发物理骨占满。
+            strict = ctx.get("limb_semantics", True)
+            parts = candidate["parts"]
+            has_evidence = (not strict
+                            or parts.get("name", 0.0) > 0.0
+                            or parts.get("topology", 0.0) >= TOPO_MAX - 1e-9)
             if candidate["score"] >= MIN_CANDIDATE_SCORE:
-                field_candidates.append(candidate)
+                if has_evidence:
+                    field_candidates.append(candidate)
             elif candidate["score"] >= SPARE_CANDIDATE_SCORE:
-                field_spares.append(candidate)
+                if has_evidence:
+                    field_spares.append(candidate)
         field_candidates.sort(key=lambda c: c["score"], reverse=True)
         field_spares.sort(key=lambda c: c["score"], reverse=True)
         if field_candidates:

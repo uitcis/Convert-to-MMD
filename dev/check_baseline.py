@@ -45,9 +45,29 @@ def main():
     if "--" not in argv:
         print("用法：-- <model.blend>")
         return 1
-    model = argv[argv.index("--") + 1]
+    args = argv[argv.index("--") + 1:]
+    model = args[0]
+    # 一个 .blend 可能含多套骨架（如角色 FP/TP/Hair 各一份），
+    # 默认取第一个，可用 --armature <名称或序号> 指定。
+    want = None
+    if "--armature" in args:
+        want = args[args.index("--armature") + 1]
+
     bpy.ops.wm.open_mainfile(filepath=model)
-    armature = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
+    armatures = [o for o in bpy.data.objects if o.type == 'ARMATURE']
+    if not armatures:
+        print("没有骨架对象")
+        return 1
+    if want is None:
+        armature = armatures[0]
+    elif want.isdigit():
+        armature = armatures[int(want)]
+    else:
+        armature = next((o for o in armatures if o.name == want), None)
+    if armature is None:
+        print(f"找不到骨架 {want}；可选：{[o.name for o in armatures]}")
+        return 1
+    print(f"ARMATURES {[o.name for o in armatures]}")
 
     features, span, diagonal, z_min, up_axis = build_features(armature)
     side_axis = detect_side_axis(features, up_axis)
@@ -71,6 +91,10 @@ def main():
     print(f"MODEL {os.path.basename(model)}")
     print(f"STAT filled={result['filled']} solid={result['solid']} "
           f"low={result['low_conf']} broken={len(broken)}")
+    lows = sorted(f for f, c in filled.items() if c.get("low_confidence"))
+    if lows:
+        print("LOW  " + " ".join(f"{f}={filled[f]['bone']}"
+                                 f"({filled[f]['score']:.2f})" for f in lows))
     for parent_field, child_field, parent_bone, child_bone in broken:
         print(f"  !! {child_field} < {parent_field}: "
               f"{child_bone} 不是 {parent_bone} 的后代")

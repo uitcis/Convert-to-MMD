@@ -1895,5 +1895,409 @@ class FingerChainConsistencyTests(unittest.TestCase):
         self.assertEqual(domains, domains2)
 
 
+class RealModelRegressionTests(unittest.TestCase):
+    """Vipe / 蒂法 / 镜 / 全中文骨架实测暴露的缺陷回归。
+
+    每条对应一次真实事故，改回旧写法必须让测试失败：
+      - Vipe：上臂骨被子骨（肩部形变骨）连坐否决，链断 4 处；
+      - Vipe：Bip001-L-* 中间式侧别配不出对，左右轴退化到 X，左肩拿到右锁骨；
+      - 蒂法：上臂无骨可用时兜底填了头发骨，手臂链反向断裂；
+      - 全中文骨架：把兜底证据门槛套上去，整条腿臂链错位一级。
+    """
+
+    @staticmethod
+    def _build(rename=None, extra=(), drop=()):
+        rename = rename or {}
+        center = [
+            ("Root", None, (0, 0, 0.0)),
+            ("Hips", "Root", (0, 0, 0.95)),
+            ("Spine", "Hips", (0, 0, 1.15)),
+            ("Chest", "Spine", (0, 0, 1.45)),
+            ("Neck", "Chest", (0, 0, 1.70)),
+            ("Head", "Neck", (0, 0, 1.85)),
+        ]
+        limbs = []
+        for side, sign in (("Left", 1), ("Right", -1)):
+            limbs.extend([
+                (f"{side}Clavicle", "Chest", (sign * 0.06, 0, 1.62)),
+                (f"{side}UpperArm", f"{side}Clavicle", (sign * 0.18, 0, 1.62)),
+                (f"{side}ForeArm", f"{side}UpperArm", (sign * 0.42, 0, 1.62)),
+                (f"{side}Hand", f"{side}ForeArm", (sign * 0.64, 0, 1.62)),
+                (f"{side}Thigh", "Hips", (sign * 0.10, 0, 0.92)),
+                (f"{side}Calf", f"{side}Thigh", (sign * 0.10, 0, 0.50)),
+                (f"{side}Foot", f"{side}Calf", (sign * 0.10, 0, 0.08)),
+            ])
+        raw = [(n, p, h) for n, p, h in center + limbs
+               if n not in drop and p not in drop]
+        definitions = [(rename.get(n, n), rename.get(p, p) if p else None, h)
+                       for n, p, h in raw]
+        definitions.extend(extra)
+        features = {}
+        for name, parent, head in definitions:
+            length = 0.2
+            for child_name, child_parent, child_head in definitions:
+                if child_parent != name:
+                    continue
+                length = max(0.05, sum((child_head[i] - head[i]) ** 2
+                                       for i in range(3)) ** 0.5)
+                break
+            features[name] = make_feature(
+                name, head=head,
+                tail=(head[0], head[1], head[2] + length),
+                parent=parent,
+                children=[n for n, p, _ in definitions if p == name],
+                length=length, z_pct=head[2] / 2.0)
+        return features
+
+    @staticmethod
+    def _solve(features):
+        return core.solve(core.FIELD_ORDER, features, span=2.0, diagonal=2.0,
+                          z_min=0.0, up_axis=2, side_axis=0,
+                          stats=core.load_preset_stats())
+
+    def test_strong_alias_survives_shoulder_child(self):
+        """上臂骨挂着同名肩部形变骨时，不能被子骨连坐否决。
+
+        骨名不能带 shape/scl 这类辅助词——辅助骨本来就不参与链判定，
+        用它们测不到这条规则（那会让测试假通过）。
+        """
+        features = self._build(
+            extra=[("LeftShoulder", "LeftUpperArm", (0.18, 0, 1.55))])
+        self.assertFalse(
+            core.chain_relation_violated(
+                "left_upper_arm_bone", features["LeftUpperArm"], features),
+            "自身名称已强命中 upperarm，不该被子骨语义否决")
+
+    def test_wrong_segment_still_vetoed_by_own_name(self):
+        """自身名称指向别的环节仍然要否决（这条不能被上一条放宽掉）。"""
+        features = self._build()
+        self.assertTrue(core.chain_relation_violated(
+            "left_upper_arm_bone", features["LeftForeArm"], features))
+
+    def test_biped_middle_side_names_pair_for_axis(self):
+        """Bip001-L-* 中间式命名要能配出左右对，否则左右轴退化到 X。"""
+        features = self._build(rename={
+            "LeftClavicle": "Bip001-L-Clavicle",
+            "RightClavicle": "Bip001-R-Clavicle",
+        })
+        pairs = core._named_side_pairs(features, include_middle=True)
+        self.assertIn(("Bip001-L-Clavicle", "Bip001-R-Clavicle"), pairs)
+        # 镜像兜底仍用旧口径：中间式重组的键不参与兜底配对
+        default_pairs = core._named_side_pairs(features)
+        self.assertNotIn(("Bip001-L-Clavicle", "Bip001-R-Clavicle"),
+                         default_pairs)
+
+    def test_arm_domain_covers_ancestors_not_palm_subtree(self):
+        """上肢域要含手臂祖先（上臂/小臂/锁骨），但不能含手掌子树。"""
+        features = self._build(
+            extra=[("LeftIndex1", "LeftHand", (0.70, 0.02, 1.62))])
+        domains = core._compute_arm_domains(
+            features, ["LeftHand"], span=2.0, side_axis=0)
+        left = domains["left"]
+        for bone in ("LeftHand", "LeftForeArm", "LeftUpperArm", "LeftClavicle"):
+            self.assertIn(bone, left, f"{bone} 应在上肢域内")
+        self.assertNotIn("LeftIndex1", left, "手掌子树（手指）不该进上肢域")
+        # 交界骨（这里锁骨的父 Chest）允许留在域内——DNF 的锁骨根就贴
+        # 中轴，砍掉它会让肩字段整根空掉；但更不能继续往上收到 Neck/Head。
+        self.assertNotIn("Neck", left)
+        self.assertNotIn("Head", left)
+
+    def test_palm_topology_full_when_children_are_fingers(self):
+        """手掌的子骨是手指时，拓扑要拿满档（finger 没有强别名词条）。"""
+        features = self._build(
+            extra=[("LeftIndex1", "LeftHand", (0.70, 0.02, 1.62))])
+        score, _reason = core.topology_contribution(
+            "left_hand_bone", features["LeftHand"], features)
+        self.assertAlmostEqual(score, core.TOPO_MAX)
+
+    def test_geometry_only_candidate_not_filled_in_semantic_rig(self):
+        """语义骨架里上臂位置被头发骨占着时，不能靠几何分把它填进上臂。
+
+        对应蒂法：上臂字段没有可用骨，兜底按纯几何分抓了同高度同侧别的
+        头发骨 DEF-Hair_E_05.L，整条手臂链反向断裂。
+        """
+        features = self._build(
+            rename={"LeftUpperArm": "DEF-Nub"},
+            extra=[("DEF-HairStrand", "Head", (0.30, 0.0, 1.60))])
+        filled, _low, _result = self._solve(features)
+        self.assertNotEqual(
+            filled.get("left_upper_arm_bone", {}).get("bone"),
+            "DEF-HairStrand",
+            "挂在头下的头发骨不能靠几何分抢走上臂字段")
+        self.assertEqual(filled.get("left_upper_arm_bone", {}).get("bone"),
+                         "DEF-Nub")
+
+    def test_plain_geometry_rig_still_fills_limbs(self):
+        """全中文 Bone 名（无任何别名）仍要能靠几何填上，不能留空。"""
+        features = self._build(rename={
+            "LeftClavicle": "左肩", "RightClavicle": "右肩",
+            "LeftUpperArm": "左大臂", "RightUpperArm": "右大臂",
+            "LeftForeArm": "左小臂", "RightForeArm": "右小臂",
+            "LeftHand": "左手", "RightHand": "右手",
+            "LeftThigh": "左大腿", "RightThigh": "右大腿",
+            "LeftCalf": "左小腿", "RightCalf": "右小腿",
+            "LeftFoot": "左脚", "RightFoot": "右脚",
+        })
+        filled, _low, _result = self._solve(features)
+        self.assertEqual(filled.get("left_upper_arm_bone", {}).get("bone"),
+                         "左大臂")
+        self.assertEqual(filled.get("left_calf_bone", {}).get("bone"), "左小腿")
+
+
+class RigTopologyRobustnessTests(unittest.TestCase):
+    """真实骨架的三种「结构变体」：多根、悬空道具骨、前臂挂多条链。
+
+    全部来自 136 个模型目录的实测失败，不是假设。
+    """
+
+    @staticmethod
+    def _features(specs):
+        """specs: [(name, parent, head, z_pct)] → features 字典。"""
+        features = {}
+        for name, parent, head, z_pct in specs:
+            features[name] = make_feature(
+                name, head=head, tail=(head[0], head[1], head[2] + 0.05),
+                parent=parent,
+                children=[],
+                depth=0, length=0.05, z_pct=z_pct)
+        for name, parent, _head, _z in specs:
+            if parent:
+                features[parent].children.append(name)
+                features[parent].child_count += 1
+        for name in features:
+            depth = 0
+            parent = features[name].parent
+            while parent:
+                depth += 1
+                parent = features[parent].parent
+            features[name].depth = depth
+        return features
+
+    def test_spine_starts_from_root_with_subtree(self):
+        """双根骨架：空占位根不能当选，否则整条脊柱链只剩它自己。
+
+        实测 DNF 本体（xps 转出）：02A Body 与 G Root 并列为根，
+        只从第一个根走会让 head/neck/upper_body 三个核心骨全空。
+        """
+        features = self._features([
+            ("Placeholder", None, (0.0, 0.0, 0.0), 0.0),
+            ("G Root", None, (0.0, 0.0, 0.0), 0.0),
+            ("G Pelvis", "G Root", (0.0, 0.0, 1.0), 0.5),
+            ("G Spine", "G Pelvis", (0.0, 0.0, 1.2), 0.6),
+            ("G Head", "G Spine", (0.0, 0.0, 1.7), 0.9),
+        ])
+        chain = core.detect_spine_chain(features, 2)
+        self.assertIn("G Head", chain)
+        self.assertNotIn("Placeholder", chain)
+
+    def test_spine_ignores_floating_prop_above_body(self):
+        """悬空道具骨位置最高但下面没延伸，不能抢走脊柱链。
+
+        实测 HIT2：手里飘在头顶上方的 Orb_BONE（up=178）比躯干顶
+        （154）高，选中它链就断，中心骨全空。
+        """
+        features = self._features([
+            ("Dummy_Root", None, (0.0, 0.0, 0.0), 0.0),
+            ("Bip001", "Dummy_Root", (0.0, 0.0, 1.0), 0.5),
+            ("Bip001-Pelvis", "Bip001", (0.0, 0.0, 1.0), 0.5),
+            ("Bip001-Spine", "Bip001-Pelvis", (0.0, 0.0, 1.2), 0.6),
+            ("Bip001-Head", "Bip001-Spine", (0.0, 0.0, 1.7), 0.9),
+            ("Orb_BONE", "Dummy_Root", (0.0, 0.0, 2.0), 1.0),
+        ])
+        chain = core.detect_spine_chain(features, 2)
+        self.assertIn("Bip001-Head", chain)
+        self.assertNotIn("Orb_BONE", chain)
+
+    def test_forearm_is_not_a_palm(self):
+        """前臂不能当手掌：它的子链是穿过手掌数出来的，直挂只有 1 根。
+
+        DNF 前臂直挂 6 根缩放骨 + 手掌，深度只比手掌浅一层、方向完全
+        一致，靠「直挂细长骨 ≥3」区分（前臂 1 根，手掌 5 根）。
+        """
+        span = 2.0
+        specs = [
+            ("Chest", None, (0.0, 0.0, 1.0), 0.5),
+            ("ForeArm", "Chest", (0.9, 0.0, 1.05), 0.52),
+            ("Hand", "ForeArm", (1.0, 0.0, 1.0), 0.5),
+        ]
+        for finger in ("A", "B", "C"):
+            for seg in range(1, 4):
+                specs.append((f"{finger}{seg}",
+                              "Hand" if seg == 1 else f"{finger}{seg - 1}",
+                              (1.0, (ord(finger) - 65 - 1) * 0.03,
+                               0.98 - 0.04 * seg), 0.49))
+        features = self._features(specs)
+        for name, feature in features.items():
+            feature.length = 0.05
+        palms = core._find_palm_bones(features, span)
+        self.assertIn("Hand", palms)
+        self.assertNotIn("ForeArm", palms, "前臂不该被当成手掌")
+
+    def test_space_suffixed_side_pairs(self):
+        """空格分隔的侧别后缀（G Thigh L）必须配得上对。
+
+        DNF 全篇这种写法。配不出对时中轴回退到「侧向跨度中点」，
+        被单侧武器拉偏——暗刃实测偏 0.109（5.5% 身高），三个核心骨
+        全被挤出中轴容差。
+        """
+        features = self._features([
+            ("G Thigh L", None, (0.15, 0.0, 0.9), 0.45),
+            ("G Thigh R", None, (-0.15, 0.0, 0.9), 0.45),
+        ])
+        pairs = core._named_side_pairs(features)
+        self.assertIn(("G Thigh L", "G Thigh R"), pairs)
+        self.assertAlmostEqual(core.detect_midline(features, 0), 0.0, places=6)
+
+
+class SearchBoundValidityTests(unittest.TestCase):
+    """搜索上界必须是**有效**上界：收紧过头会剪掉真正的最优解。
+
+    背景：候选生成占 solve 总耗时 95%，为了压掉它做了两件事——
+    ① 把与名称无关的硬否决前置（不影响结果，只省调用）；
+    ② 给 DFS 的 remaining 上界加「骨骼容量」修正（同一根骨只能给
+       一个字段，L 个字段抢 U 根骨时最多填 U 个）。
+    第 ② 条一旦算错就会静默剪掉最优解，而且症状是「填充少一两个」，
+    很难和调参混在一起。这组测试用暴力枚举做基准钉住它。
+    """
+
+    FIELDS = ("upper_body_bone", "neck_bone", "head_bone")
+
+    def _rig(self):
+        # Root → Spine → Chest → Neck → Head，外加一根挂在根上的道具骨，
+        # 用来制造「字段比骨多」的争抢场景。
+        return RigTopologyRobustnessTests._features([
+            ("Root", None, (0.0, 0.0, 0.00), 0.30),
+            ("Spine", "Root", (0.0, 0.0, 0.45), 0.45),
+            ("Chest", "Spine", (0.0, 0.0, 0.60), 0.60),
+            ("Neck", "Chest", (0.0, 0.0, 0.72), 0.72),
+            ("Head", "Neck", (0.0, 0.0, 0.82), 0.82),
+            ("Prop", "Root", (0.0, 0.0, 0.40), 0.40),
+        ])
+
+    def _candidates(self):
+        """三个字段都盯着 Chest / Neck 这几根骨，故意造成容量冲突。"""
+        def make(field, bone, score):
+            return {"field": field, "bone": bone, "score": score}
+
+        return {
+            "upper_body_bone": [
+                make("upper_body_bone", "Spine", 0.95),
+                make("upper_body_bone", "Chest", 0.90),
+                make("upper_body_bone", "Prop", 0.60),
+            ],
+            "neck_bone": [
+                make("neck_bone", "Chest", 0.92),
+                make("neck_bone", "Neck", 0.88),
+            ],
+            "head_bone": [
+                make("head_bone", "Neck", 0.90),
+                make("head_bone", "Head", 0.85),
+                make("head_bone", "Chest", 0.62),
+            ],
+        }
+
+    @staticmethod
+    def _total(assignments):
+        return sum(c["score"] + core.FILL_BONUS + core.field_bonus(field)
+                   for field, c in assignments.items())
+
+    def _brute_force_best(self, candidates, features, ctx):
+        import itertools
+
+        best = 0.0
+        pools = [candidates[f] + [None] for f in self.FIELDS]
+        for combo in itertools.product(*pools):
+            chosen, used, valid = {}, set(), True
+            for field, candidate in zip(self.FIELDS, combo):
+                if candidate is None:
+                    continue
+                if candidate["bone"] in used:
+                    valid = False
+                    break
+                used.add(candidate["bone"])
+                chosen[field] = candidate
+            if not valid:
+                continue
+            if not all(core.chain_ok(f, c["bone"], chosen, features, ctx)
+                       for f, c in chosen.items()):
+                continue
+            best = max(best, self._total(chosen))
+        return best
+
+    def test_backtrack_reaches_brute_force_optimum(self):
+        features = self._rig()
+        ctx = make_ctx(features)
+        ctx["symmetric"] = False
+        candidates = self._candidates()
+
+        assignments, _nodes = core._solve_backtrack(
+            candidates, self.FIELDS, features, ctx)
+        expected = self._brute_force_best(candidates, features, ctx)
+        self.assertAlmostEqual(self._total(assignments), expected, places=9)
+
+    def test_capacity_bound_not_lower_than_optimum(self):
+        """容量修正后的上界不得低于真实最优值（低于就会剪掉最优解）。"""
+        features = self._rig()
+        ctx = make_ctx(features)
+        ctx["symmetric"] = False
+        candidates = self._candidates()
+
+        order = sorted(self.FIELDS)
+        gains = []
+        suffix_bones = [frozenset()] * (len(order) + 1)
+        remaining = [0.0] * (len(order) + 1)
+        for index in range(len(order) - 1, -1, -1):
+            field = order[index]
+            gains.append(max(c["score"] for c in candidates[field])
+                         + core.FILL_BONUS + core.field_bonus(field))
+            suffix_bones[index] = (
+                suffix_bones[index + 1]
+                | frozenset(c["bone"] for c in candidates[field]))
+            pool = sorted(gains, reverse=True)
+            capacity = min(len(pool), len(suffix_bones[index]))
+            remaining[index] = sum(pool[:capacity])
+
+        optimum = self._brute_force_best(candidates, features, ctx)
+        self.assertGreaterEqual(remaining[0] + 1e-9, optimum)
+
+
+class PureFunctionCacheTests(unittest.TestCase):
+    """候选生成阶段的纯函数都加了缓存，结果必须与未缓存时一致。"""
+
+    def test_tokens_split_matches_documented_rule(self):
+        name = "Bip001-L-UpperArm"
+        tokens = core._tokens(name)
+        self.assertIsInstance(tokens, tuple)
+        self.assertEqual(tokens, ("bip", "001", "l", "upper", "arm"))
+        # 缓存命中：同一输入返回同一对象
+        self.assertIs(core._tokens(name), tokens)
+
+    def test_cache_clear_keeps_results(self):
+        name = "Mixamorig:LeftForeArm"
+        before = core._tokens(name)
+        core._TOKENS_CACHE.clear()
+        self.assertEqual(core._tokens(name), before)
+
+    def test_normalize_cached(self):
+        self.assertEqual(core._normalize("Mixamorig:Hips"), "hips")
+        # 全角数字转半角。已知限制：全角**字母**不在归一化范围内，
+        # 「ＭＭＤ上半身」会被当成「上半身」（可能误匹配日文上半身骨），
+        # 但修它会改变所有骨名的归一化结果，须单独验证，不混在性能改动里。
+        self.assertEqual(core._normalize("上半身３"), "上半身3")
+
+    def test_support_bone_name_cached(self):
+        self.assertTrue(core._is_support_bone_name("GD ForeArm Scl L"))
+        self.assertFalse(core._is_support_bone_name("G ForeArm L"))
+
+    def test_ratio_cache_matches_direct_computation(self):
+        from difflib import SequenceMatcher
+
+        norm, known = "leftforearm", "forearm"
+        core._RATIO_CACHE.clear()
+        first = SequenceMatcher(None, norm, known).ratio()
+        core._RATIO_CACHE[(norm, known)] = first
+        self.assertAlmostEqual(core._RATIO_CACHE[(norm, known)], first, places=9)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -1,0 +1,193 @@
+R	0003_girl/0003_girl.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Actor3.0.blend	-	0	0	0	0	0	-	NOARMATURE
+R	ASUKA.blend	-	0	0	0	0	0	-	NOARMATURE
+R	DNFDUEL/DNF Duel - Nen Master/DNFDuelNenMaster.blend	Armature	715	58	46	0	17	OK	ok
+R	DNFDUEL/DNF Duel - Nen Master/Extra/Dragon/Dragon.blend	Armature	216	26	6	14	15	OK	低核心:head_bone,neck_bone | 链断:left_thigh_bone<lower_body_bone,right_thigh_bone<lower_body_bone
+R	DNFDUEL/DNF Duel - Nen Master/Extra/Lotus/Lotus.blend	Armature	128	18	1	10	14	BAD	低核心:head_bone,neck_bone,upper_body_bon | 侧别反:shoulder,upper_arm,lower_arm | 链断:left_calf_bone<left_thigh_bone,left_foot_bone<left_calf_bone
+R	DNFDUEL/DNF Duel - Nen Master/Extra/Tiger/Tiger.blend	Armature	111	22	2	8	16	OK	低核心:head_bone | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	DNFDUEL/gai.blend	Armature	315	59	50	0	17	OK	ok
+R	DNFDUEL/佣兵-贴图未处理/小提琴盒/小提琴盒.blend	Armature	9	9	0	1	7	OK	低核心:head_bone,left_foot_bone,left_lower_arm(+7) | 链断:left_calf_bone<left_thigh_bone
+R	DNFDUEL/佣兵-贴图未处理/望远镜/望远镜.blend	Armature	3	3	0	0	1	OK	低核心:head_bone,left_calf_bone,left_foot_bone(+13)
+R	DNFDUEL/佣兵-贴图未处理/本体/本体.blend	Armature	389	57	49	0	17	OK	ok
+R	DNFDUEL/佣兵-贴图未处理/花束/花束.blend	Armature	7	7	1	0	5	OK	低核心:left_foot_bone,left_lower_arm,left_thigh_bon(+9)
+R	DNFDUEL/凯莉-贴图未处理/凯莉-贴图未处理.blend	Armature	119	57	51	0	17	OK	ok
+R	DNFDUEL/剑影和剑鬼/剑影/剑影.blend	Armature	481	58	49	2	17	OK	链断:left_foot_bone<left_calf_bone,right_foot_bone<right_calf_bone
+R	DNFDUEL/剑影和剑鬼/剑鬼/剑鬼.blend	Armature	407	56	46	3	17	OK	链断:left_foot_bone<left_calf_bone,right_foot_bone<right_calf_bone
+R	DNFDUEL/博肯/博肯.blend	Armature	111	45	40	0	15	OK	低核心:head_bone,neck_bone
+R	DNFDUEL/天界-泽丁-贴图未处理/天界-泽丁-贴图未处理.blend	Armature	116	57	37	0	17	OK	ok
+R	DNFDUEL/女大枪（机械）-贴图未处理/女大枪（机械）-贴图未处理.blend	Armature	441	59	46	0	17	OK	ok
+R	DNFDUEL/审判-贴图未处理/圣光大锤/圣光大锤.blend	Armature	16	14	1	1	10	OK	低核心:left_hand_bone,left_lower_arm,left_upper_arm(+4) | 链断:left_foot_bone<left_calf_bone
+R	DNFDUEL/审判-贴图未处理/本体/本体.blend	Armature	452	59	50	2	17	OK	链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	DNFDUEL/审判-贴图未处理/胜利之矛/胜利之矛.blend	Armature	11	11	2	0	8	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+6)
+R	DNFDUEL/小人鱼-贴图未处理/小人鱼-贴图未处理.blend	Armature	114	57	51	0	17	OK	ok
+R	DNFDUEL/小魔女/南瓜/南瓜.blend	Armature	10	10	2	0	6	OK	低核心:left_calf_bone,left_foot_bone,left_hand_bone(+8)
+R	DNFDUEL/小魔女/小魔女+扫把/小魔女+扫把.blend	Armature	597	56	52	0	15	OK	低核心:head_bone,neck_bone
+R	DNFDUEL/小魔女/玩偶熊/玩偶熊.blend	Armature	67	25	20	1	15	OK	低核心:head_bone,neck_bone | 链断:left_toe_bone<left_foot_bone
+R	DNFDUEL/小魔女/疯疯熊-大/疯疯熊-大.blend	Armature	202	37	25	0	13	OK	低核心:left_hand_bone,left_lower_arm,left_shoulder_(+1)
+R	DNFDUEL/小魔女/疯疯熊-小/疯疯熊-小.blend	Armature	345	48	20	7	15	OK	低核心:head_bone,right_calf_bon | 链断:left_foot_bone<left_calf_bone,left_index_3<left_index_1
+R	DNFDUEL/征战者（关羽）-贴图未处理/本体/本体.blend	Armature	461	57	50	0	17	OK	ok
+R	DNFDUEL/征战者（关羽）-贴图未处理/长枪/长枪.blend	Armature	11	11	1	1	8	OK	低核心:left_foot_bone,left_lower_arm,left_shoulder_(+6) | 链断:left_calf_bone<left_thigh_bone
+R	DNFDUEL/忍者-贴图未处理/卷轴/卷轴.blend	Armature	46	23	1	3	14	OK	低核心:left_foot_bone,right_foot_bon,right_lower_ar | 链断:left_upper_arm_bone<left_shoulder_bone,right_upper_arm_bone<right_shoulder_bone
+R	DNFDUEL/忍者-贴图未处理/木桩/木桩.blend	Armature	11	11	0	4	9	OK	低核心:head_bone,left_hand_bone,left_lower_arm(+5) | 链断:left_foot_bone<left_calf_bone,left_toe_bone<left_foot_bone
+R	DNFDUEL/忍者-贴图未处理/本体/本体.blend	Armature	444	59	50	0	17	OK	ok
+R	DNFDUEL/忍者-贴图未处理/武器/武器.blend	Armature	17	14	1	0	9	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+5)
+R	DNFDUEL/忍者-贴图未处理/苦无/苦无.blend	Armature	12	8	1	2	4	OK	低核心:head_bone,left_calf_bone,left_foot_bone(+10) | 链断:left_upper_arm_bone<left_shoulder_bone,right_upper_arm_bone<right_shoulder_bone
+R	DNFDUEL/忍者-贴图未处理/蛤蟆/蛤蟆.blend	Armature	254	49	34	0	17	OK	ok
+R	DNFDUEL/忍者-贴图未处理/鸟/鸟.blend	Armature	32	20	2	5	15	OK	低核心:neck_bone,upper_body_bon | 链断:left_foot_bone<left_calf_bone,right_foot_bone<right_calf_bone
+R	DNFDUEL/怪物-海贼鳄鱼/怪物-海贼鳄鱼.blend	Armature	124	57	30	0	17	OK	ok
+R	DNFDUEL/放火奶-贴图未处理/书/书.blend	Armature	22	18	1	4	13	OK	低核心:left_lower_arm,left_thigh_bon,neck_bone(+1) | 链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	DNFDUEL/放火奶-贴图未处理/本体/本体.blend	Armature	513	59	54	0	17	OK	ok
+R	DNFDUEL/暗刃/暗刃.blend	Armature	424	58	41	0	17	OK	ok
+R	DNFDUEL/格斗家/小包/小包.blend	Armature	24	20	1	3	16	OK	低核心:right_upper_ar | 链断:left_upper_arm_bone<left_shoulder_bone,left_lower_arm_bone<left_upper_arm_bone
+R	DNFDUEL/格斗家/本体/本体.blend	Armature	315	59	52	0	17	OK	ok
+R	DNFDUEL/格斗家/本体.blend	Armature	315	59	50	0	17	OK	ok
+R	DNFDUEL/格斗家/沙袋/沙袋.blend	Armature	40	23	1	12	17	OK	链断:left_thigh_bone<lower_body_bone,right_thigh_bone<lower_body_bone
+R	DNFDUEL/漫游/漫游.blend	Armature	532	57	42	0	17	OK	ok
+R	DNFDUEL/狂战士-贴图未处理/二觉-狗子旋转/二觉-狗子旋转.blend	Armature	49	30	8	10	17	OK	链断:left_foot_bone<left_calf_bone,right_foot_bone<right_calf_bone
+R	DNFDUEL/狂战士-贴图未处理/二觉狗子/二觉狗子.blend	Armature	299	57	51	0	17	OK	ok
+R	DNFDUEL/狂战士-贴图未处理/本体/本体.blend	Armature	437	57	50	0	17	OK	ok
+R	DNFDUEL/男柔道-贴图未处理/男柔道-贴图未处理.blend	Armature	379	57	40	2	17	OK	链断:left_foot_bone<left_calf_bone,right_foot_bone<right_calf_bone
+R	DNFDUEL/空空伊-贴图未处理/空空伊-贴图未处理.blend	Armature	119	57	44	0	17	OK	ok
+R	DNFDUEL/索西娅老板娘-贴图未处理/索西娅老板娘-贴图未处理.blend	Armature	113	57	36	0	17	OK	ok
+R	DNFDUEL/船长鲁特/船长鲁特.blend	Armature	114	57	52	0	17	OK	ok
+R	DNFDUEL/艾莎-贴图未处理/艾莎-贴图未处理.blend	Armature	115	57	30	0	17	OK	ok
+R	DNFDUEL/迷之勇士/迷之勇士.blend	Armature	814	57	50	0	17	OK	ok
+R	DNFDUEL/风法/风法-模型/风法-模型.blend	Armature	489	56	34	0	17	OK	ok
+R	DNFDUEL/风法/风法-武器/风法-武器.blend	Armature	28	16	1	2	12	OK	低核心:head_bone,left_shoulder_,neck_bone(+2) | 链断:right_upper_arm_bone<right_shoulder_bone,left_hand_bone<left_lower_arm_bone
+R	DNFDUEL/龙骑-贴图未处理/大龙/大龙.blend	Armature	245	51	42	14	14	OK	低核心:head_bone,neck_bone,upper_body_bon | 链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	DNFDUEL/龙骑-贴图未处理/小龙/小龙.blend	Armature	215	27	20	0	17	OK	ok
+R	DNFDUEL/龙骑-贴图未处理/本体/本体.blend	Armature	477	48	44	0	10	OK	低核心:head_bone,left_hand_bone,left_lower_arm(+4)
+R	Female/og_12/og_12.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_arm_eden_rbout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_back_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_eden_rbout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_nafout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/og_12/_OriginalAsset/_Mesh/og_12_naf_rbout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/OG_13.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/_OriginalAsset/_Mesh/og_13_arm_eden_valentineout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/_OriginalAsset/_Mesh/og_13_back_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/_OriginalAsset/_Mesh/og_13_back_eden_valentineout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/_OriginalAsset/_Mesh/og_13_eden_valentineout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_13/_OriginalAsset/_Mesh/og_13_naf_valentineout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/OG_14.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_arm_eden_smout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_back_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_eden_smout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_nafout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_14/_OriginalAsset/_Mesh/og_14_naf_smout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_15/OG_15.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_15/_OriginalAsset/_Mesh/og_15_arm_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_15/_OriginalAsset/_Mesh/og_15_back_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female/OG_15/_OriginalAsset/_Mesh/og_15_edenout.blend	-	0	0	0	0	0	-	NOARMATURE
+R	female.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Female000.blend	rig	534	46	31	0	15	OK	低核心:neck_bone,upper_body_bon
+R	GIRL.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Gley/TFD_Gley.blend	Gley_BodyA_CMN2_Rig	76	58	53	0	17	OK	ok
+R	Gley/TFD_Gley.blend	Gley_BodyA_CMN2_Rig_backup	76	58	51	0	17	OK	ok
+R	Gley/TFD_Gley_1_1_Pub.blend	Gley_BodyA_CMN2_Rig	307	58	55	0	17	OK	ok
+R	Gley/TFD_Gley_1_1_Pub.blend	Gley_BodyU_CMN2_Rig	304	57	54	0	17	OK	ok
+R	Gley/TFD_Gley_1_1_Pub.blend	Gley_BodyU_VAR0_Rig	327	57	54	0	17	OK	ok
+R	Gley/TFD_Gley_1_1_Pub.blend	Gley_Face_Rig	478	58	55	0	17	OK	ok
+R	Gley/TFD_Gley_1_1_Pub.blend	PC_007_A_CMN_HEAD_002	95	16	4	2	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	Gley/TFD_Gley_1_1_Pub.blend	PC_007_A_VAR_HEAD_006	37	21	1	5	16	OK	低核心:upper_body_bon | 链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	Gley/TFD_Gley_1_1_Pub.blend	PC_007_A_VAR_HEAD_007	182	17	4	0	11	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+3)
+R	Gley/TFD_Gley_1_1_Pub.blend	PC_007_U_CMN_HEAD_002	111	16	4	2	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	Gley/TFD_Gley_1_1_Pub.blend	PC_007_U_VAR_HEAD_000	81	16	5	1	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:left_calf_bone<left_thigh_bone
+R	Gley/未命名.blend	Gley_BodyA_CMN2_Rig	429	57	54	0	17	OK	ok
+R	Gu Yu.blend	Genesis8_1Female	149	52	30	0	17	OK	ok
+R	Hestia_R_v1.0_2.79.blend	Hestia_R_arma	77	40	38	0	17	OK	ok
+R	Hestia_v1.0_2.79.blend	Hestia_arma	77	40	38	0	17	OK	ok
+R	Hestia_v1.0_2.79.blend	Hestia_NewYear_A_arma	77	40	38	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/002/002.blend	Armature	230	45	42	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/003/003.blend	Armature	230	48	43	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/006/006.blend	Armature	230	45	42	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/008/008.blend	Armature	230	45	42	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/009/009.blend	Armature	230	45	42	0	17	OK	ok
+R	HIT2 人类 法球 美女2 职业动作 3D模型资源MAX/Orb2/010/010.blend	Armature	230	45	42	0	17	OK	ok
+R	knight/knight.blend	root	247	57	52	0	17	OK	ok
+R	leviathan_v1.1.blend	APPLIED-rig	71	40	35	3	14	BAD	低核心:head_bone,neck_bone,upper_body_bon | 侧别反:shoulder,upper_arm,lower_arm | 链断:right_foot_bone<right_calf_bone,left_lower_arm_bone<left_upper_arm_bone
+R	Ludmila_Young_v1.0_2.79.blend	Ludmila_Young_arma	77	40	38	0	17	OK	ok
+R	Momiji.blend	-	0	0	0	0	0	-	NOARMATURE
+R	mrfz.blend	-	0	0	0	0	0	-	NOARMATURE
+R	RE2_Claire_Ada/RE2_Ada.blend	FemaleArmature	296	58	49	0	17	OK	ok
+R	RE2_Claire_Ada/RE2_Ada.blend	Genesis8Female	178	58	45	0	17	OK	ok
+R	RE2_Claire_Ada/RE2_Claire.blend	FemaleArmature	298	59	49	0	17	OK	ok
+R	RE2_Claire_Ada/RE2_Claire.blend	Genesis8Female	178	58	45	0	17	OK	ok
+R	Rebirth Tifa (2B)(1)/Rebirth Tifa v2(2B outfit) by Billyhhyb.blend	hair.001	81	25	0	10	17	OK	链断:left_calf_bone<left_thigh_bone,left_foot_bone<left_calf_bone
+R	Rebirth Tifa (2B)(1)/Rebirth Tifa v2(2B outfit) by Billyhhyb.blend	Rebirth Tifa V2	296	44	43	0	6	OK	低核心:head_bone,left_hand_bone,left_lower_arm(+8)
+R	Rebirth Tifa (2B)(1)/Rebirth Tifa v2(2B outfit) by Billyhhyb.blend	skirt.001	106	18	0	11	14	OK	低核心:head_bone,neck_bone,upper_body_bon | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	Red_Oni/Red_Oni-4.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Red_Oni/Red_Oni.blend	-	0	0	0	0	0	-	NOARMATURE
+R	reiko/reiko/reiko.blend	Armature	64	39	35	0	15	OK	低核心:left_upper_arm,right_upper_ar
+R	renz/renz.blend	1	0	0	0	0	0	-	EMPTYBONES
+R	sa2familyinfo_f_red02_SF/Vipe - test.blend	PC_FP_Female_Red02.ao	89	50	38	0	17	OK	ok
+R	sa2familyinfo_f_red02_SF/Vipe - test.blend	PC_TP_Female_Red02.ao	117	58	46	0	17	OK	ok
+R	sa2familyinfo_f_red02_SF/Vipe - test.blend	PC_TP_Female_Red02_Hair.ao	117	58	40	0	17	OK	ok
+R	sa2familyinfo_f_red02_SF/Vipe.blend	PC_FP_Female_Red02.ao	89	50	38	0	17	OK	ok
+R	sa2familyinfo_f_red02_SF/Vipe.blend	PC_TP_Female_Red02.ao	117	58	46	0	17	OK	ok
+R	sa2familyinfo_f_red02_SF/Vipe.blend	PC_TP_Female_Red02_Hair.ao	117	58	40	0	17	OK	ok
+R	sena_t-pose_v1.0.blend	metarig	69	55	36	0	15	OK	低核心:head_bone,neck_bone
+R	sena_t-pose_v1.0.blend	rig	395	53	51	0	12	OK	低核心:head_bone,left_lower_arm,left_shoulder_(+2)
+R	shinei.blend	-	0	0	0	0	0	-	NOARMATURE
+R	Vice_v1.0_2.79.blend	Vice_arma	75	33	31	0	15	OK	低核心:head_bone,neck_bone
+R	Vice_v1.0_2.79.blend	Vice_Halloween_A_arma	75	33	31	0	15	OK	低核心:head_bone,neck_bone
+R	yang_guifei_v1.0.blend	metarig	88	55	43	0	15	OK	低核心:head_bone,neck_bone
+R	yang_guifei_v1.0.blend	rig	499	56	50	0	14	OK	低核心:left_lower_arm,left_shoulder_,left_upper_arm
+R	【CG】《王者荣耀》中法师英雄上官婉儿的 “梁祝” 皮肤3D模型_original_172268/【CG】《王者荣耀》中法师英雄上官婉儿的 “梁祝” 皮肤3D模型_original_172268.blend	-	0	0	0	0	0	-	NOARMATURE
+R	【CG】太华   破魔之箭     游戏角色模型_original_428939/【CG】太华   破魔之箭     游戏角色模型_original_428939.blend	-	0	0	0	0	0	-	NOARMATURE
+R	【CG】王者荣耀露娜  一生所爱皮肤  中式婚服  凤冠霞帔_original_114696/【CG】王者荣耀露娜  一生所爱皮肤  中式婚服  凤冠霞帔_original_114696.blend	-	0	0	0	0	0	-	NOARMATURE
+R	【ZGabriel学习存档】blender中还原米哈游风格三渲二/【ZGabriel学习存档】布洛妮娅 blender制作米哈游风格三渲二.blend	rig	732	53	30	2	16	OK	低核心:upper_body_bon | 链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	【ZGabriel学习存档】blender中还原米哈游风格三渲二/【ZGabriel学习存档】布洛妮娅 blender制作米哈游风格三渲二.blend	布洛妮娅 1.0_arm	395	58	52	2	17	OK	链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	【圣斗士星矢OL】冰大陆暗冰法师/【圣斗士星矢OL】冰大陆暗冰法师/【圣斗士星矢OL】冰大陆暗冰法师.blend	-	0	0	0	0	0	-	NOARMATURE
+R	人体.blend	-	0	0	0	0	0	-	NOARMATURE
+R	人物 性感女孩01.blend	-	0	0	0	0	0	-	NOARMATURE
+R	克拉拉 - 副本.blend	克拉拉_arm	603	58	52	2	17	OK	链断:left_toe_bone<left_foot_bone,right_toe_bone<right_foot_bone
+R	全息.blend	-	0	0	0	0	0	-	NOARMATURE
+R	全息扫描.blend	-	0	0	0	0	0	-	NOARMATURE
+R	卡通短发女孩/tsukushi_v1a.blend	Armature	239	50	47	1	13	BAD	低核心:head_bone,left_upper_arm,neck_bone(+1) | 侧别反:shoulder,lower_arm,hand | 链断:right_lower_arm_bone<right_upper_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Cute Casual Jeans	16	12	8	0	8	OK	低核心:left_hand_bone,left_lower_arm,left_shoulder_(+6)
+R	卡通短发女孩/tsukushi_v1a.blend	Cute Casual Shoes	15	12	8	0	8	OK	低核心:left_hand_bone,left_lower_arm,left_shoulder_(+6)
+R	卡通短发女孩/tsukushi_v1a.blend	Cute Casual Top	20	17	9	1	11	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+3) | 链断:left_calf_bone<left_thigh_bone
+R	卡通短发女孩/tsukushi_v1a.blend	DashBikini_Bottom	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	DashBikini_Bra	17	16	7	1	11	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+3) | 链断:left_calf_bone<left_thigh_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Flex_Bra	16	15	5	2	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:right_lower_arm_bone<right_upper_arm_bone,right_hand_bone<right_lower_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Flex_Shorts	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	Genesis 8 Female	172	57	43	0	17	OK	ok
+R	卡通短发女孩/tsukushi_v1a.blend	Genesis 8 Female Eyelashes	61	28	7	10	17	OK	链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Japanese Lingerie 02	24	21	12	2	13	OK	低核心:left_foot_bone,left_hand_bone,neck_bone(+1) | 链断:right_foot_bone<right_calf_bone,right_toe_bone<right_foot_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Modesty_Bra	16	15	5	2	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:right_lower_arm_bone<right_upper_arm_bone,right_hand_bone<right_lower_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Modesty_Panty	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	Nyao Tail	23	22	0	1	13	BAD	低核心:left_hand_bone,left_lower_arm,left_upper_arm(+1) | 侧别反:thigh,calf,foot | 链断:right_hand_bone<right_lower_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Sensual Wear Panty	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	Sensual Wear Top	31	20	12	2	13	BAD	低核心:head_bone,left_foot_bone,neck_bone(+1) | 侧别反:shoulder,upper_arm,lower_arm | 链断:right_foot_bone<right_calf_bone,right_toe_bone<right_foot_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Tsukushi Hair Armature	136	22	2	4	14	OK	低核心:head_bone,neck_bone,upper_body_bon | 链断:left_foot_bone<left_calf_bone,left_lower_arm_bone<left_upper_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	Tsukushi_rig	759	54	35	0	15	OK	低核心:neck_bone,upper_body_bon
+R	卡通短发女孩/tsukushi_v1a.blend	XF-dForce Sweatshirt	53	35	24	2	15	BAD	低核心:head_bone,left_foot_bone | 侧别反:shoulder,upper_arm,lower_arm | 链断:right_foot_bone<right_calf_bone,right_toe_bone<right_foot_bone
+R	卡通短发女孩/tsukushi_v1a.blend	XF-SexySweet Bottom	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	XF-SexySweet Top	15	14	5	2	9	OK	低核心:head_bone,left_foot_bone,left_hand_bone(+5) | 链断:right_lower_arm_bone<right_upper_arm_bone,right_hand_bone<right_lower_arm_bone
+R	卡通短发女孩/tsukushi_v1a.blend	XF-SSweet Lace Stockings	35	14	8	0	8	OK	低核心:left_hand_bone,left_lower_arm,left_shoulder_(+6)
+R	卡通短发女孩/tsukushi_v1a.blend	XF-Sweatshirt Bottom	10	10	4	0	7	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+7)
+R	卡通短发女孩/tsukushi_v1a.blend	XF-Sweatshirt Top	16	15	5	2	10	OK	低核心:left_foot_bone,left_hand_bone,left_lower_arm(+4) | 链断:right_lower_arm_bone<right_upper_arm_bone,right_hand_bone<right_lower_arm_bone
+R	室内.blend	-	0	0	0	0	0	-	NOARMATURE
+R	循环动画1.blend	-	0	0	0	0	0	-	NOARMATURE
+R	最终幻想7蒂法（完美绑定）/最终幻想7蒂法（完美绑定）.blend	Tifa_Default_Armature	354	58	52	0	15	OK	低核心:left_upper_arm,right_upper_ar
+R	最终幻想7蒂法（完美绑定）/最终幻想7蒂法（完美绑定）.blend	Tifa_metarig	733	61	56	0	17	OK	ok
+R	最终幻想7蒂法（完美绑定）/最终幻想7蒂法（完美绑定）.blend	Tifa_rig	1792	45	33	2	13	OK	低核心:head_bone,left_lower_arm,left_shoulder_(+1) | 链断:left_calf_bone<left_thigh_bone,left_foot_bone<left_calf_bone
+R	王者世界镜/镜.blend	SK_010250100029.ao	94	21	11	2	13	OK	低核心:left_foot_bone,left_hand_bone,right_foot_bon(+1) | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	王者世界镜/镜.blend	SK_01025020029.ao	107	33	6	9	15	OK	低核心:right_hand_bon,right_lower_ar | 链断:left_calf_bone<left_thigh_bone,right_calf_bone<right_thigh_bone
+R	王者世界镜/镜.blend	SK_0102503000029.ao	121	52	51	0	16	OK	低核心:neck_bone
+R	现代客餐厅_爱给网_aigei_com/2013 CR-65/2013 CR-65.blend	-	0	0	0	0	0	-	NOARMATURE
+R	羽绒服夜店小姐姐不怕热.blend	Armature	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	羽绒服夜店小姐姐不怕热.blend	Armature.001	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	羽绒服夜店小姐姐不怕热.blend	Armature.002	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	羽绒服夜店小姐姐不怕热.blend	Armature.003	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	羽绒服夜店小姐姐不怕热.blend	Armature.004	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	羽绒服夜店小姐姐不怕热.blend	Armature.005	52	49	45	0	15	OK	低核心:neck_bone,upper_body_bon
+R	能量汇聚.blend	metarig.001	17	17	11	0	2	OK	低核心:head_bone,left_calf_bone,left_foot_bone(+12)
+R	蓝色死库水泳装-迷迭香.blend	Armature	52	49	48	0	15	OK	低核心:neck_bone,upper_body_bon
+R	蓝色死库水泳装-迷迭香.blend	Armature.001	52	49	48	0	15	OK	低核心:neck_bone,upper_body_bon
+R	蓝色死库水泳装-迷迭香.blend	Armature.002	52	49	48	0	15	OK	低核心:neck_bone,upper_body_bon
+R	蓝色死库水泳装-迷迭香.blend	Armature.003	52	49	48	0	15	OK	低核心:neck_bone,upper_body_bon
+R	阿卡莉游戏模型整理Blender3.0.blend	-	0	0	0	0	0	-	NOARMATURE
