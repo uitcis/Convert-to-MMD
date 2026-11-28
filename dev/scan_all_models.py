@@ -90,10 +90,11 @@ def scan_one(path, armature):
     if broken:
         notes.append("链断:" + ",".join(broken[:2]))
 
-    print("R\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s" % (
+    print("R\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s" % (
         path, armature.name, len(features), result["filled"], result["solid"],
         len(broken), len(core.CORE_BONE_FIELDS) - len(missing_core),
-        "BAD" if side_bad else "OK", " | ".join(notes) or "ok"))
+        "BAD" if side_bad else "OK", " | ".join(notes) or "ok",
+        result.get("skeleton_kind", "?"), result.get("posture", "?")))
     sys.stdout.flush()
 
 

@@ -2299,5 +2299,348 @@ class PureFunctionCacheTests(unittest.TestCase):
         self.assertAlmostEqual(core._RATIO_CACHE[(norm, known)], first, places=9)
 
 
+class PostureDetectionTests(unittest.TestCase):
+    """站姿判定：只做报告，不改变匹配行为。
+
+    MMD 转换要求源骨架处于站立的 A/T-pose。坐姿/蹲姿会让高度带与
+    左右对称同时失效，此时填出来的结果不可信，应提示用户先摆正。
+    """
+
+    @staticmethod
+    def _features(specs):
+        features = {}
+        for name, parent, head in specs:
+            features[name] = make_feature(name, head=head,
+                                          tail=(head[0], head[1], head[2] + 0.05),
+                                          parent=parent)
+        for name, parent, _head in specs:
+            if parent:
+                features[parent].children.append(name)
+                features[parent].child_count += 1
+        return features
+
+    def test_standing_rig_is_standing(self):
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Pelvis", "Root", (0.0, 0.0, 1.0)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.3)),
+            ("Head", "Spine", (0.0, 0.0, 1.7)),
+            ("ThighL", "Pelvis", (0.1, 0.0, 0.95)),
+            ("FootL", "ThighL", (0.1, 0.0, 0.05)),
+            ("ThighR", "Pelvis", (-0.1, 0.0, 0.95)),
+            ("FootR", "ThighR", (-0.1, 0.0, 0.05)),
+        ])
+        state, detail = core.detect_posture(features, span=1.75, up_axis=2)
+        self.assertEqual(state, core.POSTURE_STANDING, detail)
+
+    def test_crouching_rig_is_not_standing(self):
+        """下蹲 / 弓步：腿向前下方伸，末端还在低处，但直立度不足。
+
+        这是可判定的形态：两条腿都能当腿识别出来，只是方向偏了。
+        实测 leviathan 后仰坐姿 upright=0.77 knee=3.91，同样落在
+        非站立一侧。
+        """
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Pelvis", "Root", (0.0, 0.0, 1.0)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.3)),
+            ("Head", "Spine", (0.0, 0.0, 1.7)),
+            ("ThighL", "Pelvis", (0.1, 0.3, 0.7)),
+            ("FootL", "ThighL", (0.1, 0.7, 0.15)),
+            ("ThighR", "Pelvis", (-0.1, 0.3, 0.7)),
+            ("FootR", "ThighR", (-0.1, 0.7, 0.15)),
+        ])
+        state, detail = core.detect_posture(features, span=1.7, up_axis=2,
+                                            side_axis=0)
+        self.assertEqual(state, core.POSTURE_NOT_STANDING, detail)
+
+    def test_lifted_leg_degrades_to_unknown(self):
+        """一条腿抬到比髋还高（后仰坐姿）：腿都认不出来 → UNKNOWN。
+
+        这是刻意的降级：宁可说「判不了」，也不能把抬起的腿当脊柱、
+        或者反过来把正常站立的骨架误报成非站立。
+        """
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Pelvis", "Root", (0.0, 0.0, 1.0)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.3)),
+            ("Head", "Spine", (0.0, 0.0, 1.7)),
+            ("ThighL", "Pelvis", (0.1, 0.3, 1.0)),
+            ("FootL", "ThighL", (0.1, 1.0, 1.2)),
+            ("ThighR", "Pelvis", (-0.1, 0.3, 1.0)),
+            ("FootR", "ThighR", (-0.1, 1.0, 1.2)),
+        ])
+        state, _detail = core.detect_posture(features, span=1.7, up_axis=2,
+                                             side_axis=0)
+        self.assertEqual(state, core.POSTURE_UNKNOWN)
+
+    def test_arm_branches_are_not_mistaken_for_legs(self):
+        """A-pose 下垂的手臂也够长，但末端在中段，不是腿。
+
+        只看「分支延伸够长」会把手臂当腿——Gley / Vipe / Tifa 等
+        43 套站立骨架因此被误报「非站立」。
+        """
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Pelvis", "Root", (0.0, 0.0, 0.9)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.2)),
+            ("Chest", "Spine", (0.0, 0.0, 1.4)),
+            ("Head", "Chest", (0.0, 0.0, 1.75)),
+            ("UpperArmL", "Chest", (0.35, 0.0, 1.45)),
+            ("ForeArmL", "UpperArmL", (0.55, 0.0, 1.15)),
+            ("HandL", "ForeArmL", (0.65, 0.0, 0.85)),
+        ])
+        state, _detail = core.detect_posture(features, span=1.75, up_axis=2)
+        # 没有腿 → 不能报站立，也不能报非站立（那是把手臂当腿）
+        self.assertEqual(state, core.POSTURE_UNKNOWN)
+
+    def test_hair_branches_are_not_mistaken_for_legs(self):
+        """头发从头顶分出的两束也「朝下延伸」，但髋在头顶 → 不判定。
+
+        实测 tsukushi Hair / Gley 头部骨架 / 布洛妮娅 rig 都因此误报
+        「非站立」，护栏用髋的高度位置把它们挡掉。
+        """
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Pelvis", "Root", (0.0, 0.0, 1.0)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.3)),
+            ("Head", "Spine", (0.0, 0.0, 1.7)),
+            ("HairTip", "Head", (0.0, 0.0, 1.9)),
+            ("HairL", "Head", (0.15, 0.0, 1.6)),
+            ("HairL02", "HairL", (0.15, 0.0, 1.0)),
+            ("HairR", "Head", (-0.15, 0.0, 1.6)),
+            ("HairR02", "HairR", (-0.15, 0.0, 1.0)),
+        ])
+        state, _detail = core.detect_posture(features, span=1.9, up_axis=2)
+        self.assertEqual(state, core.POSTURE_UNKNOWN)
+
+    def test_no_legs_is_unknown(self):
+        """纯躯干骨架（半身像）：没有腿分支就不该报非站立。"""
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0)),
+            ("Spine", "Root", (0.0, 0.0, 0.5)),
+            ("Head", "Spine", (0.0, 0.0, 0.9)),
+        ])
+        state, _detail = core.detect_posture(features, span=0.9, up_axis=2)
+        self.assertEqual(state, core.POSTURE_UNKNOWN)
+
+
+class LeftSideSignTests(unittest.TestCase):
+    """左侧落在侧轴哪一侧——必须由数据决定，不能硬编码正半轴。
+
+    这段曾因编辑事故把 `try:` 拼进注释行末尾，整段被并进上一个
+    except，分类正常时 `left_positive` 从未被设置，侧向符号静默失效。
+    """
+
+    def test_left_on_positive_axis(self):
+        features = {
+            "LeftArm": make_feature("LeftArm", head=(1.0, 0.0, 1.4)),
+            "RightArm": make_feature("RightArm", head=(-1.0, 0.0, 1.4)),
+        }
+        self.assertTrue(core.detect_left_positive(features, 0))
+
+    def test_left_on_negative_axis(self):
+        """按角色视角命名 / 面朝 +Y 的导出：左侧在负半轴。"""
+        features = {
+            "LeftArm": make_feature("LeftArm", head=(-1.0, 0.0, 1.4)),
+            "RightArm": make_feature("RightArm", head=(1.0, 0.0, 1.4)),
+        }
+        self.assertFalse(core.detect_left_positive(features, 0))
+
+    def test_defaults_to_positive_without_pairs(self):
+        features = {"Only": make_feature("Only", head=(1.0, 0.0, 0.5))}
+        self.assertTrue(core.detect_left_positive(features, 0))
+
+    def test_solve_sets_left_positive_for_flipped_rig(self):
+        """端到端：翻转骨架跑完整求解，左字段必须落在负半轴。
+
+        只测 detect_left_positive 不够——原来的 bug 是它压根没被调用。
+        """
+        features = RigTopologyRobustnessTests._features([
+            ("Root", None, (0.0, 0.0, 0.0), 0.0),
+            ("Pelvis", "Root", (0.0, 0.0, 1.0), 0.5),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.2), 0.6),
+            ("Chest", "Spine", (0.0, 0.0, 1.4), 0.7),
+            ("Neck", "Chest", (0.0, 0.0, 1.6), 0.85),
+            ("Head", "Neck", (0.0, 0.0, 1.75), 0.95),
+            # 左侧全部在负半轴，右侧在正半轴（模型被镜像）
+            ("LeftUpperArm", "Chest", (-0.4, 0.0, 1.45), 0.75),
+            ("LeftForeArm", "LeftUpperArm", (-0.8, 0.0, 1.45), 0.75),
+            ("LeftHand", "LeftForeArm", (-1.1, 0.0, 1.45), 0.75),
+            ("RightUpperArm", "Chest", (0.4, 0.0, 1.45), 0.75),
+            ("RightForeArm", "RightUpperArm", (0.8, 0.0, 1.45), 0.75),
+            ("RightHand", "RightForeArm", (1.1, 0.0, 1.45), 0.75),
+        ])
+        filled, _low, result = core.solve(
+            core.FIELD_ORDER, features, span=1.8, diagonal=1.8,
+            z_min=0.0, up_axis=2, side_axis=0,
+            stats=core.load_preset_stats())
+        left = filled.get("left_upper_arm_bone", {}).get("bone")
+        right = filled.get("right_upper_arm_bone", {}).get("bone")
+        self.assertEqual(left, "LeftUpperArm")
+        self.assertEqual(right, "RightUpperArm")
+        self.assertEqual(result["posture"] in (core.POSTURE_STANDING,
+                                               core.POSTURE_NOT_STANDING,
+                                               core.POSTURE_UNKNOWN), True)
+
+
+class BodyPlanTests(unittest.TestCase):
+    """纯几何身体划分：只看骨点位置定「臂/腿/躯干」和「上方向」。
+
+    这套判据替代的是「拟合整体形状」——后者被 DNF 格斗站架证伪
+    （全骨点云 PCA 的 up 偏 18°）。这里只用局部结构：
+    成对分叉 + 腿的平行下垂方向。
+    """
+
+    @staticmethod
+    def _features(specs, rotate=None):
+        """specs: [(name, parent, head, tail)] → features 字典。"""
+        if rotate is not None:
+            specs = [(n, p, rotate(h), rotate(t)) for n, p, h, t in specs]
+        features = {}
+        for name, parent, head, tail in specs:
+            length = sum((tail[i] - head[i]) ** 2 for i in range(3)) ** 0.5
+            features[name] = make_feature(name, head=head, tail=tail,
+                                          parent=parent, length=length)
+        for name, parent, _head, _tail in specs:
+            if parent:
+                features[parent].children.append(name)
+                features[parent].child_count += 1
+        for name in features:
+            depth, parent = 0, features[name].parent
+            while parent:
+                depth += 1
+                parent = features[parent].parent
+            features[name].depth = depth
+        return features
+
+    @staticmethod
+    def _standing(arm_scale=1.0):
+        """站立 A-pose 少年骨架；arm_scale 缩短手臂用来造低置信样本。"""
+        specs = [
+            ("Root", None, (0.0, 0.0, 0.0), (0.0, 0.0, 0.9)),
+            ("Pelvis", "Root", (0.0, 0.0, 0.9), (0.0, 0.0, 1.05)),
+            ("Spine", "Pelvis", (0.0, 0.0, 1.05), (0.0, 0.0, 1.25)),
+            ("Chest", "Spine", (0.0, 0.0, 1.25), (0.0, 0.0, 1.45)),
+            ("Neck", "Chest", (0.0, 0.0, 1.45), (0.0, 0.0, 1.55)),
+            ("Head", "Neck", (0.0, 0.0, 1.55), (0.0, 0.0, 1.75)),
+        ]
+        for scale in (1, -1):
+            side = "L" if scale > 0 else "R"
+            specs += [
+                ("Thigh" + side, "Pelvis", (0.10 * scale, 0.0, 0.88),
+                 (0.10 * scale, 0.0, 0.50)),
+                ("Calf" + side, "Thigh" + side, (0.10 * scale, 0.0, 0.50),
+                 (0.10 * scale, 0.0, 0.12)),
+                ("Foot" + side, "Calf" + side, (0.10 * scale, 0.0, 0.12),
+                 (0.10 * scale, 0.12, 0.02)),
+                ("Toe" + side, "Foot" + side, (0.10 * scale, 0.12, 0.02),
+                 (0.10 * scale, 0.22, 0.02)),
+                ("Clavicle" + side, "Chest", (0.02 * scale, 0.0, 1.40),
+                 (0.16 * scale * arm_scale, 0.0, 1.40)),
+                ("UpperArm" + side, "Clavicle" + side,
+                 (0.16 * scale * arm_scale, 0.0, 1.40),
+                 (0.42 * scale * arm_scale, 0.0, 1.37)),
+                ("ForeArm" + side, "UpperArm" + side,
+                 (0.42 * scale * arm_scale, 0.0, 1.37),
+                 (0.62 * scale * arm_scale, 0.0, 1.35)),
+                ("Hand" + side, "ForeArm" + side,
+                 (0.62 * scale * arm_scale, 0.0, 1.35),
+                 (0.72 * scale * arm_scale, 0.0, 1.34)),
+            ]
+        return specs
+
+    def test_standing_rig_splits_limbs(self):
+        plan = core.parse_body_plan(self._features(self._standing()))
+        self.assertIsNotNone(plan)
+        self.assertTrue(plan["confident"], plan["detail"])
+        for name in ("ThighL", "CalfL", "FootL", "ToeL",
+                     "ThighR", "CalfR", "FootR", "ToeR"):
+            self.assertIn(name, plan["leg"], name)
+            self.assertNotIn(name, plan["arm"], name)
+        for name in ("ClavicleL", "UpperArmL", "ForeArmL", "HandL",
+                     "ClavicleR", "UpperArmR", "ForeArmR", "HandR"):
+            self.assertIn(name, plan["arm"], name)
+            self.assertNotIn(name, plan["leg"], name)
+        for name in ("Pelvis", "Spine", "Chest", "Neck", "Head"):
+            self.assertIn(name, plan["torso"], name)
+
+    def test_up_axis_comes_from_legs_not_world(self):
+        """把骨架整体转成 Y-up：上方向必须跟着变成 +Y。"""
+        def to_y_up(point):
+            return (point[0], point[2], -point[1])
+
+        plan = core.parse_body_plan(
+            self._features(self._standing(), rotate=to_y_up))
+        self.assertIsNotNone(plan)
+        self.assertGreater(plan["up"][1], 0.95, plan["up"])
+        self.assertLess(abs(plan["up"][2]), 0.1, plan["up"])
+
+    def test_head_only_rig_has_no_body_plan(self):
+        """只有头 + 一对眉毛/头发：没有腿，不能硬凑出人形。"""
+        features = self._features([
+            ("Root", None, (0.0, 0.0, 0.0), (0.0, 0.0, 0.1)),
+            ("Head", "Root", (0.0, 0.0, 0.1), (0.0, 0.0, 0.3)),
+            ("BrowL", "Head", (0.05, 0.1, 0.25), (0.05, 0.1, 0.27)),
+            ("BrowR", "Head", (-0.05, 0.1, 0.25), (-0.05, 0.1, 0.27)),
+            ("EyeL", "Head", (0.04, 0.1, 0.2), (0.04, 0.1, 0.21)),
+            ("EyeR", "Head", (-0.04, 0.1, 0.2), (-0.04, 0.1, 0.21)),
+            ("HairA", "Head", (0.0, 0.0, 0.3), (0.0, 0.0, 0.33)),
+            ("HairB", "Head", (0.0, -0.05, 0.3), (0.0, -0.05, 0.33)),
+        ])
+        self.assertIsNone(core.parse_body_plan(features))
+
+    def test_short_arm_is_low_confidence(self):
+        """手臂过短（像被辅助骨搅乱的骨架）→ 解析出来但不给高置信。
+
+        低置信时 solve 不挂 body_plan，跨域否决完全不生效——宁可不用，
+        也不能让判错的几何去误杀正确候选。
+        """
+        plan = core.parse_body_plan(
+            self._features(self._standing(arm_scale=0.45)))
+        self.assertIsNotNone(plan)
+        self.assertFalse(plan["confident"], plan["detail"])
+
+    def test_body_plan_vetoes_cross_domain(self):
+        """腿骨不能当上臂、手骨不能当小腿；其余搭配一律放行。"""
+        features = self._features(self._standing())
+        plan = core.parse_body_plan(features)
+
+        self.assertTrue(core.body_plan_rejects(
+            "left_upper_arm_bone", features["ThighL"], plan))
+        self.assertTrue(core.body_plan_rejects(
+            "left_thigh_bone", features["UpperArmL"], plan))
+        self.assertTrue(core.body_plan_rejects(
+            "left_hand_bone", features["CalfR"], plan))
+        self.assertTrue(core.body_plan_rejects(
+            "right_foot_bone", features["ForeArmR"], plan))
+
+        # 域内不受影响
+        self.assertFalse(core.body_plan_rejects(
+            "left_upper_arm_bone", features["UpperArmL"], plan))
+        self.assertFalse(core.body_plan_rejects(
+            "left_thigh_bone", features["ThighL"], plan))
+        # 躯干类不参与：已有 torso_domain / 脊柱链两道约束，再加会误伤
+        # 服装子骨架（实测一件内衣的核心骨因此变空）
+        self.assertFalse(core.body_plan_rejects(
+            "lower_body_bone", features["HandL"], plan))
+        self.assertFalse(core.body_plan_rejects(
+            "center_bone", features["FootR"], plan))
+        # 头/眼/手指不在否决范围内
+        self.assertFalse(core.body_plan_rejects(
+            "head_bone", features["HandL"], plan))
+        # 两域之外的骨（IK / 控制 / 辅助骨）仍然可当手臂候选：
+        # 全量实测「必须落在臂域内」那种写法会把 足IK 这类骨一起挡掉，
+        # filled 净减 81。这里只挡「另一侧肢体里的骨」。
+        self.assertFalse(core.body_plan_rejects(
+            "left_upper_arm_bone", features["Pelvis"], plan))
+        self.assertFalse(core.body_plan_rejects(
+            "left_calf_bone", features["Neck"], plan))
+
+        # 没有 plan（解析失败 / 低置信）→ 全部放行
+        self.assertFalse(core.body_plan_rejects(
+            "left_upper_arm_bone", features["ThighL"], None))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

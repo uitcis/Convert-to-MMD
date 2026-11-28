@@ -706,26 +706,51 @@ def _band_score(band, value):
     return math.exp(-((distance / 0.12) ** 2))
 
 
-def detect_side_axis(features, up_axis=2):
+def detect_side_axis(features, up_axis=None):
     """用成对左右骨的实际坐标差推断左右轴，避免硬编码 X。
 
     配对统一走 _named_side_pairs——它支持前缀（LeftArm）、中间
-    （Bip001-L-Finger0）、后缀（arm.L / arm_L）三类写法。这里曾有一份
-    只认前缀与后缀的独立解析，中间式骨架（3ds Max Biped 系导出）配对
-    为空，于是回退到 X 轴：实测 Vipe 的第一人称骨架左右轴其实是 Y，
-    侧向分为 0，左肩拿到右锁骨、中心骨整片空掉。
+    （Bip001-L-Finger0）、后缀（arm.L / arm_L / G Clavicle L）、
+    单词式（arm left elbow）与单字母驼峰（lFoot）五类写法。
 
-    找不到配对时回退：高度轴不是 X 就用 X，否则用 Z。
+    两条约束：
+    ① 侧轴不与高度轴争：配对证据足够时**不排除任何轴**。左右骨
+       一定在侧轴上分开得最远，这是比「先判高度轴再排除它」更硬的
+       证据——后者一旦高度轴判错，侧轴必然跟着错（leviathan 实测
+       up=X、side=X，两者互锁）。
+    ② 配对太少时不足为证。tsukushi 主骨架 239 根骨曾只配出 2 对
+       （骨名 "breast left l" 这种左右混写），差异最大的轴恰好是 Y，
+       侧轴被judged成 Y——整副骨架左右全反。配对数量低于骨骼数的 2%
+       时改用分布跨度更大的垂直轴（T/A-pose 下臂展 > 体厚）。
+
+    up_axis 只在回退分支用于排除同轴；优先判 side 的调用方可不传。
     """
+    others = [axis for axis in range(3) if axis != up_axis]
     pairs = [(features[left_name].head, features[right_name].head)
              for left_name, right_name in _named_side_pairs(
                  features, include_middle=True)
              if left_name in features and right_name in features]
-    if not pairs:
-        return 0 if up_axis != 0 else 2
-    differences = [sum(abs(l[i] - r[i]) for l, r in pairs) / len(pairs)
-                   for i in range(3)]
-    return max(range(3), key=lambda i: differences[i])
+    if len(pairs) >= max(4, int(len(features) * 0.02)):
+        differences = [sum(abs(l[i] - r[i]) for l, r in pairs) / len(pairs)
+                       for i in range(3)]
+        return max(range(3), key=lambda i: differences[i])
+    if features:
+        if not others:
+            others = [0, 1, 2]
+        return max(others, key=lambda i: _axis_spread(features, i))
+    return 0 if up_axis != 0 else 2
+
+
+def _axis_spread(features, axis):
+    """骨骼在某个轴上的稳健跨度（5%~95% 分位，避免单片头发/武器拉偏）。"""
+    values = sorted(feature.head[axis] for feature in features.values())
+    if not values:
+        return 0.0
+    if len(values) < 7:
+        return values[-1] - values[0]
+    low = values[int(len(values) * 0.05)]
+    high = values[int(len(values) * 0.95)]
+    return high - low
 
 
 # 左右侧别前缀规则：(正则, 左侧标记, 右侧标记, 是否大小写敏感)
@@ -737,6 +762,9 @@ _SIDE_PREFIX_PATTERNS = (
     # 驼峰无分隔符：LeftArm / RightArm（大小写不敏感匹配，
     # 但用原始名切出 key 以保留驼峰边界）
     (re.compile(r"^(left|right)(?=[A-Z])", re.I), "left", "right", True),
+    # 单字母驼峰：lFoot / rThighBend（DAZ / Genesis 系常态）。
+    # 必须限定后一位是大写，否则 "lower"/"leg" 这类普通单词会被误判。
+    (re.compile(r"^([lr])(?=[A-Z])"), "l", "r", True),
 )
 
 
@@ -776,6 +804,15 @@ def _named_side_pairs(features, include_middle=False):
             if match:
                 key = f"{match.group(1)}~{match.group(3)}"
                 (left if match.group(2) == "l" else right)[key] = name
+                continue
+            # 词序式：arm left elbow / wrist right / ankle left。
+            # 左右是完整单词而非单字母，且位置不固定（后缀、中间都有）。
+            # 不认它时这类骨架 239 根骨只配出 2 对（见 detect_side_axis）。
+            words = [w for w in re.split(r"[._: -]+", lower) if w]
+            if "left" in words or "right" in words:
+                side_word = "left" if "left" in words else "right"
+                key = "~" + "".join(w for w in words if w != side_word)
+                (left if side_word == "left" else right)[key] = name
                 continue
         # 后缀式：arm.L / arm_L / G Clavicle L。用独立前缀标记，避免与
         # 前缀式的同名键（如 LeftArm 与 arm.L 的键都是 "arm"）互相覆盖。
@@ -879,6 +916,601 @@ def detect_spine_chain(features, up_axis=2):
         near.sort(key=lambda k: (-subtree_info(k)[1], k))
         current = near[0]
     return chain
+
+
+# 骨架体型分类：决定「这套骨架该不该按人形 64 字段来评价」
+SKELETON_HUMANOID = "humanoid"
+SKELETON_PARTIAL = "partial"
+SKELETON_NON_HUMANOID = "non_humanoid"
+
+# 姿态：MMD 转换要求源骨架处于站立的 A/T-pose。这是行业惯例而非算法
+# 能绕过的约束——坐姿/蹲姿会让高度带、左右对称、四肢方向三类判据同时
+# 失效（实测一个后仰坐姿模型：脚比头高、两肩投影重合，任何基于绝对
+# 位置的判据都会误判）。这里只做检测并如实报告，不改变匹配行为。
+POSTURE_STANDING = "standing"
+POSTURE_NOT_STANDING = "not_standing"
+POSTURE_UNKNOWN = "unknown"
+
+# 腿向量朝下的程度：-leg[up] / |leg|。站立 A/T-pose 实测 0.98~0.99，
+# 格斗站架（DNF 一腿前一腿后）仍有 0.99；后仰坐姿只有 0.30。
+POSTURE_UPRIGHT_MIN = 0.85
+# 髋→脚 的路径长 / 直线长。站立 1.05~1.55（踝关节有折角），坐姿 2.65。
+POSTURE_KNEE_MAX = 1.8
+# 髋在骨架高度上的位置区间。真人形骨骼（Blender/XPS）在 45%~55%，
+# 但 MMD 系骨架的腿根是「下半身」，位置比「腰」还高——Gley 实测 73%，
+# 上限定 0.70 会把整条腿排除掉、判定退化成 UNKNOWN。头发/花瓣的分叉点
+# 靠「对称 + 末端在下半段」挡住，不靠这条。
+POSTURE_HIP_MAX_PCT = 0.85
+# 髋的位置下限。根骨在 0%，它下面是整副骨架、任何分支都够长——不挡住
+# 就会把根当成髋（Vipe TP / Tifa_metarig 实测 upright 变成 -0.99）。
+POSTURE_HIP_MIN_PCT = 0.25
+# 腿分支的末端必须接近骨架最低处。这是「腿 vs 脊柱/手臂」的结构区别：
+# 站立 A/T-pose 下脚在 0~5%，手在 55%~75%，头顶接近 100%。
+# 定得宽（如 0.45）会让「上半身2 → 左右肩 → 手指」也混进来：Gley 完整
+# 绑定（429 骨）实测把左右肩当腿、直立度算成 0.63。
+POSTURE_LIMB_LOW_PCT = 0.25
+
+
+def _limb_branches(features, node_name, up_axis, low, height):
+    """某骨的子分支里，够长且末端落在下半段的那些（按长度降序）。
+
+    这是「腿」的候选。不看方向（坐姿的腿朝前伸，按「朝下」筛会整条
+    漏掉），但必须看末端高度：脊柱与手臂的分支同样够长，只有末端
+    高度能把它们与腿分开——头顶接近 100%、手在 55%~75%。
+    """
+    node = features.get(node_name)
+    if node is None:
+        return []
+    found = []
+    for child in node.children:
+        if child not in features:
+            continue
+        reach, far, lowest = 0.0, None, None
+        for member in _subtree_bones(features, child):
+            target = features.get(member)
+            if target is None:
+                continue
+            distance = math.dist(target.head, node.head)
+            if distance > reach:
+                reach, far = distance, target
+            pct = (target.head[up_axis] - low) / height
+            if lowest is None or pct < lowest:
+                lowest = pct
+        if far is None or lowest is None:
+            continue
+        if reach > height * 0.25 and lowest < POSTURE_LIMB_LOW_PCT:
+            found.append({"root": child, "reach": reach, "far": far})
+    found.sort(key=lambda item: -item["reach"])
+    return found
+
+
+def _find_hip(features, up_axis, low, height, side_axis):
+    """在整副骨架里找髋，返回 (髋名, [两条腿的根])；找不到返回 (None, [])。
+
+    髋 = 分叉出两条**对称**长分支的骨，取高度最靠下的一个。
+
+    为什么不沿脊柱链找：脊柱链常被马尾/后发带偏（实测 Gley 完整绑定
+    429 骨：上半身 > 上半身2 > Bn_Sec_BHair104 > … > Bn_Socket_Hair），
+    「链上第一个长分支」于是变成了左右肩，把手臂当腿，直立度算成 0.63。
+
+    两条护栏：
+      - 高度 25%~70%：根骨（0%）下面是整副骨架，任何分支都够长；
+        头顶（>70%）分出的是头发/花瓣，都不是腿。
+      - 两条分支末端在侧轴上分开 ≥15% 跨度：大腿下的「膝 + 膝扭转骨」
+        同样够长，只有分居两侧这一点能把真腿对上。
+    """
+    span_side = 0.0
+    if side_axis is not None:
+        values = [feature.head[side_axis] for feature in features.values()]
+        span_side = max(values) - min(values)
+    candidates = []
+    for name, node in features.items():
+        if len(node.children) < 2:
+            continue
+        pct = (node.head[up_axis] - low) / height
+        if pct < POSTURE_HIP_MIN_PCT or pct > POSTURE_HIP_MAX_PCT:
+            continue
+        candidates.append((pct, name))
+    candidates.sort()
+    for _pct, name in candidates:
+        branches = _limb_branches(features, name, up_axis, low, height)
+        if len(branches) < 2:
+            continue
+        first, second = branches[0], branches[1]
+        if side_axis is not None and span_side > 0:
+            separation = abs(first["far"].head[side_axis]
+                             - second["far"].head[side_axis])
+            if separation < span_side * 0.15:
+                continue
+        return name, [first["root"], second["root"]]
+    return None, []
+
+
+def _find_hip_by_feet(features, up_axis, low, height, side_axis):
+    """回退：取最低处的一对左右脚，髋 = 它们的最近公共祖先。
+
+    真实模型里两条腿不一定挂在同一个骨下：Gley 完整绑定（429 骨）的
+    MMD 骨架被 Bip001 重绑过，左足/右足 各自只挂一条腿链，没有任何骨
+    「分叉出两条腿」。但脚一定在最低处、左右一定分开，沿父链回溯到
+    汇合点就是髋。
+    """
+    if side_axis is None:
+        return None, []
+    values = [feature.head[side_axis] for feature in features.values()]
+    span_side = max(values) - min(values)
+    if span_side <= 0:
+        return None, []
+    cut = low + height * 0.05
+    feet = [name for name, feature in features.items()
+            if feature.head[up_axis] <= cut]
+    if len(feet) < 2:
+        return None, []
+    left = min(feet, key=lambda name: features[name].head[side_axis])
+    right = max(feet, key=lambda name: features[name].head[side_axis])
+    if (features[left].head[side_axis]
+            - features[right].head[side_axis]) < span_side * 0.15:
+        return None, []
+    ancestors = set()
+    name = left
+    while name is not None:
+        ancestors.add(name)
+        node = features.get(name)
+        name = node.parent if node is not None else None
+    name = right
+    while name is not None and name not in ancestors:
+        node = features.get(name)
+        name = node.parent if node is not None else None
+    if name is None:
+        return None, []
+    hip = name
+    pct = (features[hip].head[up_axis] - low) / height
+    if pct < POSTURE_HIP_MIN_PCT or pct > POSTURE_HIP_MAX_PCT:
+        return None, []
+    roots = []
+    for foot in (left, right):
+        name = foot
+        while name is not None:
+            node = features.get(name)
+            parent = node.parent if node is not None else None
+            if parent == hip:
+                roots.append(name)
+                break
+            name = parent
+    if len(roots) < 2:
+        return None, []
+    return hip, roots
+
+
+def _chain_length_to(features, foot, root, origin):
+    """从 origin 经 root 沿父链走到 foot 的路径长度。
+
+    腿分支里常常挂着裙摆、披风、尾巴，它们比脚离髋更远——用「走到最远
+    叶子的路径」会把 knee 算成 2 倍以上（Gley 429 骨的完整绑定实测
+    0.63 ≈ 误报非站立）。所以末端与路径都用同一个「最低点」，
+    knee 才有意义。
+    """
+    chain = []
+    name = foot
+    while name is not None and name != root:
+        chain.append(name)
+        node = features.get(name)
+        name = node.parent if node is not None else None
+    chain.append(root)
+    chain.reverse()
+    total = 0.0
+    previous = origin
+    for member in chain:
+        node = features.get(member)
+        if node is None:
+            continue
+        total += math.dist(node.head, previous)
+        previous = node.head
+    return total
+
+
+def _leg_shape(features, root, hip_head, up_axis):
+    """单条腿的直立度与膝弯曲度；无有效延伸时返回 None。
+
+    末端取分支内 up 轴**最低**的骨，而不是离髋最远的：裙摆/披风/尾巴
+    常比脚离髋更远，会把直立度拉偏（Gley 完整绑定 429 骨实测 0.63）。
+    """
+    subtree = _subtree_bones(features, root)
+    foot, lowest = None, None
+    for name in subtree:
+        node = features.get(name)
+        if node is None:
+            continue
+        if lowest is None or node.head[up_axis] < lowest:
+            foot, lowest = name, node.head[up_axis]
+    if foot is None:
+        return None
+    node = features[foot]
+    length = math.dist(node.head, hip_head)
+    if length <= 1e-9:
+        return None
+    path = _chain_length_to(features, foot, root, hip_head)
+    return {
+        "foot": foot,
+        "upright": -(node.head[up_axis] - hip_head[up_axis]) / length,
+        "knee": (path / length) if path > 1e-9 else None,
+    }
+
+
+def detect_posture(features, span, up_axis=2, side_axis=None):
+    """判断 rest 姿态是否站立的 A/T-pose，返回 (state, detail)。
+
+    判据只用拓扑 + 方向，不认骨名，也不看绝对坐标：
+
+        髋     = 分叉出两条对称长分支的骨（高度 25%~70% 内最靠下者）
+        直立度 = -leg[up] / |leg|        站立 0.99，坐姿 0.30
+        膝弯   = 髋→脚 路径长 / 直线长    站立 ≤1.55，坐姿 2.65
+
+    找不到腿（头部/头发/单件服装骨架）时返回 UNKNOWN，不报错、
+    也不影响匹配——这类骨架本来就没有「站姿」可言。
+    """
+    if not features or span <= 0:
+        return POSTURE_UNKNOWN, "无骨骼"
+    values = [feature.head[up_axis] for feature in features.values()]
+    low, high = min(values), max(values)
+    height = high - low
+    if height <= 1e-9:
+        return POSTURE_UNKNOWN, "高度为零"
+    hip, roots = _find_hip(features, up_axis, low, height, side_axis)
+    if hip is None:
+        hip, roots = _find_hip_by_feet(features, up_axis, low, height, side_axis)
+    if hip is None:
+        return POSTURE_UNKNOWN, "未找到成对腿分支"
+    hip_pct = (features[hip].head[up_axis] - low) / height
+    hip_head = features[hip].head
+    shapes = [shape for shape in
+              (_leg_shape(features, root, hip_head, up_axis) for root in roots)
+              if shape is not None]
+    if not shapes:
+        return POSTURE_UNKNOWN, "腿分支无延伸"
+    upright = min(shape["upright"] for shape in shapes)
+    knee = max((shape["knee"] or 0.0) for shape in shapes)
+    detail = f"upright={upright:.2f} knee={knee:.2f} hip={hip_pct:.0%}"
+    if upright >= POSTURE_UPRIGHT_MIN and knee <= POSTURE_KNEE_MAX:
+        return POSTURE_STANDING, detail
+    return POSTURE_NOT_STANDING, detail
+
+
+# ---------------------------------------------------------------- 几何身体划分
+#
+# 「只看骨点头的位置，人眼也能分出胳膊腿」的可计算版本。判据全部是局部
+# 结构，不拟合整体形状、也不假设哪个轴朝上：
+#
+#   ① 成对分叉：同一父骨下两根尺寸相近的分支。成对有**两种**表现——
+#      挂点分开且分离轴与「挂点中点→分叉点」垂直（腿、多数锁骨），或首骨
+#      反向（锁骨从脊柱中线向两侧长出，挂点几乎重合，DNF 这种）。
+#      **不能只用「方向相反」**：两条腿是平行的，都朝下，实测 cos≈0.97。
+#   ② 腿 = 两根分支互相平行（cos>0.5）且垂得最远的那组；
+#      上方向 = 腿的平均方向取反。腿就是人形自带的铅垂线——这一条同时
+#      解决了「哪个轴朝上」，Y-up 骨架不需要额外配置。
+#   ③ 胳膊 = 横向展幅远超胯宽、顶端高于腿根、链够长的那组。头发/马尾/
+#      裙骨也成对，但横向展不开、链也短。
+#
+# 几何只能定「域」：域内选哪根骨（主骨 vs 扭转骨/辅助骨）仍要看名称和
+# 权重——实测 lThighTwist 会抢 lThigh 的位置，Rigify 的 ORG/DEF 双份链
+# 只覆盖其中一份。所以这里产出的域只用来做**跨域否决**，不参与选骨。
+GEO_LEG_MAX_COS = 0.5          # 两条腿的质心方向必须近乎平行
+GEO_LEG_MIN_REACH = 0.18       # 腿要垂到点云对角线的这个比例以外
+GEO_LEG_MIN_LIMB = 0.30        # 腿分支自身长度 / 身高
+GEO_LEG_MIN_BELOW = 0.30       # 髋到最低点 / 身高
+GEO_ARM_MIN_LIMB = 0.15        # 胳膊分支自身长度 / 身高
+GEO_ARM_MIN_ABOVE = 0.03       # 肩膀之上还要有脖子/头
+GEO_ARM_MIN_RISE = 0.12        # 胳膊顶端要比腿根高出这个比例
+GEO_ARM_MIN_LATERAL = 1.30     # 臂展 / 胯宽
+# 高置信档：只有达到这一档才允许拿几何域去否决候选。达不到就静默退回，
+# 几何判错时也不会误杀——克拉拉那种「上半身挂 16 根 wt_* 辅助骨、头发
+# 被挑成胳膊」的骨架就停在这一档之外。
+GEO_CONF_LEG_LIMB = 0.35
+GEO_CONF_ARM_LIMB = 0.22
+GEO_CONF_LATERAL = 2.0
+GEO_CONF_MIN_BONES = 3
+
+
+def _geo_subtrees(features):
+    """每根骨的子树骨名集合 + 子树 head 坐标和（一次算完，配对时 O(1)）。"""
+    subs, sums = {}, {}
+    for name in sorted(features, key=lambda n: (-features[n].depth, n)):
+        members = {name}
+        total = tuple(features[name].head)
+        for child in sorted(features[name].children):
+            if child not in subs:
+                continue
+            members |= subs[child]
+            child_sum = sums[child]
+            total = tuple(total[i] + child_sum[i] for i in range(3))
+        subs[name] = members
+        sums[name] = total
+    return subs, sums
+
+
+def _geo_chain_len(features, name, memo):
+    """沿子骨往下最长一条链的骨长之和——量「这条分支到底有多长」。"""
+    if name in memo:
+        return memo[name]
+    best = 0.0
+    for child in sorted(features[name].children):
+        if child in features:
+            best = max(best, _geo_chain_len(features, child, memo))
+    memo[name] = features[name].length + best
+    return memo[name]
+
+
+def _geo_pairs(features, subs, sums, scale):
+    """找出所有「镜像分叉」：同一父骨下两根成对的分支。"""
+    if scale <= 1e-9:
+        return []
+    memo = {}
+    pairs = []
+    for node in sorted(features):
+        kids = sorted(c for c in features[node].children if c in features)
+        if len(kids) < 2:
+            continue
+        origin = features[node].head
+        for i, a in enumerate(kids):
+            for b in kids[i + 1:]:
+                sa, sb = subs[a], subs[b]
+                if min(len(sa), len(sb)) < 2:
+                    continue
+                if min(len(sa), len(sb)) / len(sa if len(sa) > len(sb) else sb) < 0.55:
+                    continue
+                la, lb = features[a].length, features[b].length
+                if max(la, lb) > 1e-9 and min(la, lb) / max(la, lb) < 0.4:
+                    continue
+                da = _vlen(_vsub(features[a].head, origin))
+                db = _vlen(_vsub(features[b].head, origin))
+                if max(da, db) > 1e-9 and min(da, db) / max(da, db) < 0.5:
+                    continue
+                ca = tuple(x / len(sa) for x in sums[a])
+                cb = tuple(x / len(sb) for x in sums[b])
+                va = _vsub(ca, origin)
+                vb = _vsub(cb, origin)
+                if min(_vlen(va), _vlen(vb)) < 1e-9:
+                    continue
+                if max(_vlen(va), _vlen(vb)) / min(_vlen(va), _vlen(vb)) > 1.8:
+                    continue
+                attach_a = _vsub(features[a].head, origin)
+                attach_b = _vsub(features[b].head, origin)
+                sep = _vsub(attach_b, attach_a)
+                mid = tuple(attach_a[i] + attach_b[i] for i in range(3))
+                sep_len, mid_len = _vlen(sep), _vlen(mid)
+                perp = (abs(_vdot(sep, mid)) / (sep_len * mid_len)
+                        if sep_len > 1e-9 and mid_len > 1e-9 else 0.0)
+                dir_a = _vunit(_vsub(features[a].tail, features[a].head))
+                dir_b = _vunit(_vsub(features[b].tail, features[b].head))
+                anti = (dir_a is not None and dir_b is not None
+                        and _vdot(dir_a, dir_b) < -0.3)
+                symmetric = sep_len >= 0.03 * scale and perp <= 0.35
+                if not (anti or symmetric):
+                    continue
+                pairs.append({
+                    "node": node, "a": a, "b": b,
+                    "weight": min(len(sa), len(sb)),
+                    "limb": min(_geo_chain_len(features, a, memo),
+                                _geo_chain_len(features, b, memo)),
+                    "va": va, "vb": vb,
+                    "sub": sa | sb,
+                    "mid": tuple((features[a].head[i] + features[b].head[i]) * 0.5
+                                 for i in range(3)),
+                })
+    pairs.sort(key=lambda p: (-p["weight"], p["node"], p["a"], p["b"]))
+    return pairs
+
+
+def _geo_lateral(features, names, origin, axis):
+    """一组骨相对躯干轴的最大横向伸展（垂直距离）。"""
+    best = 0.0
+    for name in sorted(names):
+        rel = _vsub(features[name].head, origin)
+        perp = tuple(rel[i] - axis[i] * _vdot(rel, axis) for i in range(3))
+        best = max(best, _vlen(perp))
+    return best
+
+
+def parse_body_plan(features):
+    """从骨点位置解析人形身体划分，返回 dict 或 None。
+
+    返回 {"up", "side", "arm", "leg", "torso", "arm_roots", "leg_roots",
+          "confident", "detail"}；解析不出人形（头部/道具/毛发骨架）返回 None。
+    """
+    if not features or len(features) < 8:
+        return None
+    subs, sums = _geo_subtrees(features)
+    heads = [tuple(f.head) for f in features.values()]
+    scale = sum(
+        (max(p[i] for p in heads) - min(p[i] for p in heads)) ** 2
+        for i in range(3)) ** 0.5
+    if scale <= 1e-9:
+        return None
+    pairs = _geo_pairs(features, subs, sums, scale)
+    if not pairs:
+        return None
+
+    # ① 定腿：两根分支互相平行且垂得最远的那组
+    leg = None
+    for pair in pairs:
+        ua, ub = _vunit(pair["va"]), _vunit(pair["vb"])
+        if ua is None or ub is None:
+            continue
+        if _vdot(ua, ub) < GEO_LEG_MAX_COS:
+            continue
+        down = _vunit(tuple(ua[i] + ub[i] for i in range(3)))
+        if down is None:
+            continue
+        reach = max(_vdot(_vsub(features[n].head, pair["mid"]), down)
+                    for n in sorted(pair["sub"]))
+        if reach < GEO_LEG_MIN_REACH * scale:
+            continue
+        if leg is None or reach > leg[0]:
+            leg = (reach, pair, down)
+    if leg is None:
+        return None
+    _, leg_pair, down = leg
+    up = tuple(-x for x in down)
+
+    values = [_vdot(tuple(f.head), up) for f in features.values()]
+    low, high = min(values), max(values)
+    H = high - low
+    if H <= 1e-9:
+        return None
+    leg_mid = leg_pair["mid"]
+    below = _vdot(leg_mid, up) - low
+    leg_lateral = _geo_lateral(features, leg_pair["sub"], leg_mid, up)
+    if below < GEO_LEG_MIN_BELOW * H or leg_pair["limb"] < GEO_LEG_MIN_LIMB * H:
+        return None
+
+    # ② 定胳膊：横向展幅远超胯宽、顶端高于腿根、链够长
+    arm = None
+    for pair in pairs:
+        if pair is leg_pair or pair["sub"] & leg_pair["sub"]:
+            continue
+        if pair["limb"] < GEO_ARM_MIN_LIMB * H:
+            continue
+        top = max(_vdot(tuple(features[n].head), up) for n in sorted(pair["sub"]))
+        if high - top < GEO_ARM_MIN_ABOVE * H:
+            continue
+        if top - _vdot(leg_mid, up) < GEO_ARM_MIN_RISE * H:
+            continue
+        lateral = _geo_lateral(features, pair["sub"], leg_mid, up)
+        if lateral < GEO_ARM_MIN_LATERAL * leg_lateral:
+            continue
+        score = lateral * pair["limb"]
+        if arm is None or score > arm[0]:
+            arm = (score, pair, lateral)
+    if arm is None:
+        return None
+    _, arm_pair, arm_lateral = arm
+
+    # ③ 侧轴 = 两根同源分支的分离方向（去掉沿躯干轴的分量）
+    lat = _vsub(arm_pair["va"], arm_pair["vb"])
+    lat = tuple(lat[i] - up[i] * _vdot(lat, up) for i in range(3))
+    side = _vunit(lat)
+    if side is None:
+        return None
+
+    arms, legs = set(arm_pair["sub"]), set(leg_pair["sub"])
+    torso = set(features) - arms - legs
+    confident = (leg_pair["limb"] >= GEO_CONF_LEG_LIMB * H
+                 and arm_pair["limb"] >= GEO_CONF_ARM_LIMB * H
+                 and arm_lateral >= GEO_CONF_LATERAL * leg_lateral
+                 and arm_pair["weight"] >= GEO_CONF_MIN_BONES
+                 and leg_pair["weight"] >= GEO_CONF_MIN_BONES
+                 and len(arms) >= GEO_CONF_MIN_BONES
+                 and len(legs) >= GEO_CONF_MIN_BONES)
+    detail = "臂%s/%s 腿%s/%s 臂展%.2f 置信%s" % (
+        arm_pair["node"], arm_pair["a"], leg_pair["node"], leg_pair["a"],
+        arm_lateral / leg_lateral if leg_lateral > 1e-9 else 0.0,
+        "高" if confident else "低")
+    return {
+        "up": up, "side": side,
+        "arm": arms, "leg": legs, "torso": torso,
+        "arm_roots": (arm_pair["a"], arm_pair["b"]),
+        "leg_roots": (leg_pair["a"], leg_pair["b"]),
+        "confident": confident, "detail": detail,
+    }
+
+
+def body_plan_rejects(field, feature, plan):
+    """几何身体划分的跨域否决。
+
+    只挡**结构性错误**——「腿里的骨当上臂」。注意方向：只否决「另一侧肢体
+    域里的骨」，**不要求**候选必须在臂域/腿域内。实测全量 193 套里，后者
+    会把一对 IK/控制骨（足IK、foot.roll 之类长在腿外、名字却叫「足」的骨）
+    一起挡掉，filled 净减 81；而前者才是真正想挡的错误搭配。
+    plan 为 None（解析失败或低置信）时一律放行。
+    """
+    if not plan:
+        return False
+    category = _category(field)
+    if category in ("shoulder", "upper_arm", "lower_arm", "hand"):
+        return feature.name in plan["leg"]
+    if category in ("thigh", "calf", "foot", "toe"):
+        return feature.name in plan["arm"]
+    # 躯干类不在这里挡：躯干候选已经有 torso_domain / 脊柱链两道约束，
+    # 再加一道「四肢域内的骨不能当躯干」实测会误伤服装子骨架（一件内衣的
+    # 下半身骨落在腿域里），全量 193 套里换来 1 个核心骨变空、没有收益。
+    return False
+
+
+def classify_skeleton(features, span, side_axis=None, up_axis=2, spine=None):
+    """判断骨架属于哪种体型，返回 (kind, detail)。
+
+    非人形骨架（尾巴、道具、单件服装、毛发、睫毛）没有对应的解剖链，
+    用 64 个 MMD 字段硬套只会得到「高分错配」——实测 184 处链断裂里
+    大部分落在这一类骨架上；它们还会污染批量统计（把平均填充率拉低，
+    让调参看不出真实变化）。所以先分类，再说准确率。
+
+    判据全部是结构性的，不认具体命名：
+      ① 躯干：脊柱主链 ≥3 节，且纵向跨度 ≥ 骨架高度的 20%；
+      ② 对称：命名成对的左右骨 ≥2 对；
+      ③ 四肢：脊柱链**之外**分出 ≥4 条含 3 根以上骨的分支
+         （两臂两腿；不按"分支高度"分区——脊柱链的起止点本身
+         就可能判歪，位置判据会把真人形算成单腿）。
+    ①+②+③ → humanoid；①或② 但四肢不全 → partial（半身 / 单件服装）；
+    既无对称又无分支 → non_humanoid（尾巴 / 道具 / 毛发）。
+
+    注意两点：
+    - pair_count 必须用 include_middle 口径。tsukushi 主骨架的左右是
+      "arm left elbow" 词序式，旧口径只数出 2 对，直接把真人形判成 partial。
+    - limbs 只数**脊柱链之外**的分支：沿链自身的连续子骨不算分支
+      （尾巴骨架曾因此算出 20 条"四肢"，被判成人形）。
+    """
+    if not features or span <= 0:
+        return SKELETON_NON_HUMANOID, "无骨骼"
+    spine = spine if spine is not None else (detect_spine_chain(features, up_axis)
+                                             or set())
+    spine_names = [name for name in spine if name in features]
+    spine_height = 0.0
+    if spine_names:
+        values = [features[name].head[up_axis] for name in spine_names]
+        spine_height = max(values) - min(values)
+    has_torso = len(spine_names) >= 3 and spine_height >= span * 0.20
+
+    pair_count = len(_named_side_pairs(features, include_middle=True))
+
+    branches = 0
+    for name in spine_names:
+        for child in features[name].children:
+            if child not in features or child in spine:
+                continue
+            if len(_subtree_bones(features, child)) >= 3:
+                branches += 1
+
+    detail = (f"spine={len(spine_names)} "
+              f"h={(spine_height / span if span else 0.0):.2f} "
+              f"pairs={pair_count} limbs={branches}")
+    if pair_count < 2 and branches < 2:
+        return SKELETON_NON_HUMANOID, detail
+    if has_torso and pair_count >= 2 and branches >= 4:
+        return SKELETON_HUMANOID, detail
+    return SKELETON_PARTIAL, detail
+
+
+def detect_left_positive(features, side_axis):
+    """左侧落在侧轴的正半轴还是负半轴。
+
+    由命名配对骨的实际坐标决定，不硬编码「左 = 正半轴」：模型朝向不同
+    （面朝 +Y 的导出）或作者按角色视角命名时，左侧在负半轴——硬编码会
+    让整副骨架左右全反（Lotus / leviathan / tsukushi 实测）。配对不足时
+    回退 True，即传统 Blender / XPS 约定。
+
+    单独成函数是为了可测：这段逻辑曾经因为一次编辑把 `try:` 拼进了
+    注释行末尾，整段被并进上一个 except 分支，于是分类正常返回时
+    `left_positive` 从未被设置、一直走默认值——侧向符号静默失效。
+    """
+    pairs = [(features[left_name].head[side_axis],
+              features[right_name].head[side_axis])
+             for left_name, right_name in _named_side_pairs(
+                 features, include_middle=True)
+             if left_name in features and right_name in features]
+    if not pairs:
+        return True
+    left_mean = sum(left for left, _right in pairs) / len(pairs)
+    right_mean = sum(right for _left, right in pairs) / len(pairs)
+    return left_mean >= right_mean
 
 
 def detect_midline(features, side_axis=None):
@@ -1910,8 +2542,12 @@ def geometry_contributions(field, feature, features, ctx):
     if side is None:
         side_raw, side_reason = 0.5, "中心骨"
     else:
-        coord = feature.head[side_axis]
-        want_positive = (side == "L")
+        # 用「相对中轴」而不是「相对原点」判符号：模型整体不在世界原点时
+        # （leviathan 左右骨都在负半轴），按原点判会把两侧都判成符号不符。
+        # 左在哪一侧同样由数据决定（ctx["left_positive"]），不硬编码正半轴。
+        mid = ctx.get("midline") or 0.0
+        coord = feature.head[side_axis] - mid
+        want_positive = (side == "L") == bool(ctx.get("left_positive", True))
         if abs(coord) > 1e-6 and (coord > 0) == want_positive:
             # 符号正确就该拿大部分分：侧向证据的核心作用是**区分左右**
             # （防止左右交叉），而不是「离中轴越远越好」。
@@ -2074,6 +2710,12 @@ def score_candidate(field, feature, features, ctx):
         if domain is not None and feature.name not in domain:
             return None
 
+    # 几何身体划分的跨域否决：只挡「腿里的骨当上臂」这类结构错误，
+    # 域内选哪根骨仍由名称/权重决定。plan 为空（解析失败或低置信）时
+    # 整段不生效，几何判错也不会误杀。
+    if body_plan_rejects(field, feature, ctx.get("body_plan")):
+        return None
+
     # 父子关系反了 → 否决：把子骨当父骨（如上臂字段拿到小臂骨）
     # 是结构性错误，不是分数高低问题，直接排除。
     if chain_relation_violated(field, feature, features):
@@ -2200,8 +2842,10 @@ def mirror_error(field, bone, assignments, features, ctx):
         return 1.0
     axis = ctx["side_axis"]
     # 左右轴反向误差是主判据，其余两轴的一致性只作半权修正，
-    # 避免三轴平均把「同侧误配」稀释到阈值以下。
-    error = abs(a[axis] + b[axis])
+    # 避免三轴平均把「同侧误配」稀释到阈值以下。镜像基准取中轴，
+    # 而不是世界原点——骨架整体偏移时按原点算会把两侧都算成误差。
+    mid = ctx.get("midline") or 0.0
+    error = abs((a[axis] - mid) + (b[axis] - mid))
     for other_axis in range(3):
         if other_axis != axis:
             error += 0.5 * abs(a[other_axis] - b[other_axis])
@@ -2563,6 +3207,29 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
     except Exception:
         ctx["midline"] = 0.0
         ctx["spine_chain"] = set()
+    # 骨架体型：非人形骨架（尾巴/道具/毛发/单件服装）没有对应的解剖链，
+    # 强行按 64 字段兜底填充只会得到「高分错配」，并把批量统计拉低到
+    # 看不出真实变化（184 处链断裂里大部分落在这一类）。分类结果只用于
+    # 决定「要不要硬填」，不影响人形骨架的任何判据。
+    try:
+        ctx["skeleton_kind"], ctx["skeleton_detail"] = classify_skeleton(
+            features, span, side_axis, up_axis, ctx["spine_chain"])
+    except Exception:
+        ctx["skeleton_kind"], ctx["skeleton_detail"] = SKELETON_HUMANOID, ""
+    # 姿态：骨架是否站立的 A/T-pose。只用于报告——坐姿/蹲姿下高度带与
+    # 左右对称同时失效，此时填出来的结果没有任何可信度，应提示用户
+    # 先摆正再转换，而不是让算法硬猜。
+    try:
+        ctx["posture"], ctx["posture_detail"] = detect_posture(
+            features, span, up_axis, side_axis)
+    except Exception:
+        ctx["posture"], ctx["posture_detail"] = POSTURE_UNKNOWN, ""
+    # 左侧落在侧轴的哪一侧：由命名配对骨的实际坐标决定，不硬编码
+    # 「左 = 正半轴」（见 detect_left_positive）。
+    try:
+        ctx["left_positive"] = detect_left_positive(features, side_axis)
+    except Exception:
+        ctx["left_positive"] = True
     # 左右配对表：兜底填充时优先用「对侧已填骨的同名配对骨」——
     # 左右对称的骨在位置上互为镜像，这是比分数更硬的物理证据。
     try:
@@ -2597,6 +3264,15 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
     except Exception:
         ctx["torso_domain"] = set()
         ctx["arm_domains"] = {}
+
+    # 几何身体划分（不看骨名）：产出臂域 / 腿域 / 躯干域，只用于跨域否决。
+    # 低置信时不挂进 ctx——克拉拉那种「上半身挂十几根辅助骨、头发被挑成
+    # 胳膊」的骨架就停在这一档，宁可不用也不误杀。
+    try:
+        plan = parse_body_plan(features)
+    except Exception:
+        plan = None
+    ctx["body_plan"] = plan if (plan and plan["confident"]) else None
 
     candidates = {}
     best_scores = {}
@@ -2793,6 +3469,12 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
     for field in field_order:
         if field in filled or field in reported:
             continue
+        # 非人形骨架（尾巴 / 道具 / 毛发 / 单件服装）没有对应的解剖链，
+        # 按分数凑出来的每一根都是错配（尾巴拿到「大腿」、道具拿到
+        # 「手首」）。留空并说明，比填满四十个错字段有用。
+        if ctx.get("skeleton_kind") == SKELETON_NON_HUMANOID:
+            low_conf.append((field, 0.0, "骨架判定为非人形，未自动填充"))
+            continue
         if field in NO_AUTO_MATCH_FIELDS:
             # 不参与自动匹配的字段（上半身2~5）只走拓扑推导，
             # 推导不出就留空，不用候选池硬填——否则会填进马尾、
@@ -2862,5 +3544,11 @@ def solve(field_order, features, span, diagonal, z_min, up_axis, side_axis,
         "average": (sum(c["score"] for c in solid) / len(solid)
                     if solid else 0.0),
         "search_nodes": nodes,
+        "skeleton_kind": ctx.get("skeleton_kind", SKELETON_HUMANOID),
+        "skeleton_detail": ctx.get("skeleton_detail", ""),
+        "posture": ctx.get("posture", POSTURE_UNKNOWN),
+        "posture_detail": ctx.get("posture_detail", ""),
+        "body_plan": (ctx["body_plan"]["detail"]
+                      if ctx.get("body_plan") else ""),
     }
     return filled, low_conf, result_stats

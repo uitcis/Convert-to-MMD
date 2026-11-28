@@ -26,9 +26,26 @@ dev/
 ├── scan_all_models.py         批量扫描：目录里每个 .blend 的每套骨架能否识别
 ├── scan_snapshot.txt          上面脚本在 136 个模型的目录上跑出的快照（对比用）
 ├── scan_new.txt               候选生成优化后的同一份扫描（对比对象为上一行）
+├── scan_axis.txt              侧轴/上轴判据修正后的扫描快照
+├── scan_fix.txt               姿态判定与侧别修复前的扫描快照
+├── scan_geo.txt               几何身体划分接入后的扫描快照（当前基线）
+├── posture_scan.txt           193 套骨架的站姿判定结果
+├── geo_scan.txt               9 套骨架的几何划分与骨名对账
 ├── compare_scan.py            对比两份扫描快照，列出变好/变差的骨架
 ├── probe_search_cost.py       每套骨架的回溯节点数与耗时（SEARCH_CAP / NO_EDIT 可覆盖）
 ├── probe_profile.py           cProfile 剖析 solve 各阶段耗时
+├── probe_geo_limbs.py         几何身体划分探针：不看骨名的臂/腿/躯干划分，与骨名对账
+├── probe_posture.py           站姿判定探针（站立 A/T-pose / 非站立 / 判不了）
+├── probe_classify.py          人形 / 部分人形 / 非人形分类结果
+├── probe_axes.py              各骨架的侧轴与上轴候选及其分布
+├── probe_axis_rot.py          骨架绕高度轴的旋转量（检验轴对齐假设）
+├── probe_symmetry.py          镜像对称面拟合（旋转不变量）
+├── probe_side.py              侧别符号与左右配对统计
+├── probe_orientation.py       骨架朝向（上/前/侧）判定
+├── probe_restpose.py          rest 姿态下的骨骼旋转是否为单位（判断模型自带非站姿）
+├── probe_pose_source.py       骨骼坐标取自 rest 还是 pose/动画
+├── probe_noname.py            抹掉骨名后仅靠几何能否定位各部位
+├── render_model.py            正交三视图 + 透视 X-Ray 渲染，人工核对骨架（输出到 renders/）
 ├── apose_operator_smoke.py    A-Pose 最小场景跨版本兼容（4.0/4.2 无工程文件）
 ├── apose_operator_verify.py   A-Pose 真实工程端到端
 ├── apose_render/              A-Pose 渲染对照脚本与截图（脚本用 __file__ 同目录出图）
@@ -41,7 +58,7 @@ dev/
 以下命令都在**仓库根目录**执行。
 
 ```bash
-# 单测（126 项，纯 Python，无需 Blender）
+# 单测（141 项，纯 Python，无需 Blender）
 python -m unittest discover -s dev -p "test_*.py"
 
 # 泛化探针（四套命名体系，核心骨应 15/15）

@@ -98,19 +98,124 @@ def _collect_weight_stats(armature, features):
                     feature.weight_centroid += co
 
 
-def _pick_up_axis(bones):
+class _HeadOnly:
+    """给左右配对判定用的轻量代理：只需要 head 坐标。"""
+
+    __slots__ = ("head",)
+
+    def __init__(self, head):
+        self.head = head
+
+
+class _GeoNode:
+    """给几何身体划分用的轻量代理：head/tail/父子/深度/骨长。"""
+
+    __slots__ = ("name", "head", "tail", "parent", "children", "depth",
+                 "length")
+
+
+def _geo_up_axis(bones):
+    """用几何身体划分定高度轴，返回 (axis, up_vector) 或 None。
+
+    腿是人形自带的铅垂线：找两条互相平行、垂得最远的分支，其平均方向
+    取反就是「上」。这比 `_pick_up_axis` 的「配对中点分布最广」多一层
+    解剖证据——后者依赖「肩肘髋踝沿身高排开」，站架/坐姿下会被前后跨度
+    干扰（DNF 全骨点云 PCA 的 up 偏 18°）。
+
+    只在解析成功且高置信时采信，并且要求「上」足够贴近某条坐标轴
+    （|分量| ≥ 0.9），否则返回 None 让调用方回退原判据——45° 旋转的
+    骨架用轴索引表达不了，硬取会退化成掷硬币。
+    """
+    if len(bones) < 8:
+        return None
+    nodes = {}
+    for bone in bones:
+        node = _GeoNode()
+        node.name = bone.name
+        node.head = tuple(bone.head_local)
+        node.tail = tuple(bone.tail_local)
+        node.parent = bone.parent.name if bone.parent else None
+        node.children = []
+        node.depth = 0
+        node.length = (bone.tail_local - bone.head_local).length
+        nodes[bone.name] = node
+    for node in nodes.values():
+        if node.parent in nodes:
+            nodes[node.parent].children.append(node.name)
+    for node in nodes.values():
+        depth, current = 0, node.parent
+        while current in nodes:
+            depth += 1
+            current = nodes[current].parent
+        node.depth = depth
+    try:
+        plan = core.parse_body_plan(nodes)
+    except Exception:                                   # noqa: BLE001
+        return None
+    if not plan or not plan["confident"]:
+        return None
+    up = plan["up"]
+    axis = max(range(3), key=lambda i: abs(up[i]))
+    if abs(up[axis]) < 0.9:
+        return None
+    return axis, up
+
+
+def _pick_up_axis(bones, from_pairs_only=False):
     """选择骨骼的高度轴（兼容横躺/侧躺模型）。
 
-    不能只看包围盒跨度：张开的手臂、腿会把横向跨度撑大，导致
-    选错轴（实测 DNF 的高度轴是 Z，但跨度最大的却是 Y——手臂张开
-    撑大了 Y 跨度，于是所有中心骨的高度都算成同一个值，
-    高度带完全失效）。
+    旧判据是「根骨沿唯一子骨链的跨度最大」，但骨架在根骨处就分叉时
+    （hip 直接分出脊柱与两条腿），唯一子骨链长度只有 1、跨度全为 0，
+    于是回退到包围盒——而张开的双臂会把 X 撑成最大跨度。实测服装子
+    骨架 XF-dForce / Cute Casual Top 因此把 up 判成 X，高度带全部失效。
 
-    判据：躯干主链（脊柱）在拓扑上从根骨连续向下，且中途多为
-    「唯一子骨」；其它分支（四肢、头发）都是它的侧枝。因此沿
-    「根 → 唯一子骨 → 唯一子骨…」这条链，骨的数量在高度方向上
-    最多。三个轴里选主链骨数最多的那个。
+    新判据只用**左右配对骨**这一组证据，同时定出两个轴：
+      side 轴 = 左右骨坐标差最大的轴（左右一定是这条轴分开的）；
+      up   轴 = 每对中点分布最广的轴（肩/肘/髋/踝沿身高排开），排除 side。
+    两者互斥且来自同一组证据，不会出现 up == side（leviathan 实测
+    up=X、side=X，全盘错位）。配对不足时才回退到主链跨度 / 包围盒。
+
+    from_pairs_only=True 时，配对证据不足直接返回 None，把后面两条弱判据
+    （主链跨度 / 包围盒）留给调用方决定要不要用——build_features 在这种情况下
+    会先试几何身体划分（腿的方向），比「包围盒最大的轴」可靠得多。
     """
+    heads = {bone.name: _HeadOnly(bone.head_local) for bone in bones}
+    side_axis = core.detect_side_axis(heads) if heads else None
+    if heads and side_axis is not None:
+        depths = {}
+        for bone in bones:
+            depth = 0
+            current = bone.parent
+            while current is not None:
+                depth += 1
+                current = current.parent
+            depths[bone.name] = depth
+        pairs = []
+        for left_name, right_name in core._named_side_pairs(
+                heads, include_middle=True):
+            if left_name not in heads or right_name not in heads:
+                continue
+            depth = (depths.get(left_name, 0) + depths.get(right_name, 0)) * 0.5
+            pairs.append((depth, heads[left_name].head, heads[right_name].head))
+        if len(pairs) >= 3:
+            # 只用**浅层配对**：肩/肘/髋/膝/踝沿身高排开，能代表身体主轴；
+            # 手指是最深的一批，A-pose 下五指向前张开，中点沿前后轴散得
+            # 比肩到踝还宽——不过滤会把 DNF 的高度轴判成 Y（实测 center
+            # 骨全体填进马尾，链断 0→2）。取深度不深于中位数的那一半。
+            pairs.sort(key=lambda item: item[0])
+            keep = pairs[:max(3, len(pairs) // 2)]
+            midpoints = [((l[0] + r[0]) * 0.5, (l[1] + r[1]) * 0.5,
+                          (l[2] + r[2]) * 0.5) for _d, l, r in keep]
+            others = [axis for axis in range(3) if axis != side_axis]
+            spreads = {axis: max(p[axis] for p in midpoints)
+                       - min(p[axis] for p in midpoints) for axis in others}
+            best = max(others, key=lambda axis: spreads[axis])
+            if spreads[best] > 0:
+                return best
+
+    if from_pairs_only:
+        return None
+
     children = {}
     for bone in bones:
         children.setdefault(bone.parent.name if bone.parent else "", [])
@@ -193,7 +298,13 @@ def build_features(armature):
         depth_map[bone.name] = depth
         max_depth = max(max_depth, depth)
 
-    up_axis = _pick_up_axis(bones)
+    up_axis = _pick_up_axis(bones, from_pairs_only=True)
+    if up_axis is None:
+        # 配对证据不足（命名自由 / 服装子骨架 / 只有半身）：先试几何身体
+        # 划分——腿的平均方向就是「上」，比「主链跨度最大」和「包围盒最大」
+        # 这两条弱判据可靠。解析不出人形再退回原判据，保持原有行为。
+        geo = _geo_up_axis(bones)
+        up_axis = geo[0] if geo is not None else _pick_up_axis(bones)
     up_values = [b.head_local[up_axis] for b in bones]
     z_min, z_max = min(up_values), max(up_values)
     span = z_max - z_min

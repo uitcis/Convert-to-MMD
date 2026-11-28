@@ -1,0 +1,104 @@
+GEO	Tifa_Default_Armature	bones=354
+GEO	  up=(-0.000,-0.005,1.000) side=(-1.000,-0.000,-0.000) 与插件上轴夹角=0.3°
+GEO	  胳膊分叉=DEF-Spine_04 roots=DEF-Shoulder.R+DEF-Shoulder.L  腿分叉=DEF-Hip roots=DEF-Thigh.R+DEF-Thigh.L
+GEO	  划分：arm=105 leg=24 torso=225
+GEO	  与骨名对账：54/54 一致
+GEO	  侧别分组一致性：107/107
+GEO	Tifa_metarig	bones=733
+GEO	  up=(0.000,-0.017,1.000) side=(-1.000,0.000,0.000) 与插件上轴夹角=1.0°
+GEO	  胳膊分叉=Spine_04 roots=Shoulder.R+Shoulder.L  腿分叉=Hip roots=Thigh.R+Thigh.L
+GEO	  划分：arm=75 leg=20 torso=638
+GEO	  与骨名对账：34/66 一致
+GEO	  不一致：Elbow_Lock.L:名=arm/几何=torso | Elbow_Lock.R:名=arm/几何=torso | Knee_Lock.L:名=leg/几何=torso | Knee_Lock.R:名=leg/几何=torso | MCH-CalfB_Helper.L:名=leg/几何=torso | MCH-CalfB_Helper.R:名=leg/几何=torso | MCH-Skirt_Thigh.L:名=leg/几何=torso | MCH-Skirt_Thigh.R:名=leg/几何=torso
+GEO	  侧别分组一致性：83/83
+GEO	Tifa_rig	bones=1792
+GEO	  up=(0.003,-0.022,1.000) side=(-1.000,-0.000,0.003) 与插件上轴夹角=1.3°
+GEO	  胳膊分叉=ORG-Spine_04 roots=ORG-Shoulder.R+ORG-Shoulder.L  腿分叉=ORG-Hip roots=ORG-Thigh.R+ORG-Thigh.L
+GEO	  划分：arm=300 leg=38 torso=1454
+GEO	  与骨名对账：121/317 一致
+GEO	  不一致：DEF-Foot.L:名=leg/几何=torso | DEF-Foot.R:名=leg/几何=torso | DEF-Forearm.L:名=arm/几何=torso | DEF-Hand.L:名=arm/几何=torso | DEF-Knee_Helper.L:名=leg/几何=torso | DEF-Knee_Helper.R:名=leg/几何=torso | DEF-Shin.L:名=leg/几何=torso | DEF-Shin.R:名=leg/几何=torso
+GEO	  侧别分组一致性：308/308
+GEO	FemaleArmature	bones=298
+GEO	  up=(0.000,0.999,-0.034) side=(1.000,0.000,0.000) 与插件上轴夹角=1.9°
+GEO	  胳膊分叉=chestUpper roots=lCollar+rCollar  腿分叉=pelvis roots=lThighTwist+rThighTwist
+GEO	  划分：arm=54 leg=34 torso=210
+GEO	  与骨名对账：48/62 一致
+GEO	  不一致：FootCtrl.L:名=leg/几何=torso | FootCtrl.R:名=leg/几何=torso | FootRollControl.L:名=leg/几何=torso | FootRollControl.R:名=leg/几何=torso | L_Arm_IK:名=arm/几何=torso | L_Arm_Pull:名=arm/几何=torso | L_Leg_IK:名=leg/几何=torso | L_Leg_Pull:名=leg/几何=torso
+GEO	Genesis8Female	bones=178
+GEO	  up=(0.000,0.999,-0.033) side=(1.000,-0.000,-0.000) 与插件上轴夹角=1.9°
+GEO	  胳膊分叉=chestUpper roots=lCollar+rCollar  腿分叉=pelvis roots=lThighBend+rThighBend
+GEO	  划分：arm=50 leg=32 torso=96
+GEO	  与骨名对账：42/42 一致
+GEO	Armature	bones=513
+GEO	  FAIL 未能解析出人形分叉
+GEO	Armature	bones=444
+GEO	  up=(0.000,0.006,1.000) side=(1.000,0.000,-0.000) 与插件上轴夹角=0.3°
+GEO	  胳膊分叉=G Chest roots=G Clavicle L+G Clavicle R  腿分叉=G Pelvis roots=G Thigh R+G Thigh L
+GEO	  划分：arm=98 leg=32 torso=314
+GEO	  与骨名对账：74/88 一致
+GEO	  不一致：GDU BreastArmer Down1 BL:名=arm/几何=torso | GDU BreastArmer Down1 BR:名=arm/几何=torso | GDU BreastArmer Down1 FL:名=arm/几何=torso | GDU BreastArmer Down1 FR:名=arm/几何=torso | GDU BreastArmer Down2 BL:名=arm/几何=torso | GDU BreastArmer Down2 BR:名=arm/几何=torso | GDU BreastArmer Down2 FL:名=arm/几何=torso | GDU BreastArmer Down2 FR:名=arm/几何=torso
+GEO	Armature	bones=315
+GEO	  up=(-0.000,0.018,1.000) side=(1.000,0.002,-0.000) 与插件上轴夹角=1.0°
+GEO	  胳膊分叉=G Chest roots=G Clavicle L+G Clavicle R  腿分叉=G Pelvis roots=G Thigh R+G Thigh L
+GEO	  划分：arm=92 leg=46 torso=177
+GEO	  与骨名对账：78/78 一致
+GEO	克拉拉_arm	bones=603
+GEO	  up=(-0.000,-0.005,1.000) side=(-0.848,0.530,0.003) 与插件上轴夹角=0.3°
+GEO	  胳膊分叉=頭 roots=HairBM1_JNT+HairBD1_JNT  腿分叉=下半身 roots=腰キャンセル.R+腰キャンセル.L
+GEO	  划分：arm=8 leg=18 torso=577
+GEO	  与骨名对账：16/70 一致
+GEO	  不一致：+ひじ補助.L:名=arm/几何=torso | +ひじ補助.R:名=arm/几何=torso | つま先ＩＫ.L:名=leg/几何=torso | つま先ＩＫ.R:名=leg/几何=torso | ひじ.L:名=arm/几何=torso | ひじ.R:名=arm/几何=torso | ひじ補助.L:名=arm/几何=torso | ひじ補助.R:名=arm/几何=torso
+GEO	  侧别分组一致性：18/18
+GEO	PC_FP_Female_Red02.ao	bones=89
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_TP_Female_Red02.ao	bones=117
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_TP_Female_Red02_Hair.ao	bones=117
+GEO	  FAIL 未能解析出人形分叉
+GEO	hair.001	bones=81
+GEO	  FAIL 未能解析出人形分叉
+GEO	Rebirth Tifa V2	bones=296
+GEO	  up=(0.000,0.040,0.999) side=(1.000,0.000,-0.000) 与插件上轴夹角=2.3°
+GEO	  胳膊分叉=hip roots=arm_parent.L+arm_parent.R  腿分叉=hip roots=leg_parent.L+leg_parent.R
+GEO	  划分：arm=86 leg=66 torso=144
+GEO	  与骨名对账：114/132 一致
+GEO	  不一致：ankle.ik.L:名=leg/几何=torso | ankle.ik.R:名=leg/几何=torso | armSocket.L:名=arm/几何=torso | armSocket.R:名=arm/几何=torso | foot.ik.L:名=leg/几何=torso | foot.ik.R:名=leg/几何=torso | foot.inv.ik.L:名=leg/几何=torso | foot.inv.ik.R:名=leg/几何=torso
+GEO	  侧别分组一致性：134/134
+GEO	skirt.001	bones=106
+GEO	  FAIL 未能解析出人形分叉
+GEO	Gley_BodyA_CMN2_Rig	bones=307
+GEO	  up=(-0.000,-0.047,0.999) side=(0.999,-0.051,-0.002) 与插件上轴夹角=2.7°
+GEO	  胳膊分叉=Bip001-Spine3 roots=Bip001-L-Clavicle+Bip001-R-Clavicle  腿分叉=Bip001-Pelvis roots=Bip001-L-Thigh+Bip001-R-Thigh
+GEO	  划分：arm=94 leg=70 torso=143
+GEO	  与骨名对账：124/128 一致
+GEO	  不一致：Bn_Shape_ThighTw_L1:名=leg/几何=torso | Bn_Shape_ThighTw_L1_Parent:名=leg/几何=torso | Bn_Shape_ThighTw_R1:名=leg/几何=torso | Bn_Shape_ThighTw_R1_Parent:名=leg/几何=torso
+GEO	  侧别分组一致性：145/145
+GEO	Gley_BodyU_CMN2_Rig	bones=304
+GEO	  up=(-0.000,-0.047,0.999) side=(1.000,0.000,0.000) 与插件上轴夹角=2.7°
+GEO	  胳膊分叉=Bip001-Spine3 roots=Bip001-L-Clavicle+Bip001-R-Clavicle  腿分叉=Bip001-Pelvis roots=Bip001-L-Thigh+Bip001-R-Thigh
+GEO	  划分：arm=80 leg=70 torso=154
+GEO	  与骨名对账：124/128 一致
+GEO	  不一致：Bn_Shape_ThighTw_L1:名=leg/几何=torso | Bn_Shape_ThighTw_L1_Parent:名=leg/几何=torso | Bn_Shape_ThighTw_R1:名=leg/几何=torso | Bn_Shape_ThighTw_R1_Parent:名=leg/几何=torso
+GEO	  侧别分组一致性：144/144
+GEO	Gley_BodyU_VAR0_Rig	bones=327
+GEO	  up=(-0.000,-0.047,0.999) side=(1.000,0.000,0.000) 与插件上轴夹角=2.7°
+GEO	  胳膊分叉=Bip001-Spine3 roots=Bip001-L-Clavicle+Bip001-R-Clavicle  腿分叉=Bip001-Pelvis roots=Bip001-L-Thigh+Bip001-R-Thigh
+GEO	  划分：arm=80 leg=64 torso=183
+GEO	  与骨名对账：124/124 一致
+GEO	  侧别分组一致性：138/138
+GEO	Gley_Face_Rig	bones=478
+GEO	  up=(-0.000,-0.040,0.999) side=(0.999,-0.050,-0.002) 与插件上轴夹角=2.3°
+GEO	  胳膊分叉=Bip001-Spine3 roots=Bip001-L-Clavicle+Bip001-R-Clavicle  腿分叉=Bip001-Pelvis roots=Bip001-L-Thigh+Bip001-R-Thigh
+GEO	  划分：arm=94 leg=52 torso=332
+GEO	  与骨名对账：120/120 一致
+GEO	  侧别分组一致性：127/127
+GEO	PC_007_A_CMN_HEAD_002	bones=95
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_007_A_VAR_HEAD_006	bones=37
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_007_A_VAR_HEAD_007	bones=182
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_007_U_CMN_HEAD_002	bones=111
+GEO	  FAIL 未能解析出人形分叉
+GEO	PC_007_U_VAR_HEAD_000	bones=81
+GEO	  FAIL 未能解析出人形分叉

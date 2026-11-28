@@ -6,3 +6,6 @@
 /dev/reference/
 .codebuddy/
 .workbuddy/
+
+# 探针渲染输出（本地生成，体积大，不入库）
+/dev/renders/

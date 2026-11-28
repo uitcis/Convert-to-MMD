@@ -1,0 +1,230 @@
+POST	Armature	715	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl R	(-0.09 -0.11 -1.01)	DNFDuelNenMaster.blend
+POST	Armature	715	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl L	(+0.09 -0.11 -1.01)	DNFDuelNenMaster.blend
+POST	Armature	216	1	partial	NOLEG	NA	-	NA	NA	Dragon.blend
+POST	Armature	128	0	partial	+0.718	1.05	GDU BottomPetal root	GDU BottomPetal E4	(-1.11 -0.36 +1.01)	Lotus.blend
+POST	Armature	128	0	partial	+0.444	1.05	GDU BottomPetal root	GDU BottomPetal D4	(-0.68 +0.94 +1.01)	Lotus.blend
+POST	Armature	111	1	humanoid	+1.000	1.44	GDU Head	GDU Nose 3	(+0.00 -0.47 -0.01)	Tiger.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl R	(-0.08 -0.10 -0.95)	gai.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl L	(+0.08 -0.10 -0.95)	gai.blend
+POST	Armature	9	2	non_humanoid	NOLEG	NA	-	NA	NA	小提琴盒.blend
+POST	Armature	3	0	non_humanoid	NA	NA	NA	NA	NA	望远镜.blend
+POST	Armature	389	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl R	(-0.10 -0.12 -1.13)	本体.blend
+POST	Armature	389	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl L	(+0.10 -0.12 -1.13)	本体.blend
+POST	Armature	7	2	non_humanoid	NOLEG	NA	-	NA	NA	花束.blend
+POST	Armature	119	2	humanoid	+0.992	1.08	G Pelvis	G Toe R	(-0.10 -0.10 -1.13)	凯莉-贴图未处理.blend
+POST	Armature	119	2	humanoid	+0.992	1.08	G Pelvis	GD Toe Scl L	(+0.10 -0.10 -1.13)	凯莉-贴图未处理.blend
+POST	Armature	481	2	humanoid	+0.982	1.16	G Pelvis	GDU Toe E3 R	(-0.15 -0.17 -1.18)	剑影.blend
+POST	Armature	481	2	humanoid	+0.982	1.16	G Pelvis	GDU Toe E3 L	(+0.15 -0.17 -1.18)	剑影.blend
+POST	Armature	407	2	humanoid	+0.973	1.19	G Pelvis	GDU Toe E3 R	(-0.22 -0.22 -1.30)	剑鬼.blend
+POST	Armature	407	2	humanoid	+0.973	1.19	G Pelvis	GDU Toe E3 L	(+0.22 -0.22 -1.30)	剑鬼.blend
+POST	Armature	111	2	humanoid	+0.989	1.10	G Pelvis	G Toe R	(-0.10 -0.12 -1.05)	博肯.blend
+POST	Armature	111	2	humanoid	+0.989	1.10	G Pelvis	GD Toe Scl L	(+0.10 -0.12 -1.05)	博肯.blend
+POST	Armature	116	2	humanoid	+0.992	1.08	G Pelvis	G Toe R	(-0.10 -0.08 -1.06)	天界-泽丁-贴图未处理.blend
+POST	Armature	116	2	humanoid	+0.992	1.08	G Pelvis	GD Toe Scl L	(+0.10 -0.08 -1.06)	天界-泽丁-贴图未处理.blend
+POST	Armature	441	2	humanoid	+0.992	1.18	G Pelvis	GD Toe Scl R	(-0.11 -0.11 -1.26)	女大枪（机械）-贴图未处理.blend
+POST	Armature	441	2	humanoid	+0.992	1.18	G Pelvis	GD Toe Scl L	(+0.11 -0.11 -1.26)	女大枪（机械）-贴图未处理.blend
+POST	Armature	16	2	non_humanoid	NOLEG	NA	-	NA	NA	圣光大锤.blend
+POST	Armature	452	2	humanoid	+0.982	1.12	G Pelvis	GD Toe Scl R	(-0.14 -0.17 -1.15)	本体.blend
+POST	Armature	452	2	humanoid	+0.982	1.12	G Pelvis	G Toe L	(+0.14 -0.17 -1.15)	本体.blend
+POST	Armature	11	1	non_humanoid	+1.000	1.00	GDU Spear root	GDU Spear head 5	(+0.00 -1.20 -0.00)	胜利之矛.blend
+POST	Armature	114	2	humanoid	+1.000	1.00	G Pelvis	GDU Toe C	(+0.00 +0.00 -1.24)	小人鱼-贴图未处理.blend
+POST	Armature	114	2	humanoid	+0.978	1.12	G Pelvis	G Toe R	(-0.19 -0.00 -0.88)	小人鱼-贴图未处理.blend
+POST	Armature	10	2	non_humanoid	+1.000	1.78	GU Body M	GDU Body B	(+0.00 +0.00 -0.24)	南瓜.blend
+POST	Armature	597	2	humanoid	+0.994	1.05	G Pelvis	GD Toe Scl R	(-0.06 -0.06 -0.76)	小魔女+扫把.blend
+POST	Armature	597	2	humanoid	+0.994	1.05	G Pelvis	GD Toe Scl L	(+0.06 -0.06 -0.76)	小魔女+扫把.blend
+POST	Armature	67	2	humanoid	+0.986	1.07	G Pelvis	G Foot R	(-0.03 +0.00 -0.17)	玩偶熊.blend
+POST	Armature	67	2	humanoid	+0.986	1.07	G Pelvis	G Foot L	(+0.03 +0.00 -0.17)	玩偶熊.blend
+POST	Armature	202	2	humanoid	+0.943	1.15	G Pelvis	GDP CalfMid Scl R	(-0.15 +0.00 -0.43)	疯疯熊-大.blend
+POST	Armature	202	2	humanoid	+0.943	1.15	G Pelvis	GDP CalfMid Scl L	(+0.15 -0.00 -0.43)	疯疯熊-大.blend
+POST	Armature	345	2	humanoid	+0.977	1.10	G Pelvis	GDP CalfMid Scl R	(-0.10 +0.00 -0.46)	疯疯熊-小.blend
+POST	Armature	345	2	humanoid	+0.977	1.10	G Pelvis	GDP CalfMid Scl L	(+0.10 -0.00 -0.46)	疯疯熊-小.blend
+POST	Armature	461	2	humanoid	+0.989	1.10	G Pelvis	GD Toe Scl R	(-0.11 -0.12 -1.09)	本体.blend
+POST	Armature	461	2	humanoid	+0.989	1.10	G Pelvis	GD Toe Scl L	(+0.11 -0.12 -1.09)	本体.blend
+POST	Armature	11	1	non_humanoid	+1.000	1.00	GD Weapon	GDU Weapon UP 4	(-0.00 -0.94 -0.00)	长枪.blend
+POST	Armature	46	1	non_humanoid	NOLEG	NA	-	NA	NA	卷轴.blend
+POST	Armature	11	2	non_humanoid	+1.000	1.00	GDU Maruta	GDU Maruta Down 3	(-0.00 +0.00 -0.37)	木桩.blend
+POST	Armature	444	2	humanoid	+0.996	1.04	G Pelvis	GD Toe Scl R	(-0.09 -0.05 -1.11)	本体.blend
+POST	Armature	444	2	humanoid	+0.996	1.04	G Pelvis	GD Toe Scl L	(+0.09 -0.05 -1.11)	本体.blend
+POST	Armature	17	1	non_humanoid	+1.000	1.00	G Root	GDU Blade 6	(+0.00 -0.80 -0.00)	武器.blend
+POST	Armature	12	0	non_humanoid	NA	NA	NA	NA	NA	苦无.blend
+POST	Armature	254	2	humanoid	NOLEG	NA	-	NA	NA	蛤蟆.blend
+POST	Armature	32	1	partial	+0.328	1.08	GDU Wing Base	GDU WingFilm R C2	(-5.82 -2.02 -0.00)	鸟.blend
+POST	Armature	124	2	humanoid	+0.932	1.26	G Pelvis	G Toe R	(-0.42 -0.16 -1.16)	怪物-海贼鳄鱼.blend
+POST	Armature	124	2	humanoid	+0.932	1.26	G Pelvis	GD Toe Scl L	(+0.42 -0.16 -1.16)	怪物-海贼鳄鱼.blend
+POST	Armature	22	2	humanoid	NOLEG	NA	-	NA	NA	书.blend
+POST	Armature	513	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl R	(-0.10 -0.09 -1.02)	本体.blend
+POST	Armature	513	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl L	(+0.10 -0.09 -1.02)	本体.blend
+POST	Armature	424	2	humanoid	+0.992	1.08	G Pelvis	GD Toe Scl R	(-0.09 -0.11 -1.17)	暗刃.blend
+POST	Armature	424	2	humanoid	+0.992	1.08	G Pelvis	GD Toe Scl L	(+0.09 -0.11 -1.17)	暗刃.blend
+POST	Armature	24	1	partial	+1.000	1.00	GDU Strap 7	GDU Strap R 11	(-0.01 -0.40 -0.00)	小包.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl R	(-0.08 -0.10 -0.95)	本体.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl L	(+0.08 -0.10 -0.95)	本体.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl R	(-0.08 -0.10 -0.95)	本体.blend
+POST	Armature	315	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl L	(+0.08 -0.10 -0.95)	本体.blend
+POST	Armature	40	2	partial	NOLEG	NA	-	NA	NA	沙袋.blend
+POST	Armature	532	2	humanoid	+0.993	1.08	G Pelvis	GD Toe Scl R	(-0.10 -0.12 -1.28)	漫游.blend
+POST	Armature	532	2	humanoid	+0.993	1.08	G Pelvis	GD Toe Scl L	(+0.10 -0.12 -1.28)	漫游.blend
+POST	Armature	49	2	partial	+0.623	1.12	GDU Head	GDU Lips R LowIn	(-0.16 -2.05 -1.64)	二觉-狗子旋转.blend
+POST	Armature	49	2	partial	+0.120	1.10	GDU Head	GDU Lips R UpIn	(-0.17 -2.68 -0.33)	二觉-狗子旋转.blend
+POST	Armature	299	2	humanoid	+0.968	1.19	G Pelvis	GDU Toe D3 R	(-0.19 -0.27 -1.28)	二觉狗子.blend
+POST	Armature	299	2	humanoid	+0.968	1.19	G Pelvis	GDU Toe D3 L	(+0.19 -0.27 -1.28)	二觉狗子.blend
+POST	Armature	437	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl R	(-0.10 -0.12 -1.08)	本体.blend
+POST	Armature	437	2	humanoid	+0.990	1.09	G Pelvis	GD Toe Scl L	(+0.10 -0.12 -1.08)	本体.blend
+POST	Armature	379	2	humanoid	+0.973	1.21	G Pelvis	GDU Toe E3 R	(-0.19 -0.20 -1.13)	男柔道-贴图未处理.blend
+POST	Armature	379	2	humanoid	+0.973	1.21	G Pelvis	GDU Toe E3 L	(+0.19 -0.20 -1.13)	男柔道-贴图未处理.blend
+POST	Armature	119	2	humanoid	+1.000	1.00	G Pelvis	GDU Toe C	(+0.00 +0.00 -1.24)	空空伊-贴图未处理.blend
+POST	Armature	119	2	humanoid	+0.978	1.12	G Pelvis	G Toe R	(-0.19 -0.00 -0.88)	空空伊-贴图未处理.blend
+POST	Armature	113	2	humanoid	+0.991	1.08	G Pelvis	G Toe R	(-0.08 -0.10 -0.93)	索西娅老板娘-贴图未处理.blend
+POST	Armature	113	2	humanoid	+0.991	1.08	G Pelvis	GD Toe Scl L	(+0.08 -0.10 -0.93)	索西娅老板娘-贴图未处理.blend
+POST	Armature	114	2	humanoid	+0.991	1.06	G Pelvis	G Toe R	(-0.11 -0.11 -1.18)	船长鲁特.blend
+POST	Armature	114	2	humanoid	+0.991	1.06	G Pelvis	GD Toe Scl L	(+0.11 -0.11 -1.18)	船长鲁特.blend
+POST	Armature	115	2	humanoid	+0.991	1.07	G Pelvis	G Toe R	(-0.10 -0.10 -1.04)	艾莎-贴图未处理.blend
+POST	Armature	115	2	humanoid	+0.991	1.07	G Pelvis	GD Toe Scl L	(+0.10 -0.10 -1.04)	艾莎-贴图未处理.blend
+POST	Armature	814	2	humanoid	+0.996	1.08	G Pelvis	GDPU BottomFur L 7	(+0.10 -0.08 -1.50)	迷之勇士.blend
+POST	Armature	814	2	humanoid	+0.991	1.09	G Pelvis	GD Toe Scl R	(-0.10 -0.12 -1.15)	迷之勇士.blend
+POST	Armature	489	2	humanoid	+0.993	1.08	G_Pelvis	GD_Toe_Scl_R	(-0.06 -0.09 -0.87)	风法-模型.blend
+POST	Armature	489	2	humanoid	+0.993	1.08	G_Pelvis	GD_Toe_Scl_L	(+0.06 -0.09 -0.87)	风法-模型.blend
+POST	Armature	28	2	non_humanoid	+1.000	1.00	GD Weapon Stick Base	GDU Weapon Stick Globe Lower Gyroscope Inner	(+0.00 +0.00 -0.67)	风法-武器.blend
+POST	Armature	245	2	humanoid	+0.955	1.24	G Pelvis	GDU FootClaw C1 R	(-0.65 +0.63 -2.91)	大龙.blend
+POST	Armature	245	2	humanoid	+0.955	1.24	G Pelvis	GDU FootClaw C1 L	(+0.65 +0.63 -2.91)	大龙.blend
+POST	Armature	215	1	humanoid	+0.943	1.41	G Pelvis	GDU FootClaw C1 R	(-0.07 -0.24 +0.04)	小龙.blend
+POST	Armature	215	1	humanoid	+0.943	1.41	G Pelvis	GDU FootClaw C1 L	(+0.07 -0.24 +0.04)	小龙.blend
+POST	Armature	477	2	humanoid	+0.976	1.21	G Pelvis	GDPU BootsTie OR 3	(-0.12 -0.16 -0.91)	本体.blend
+POST	Armature	477	2	humanoid	+0.976	1.21	G Pelvis	GDPU BootsTie OL 3	(+0.12 -0.16 -0.91)	本体.blend
+POST	rig	534	2	humanoid	NOLEG	NA	-	NA	NA	Female000.blend
+POST	Gley_BodyA_CMN2_Rig	76	2	humanoid	+0.991	1.28	腰	左足先EX	(+0.08 -0.12 -1.07)	TFD_Gley.blend
+POST	Gley_BodyA_CMN2_Rig_backup	76	2	humanoid	+0.991	1.28	腰	左足先EX	(+0.08 -0.12 -1.07)	TFD_Gley.blend
+POST	Gley_BodyA_CMN2_Rig	307	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-R-Toe0	(-0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyA_CMN2_Rig	307	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-L-Toe0	(+0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyU_CMN2_Rig	304	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-R-Toe0	(-0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyU_CMN2_Rig	304	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-L-Toe0	(+0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyU_VAR0_Rig	327	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-R-Toe0	(-0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyU_VAR0_Rig	327	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-L-Toe0	(+0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_Face_Rig	478	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-R-Toe0	(-0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	Gley_Face_Rig	478	2	humanoid	+0.998	1.14	Bip001-Pelvis	Bip001-L-Toe0	(+0.06 -0.00 -1.03)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_A_CMN_HEAD_002	95	2	humanoid	+0.930	1.19	Bn_Socket_Hair	Bn_Sec_BHair104	(+0.02 +0.18 -0.45)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_A_VAR_HEAD_006	37	2	partial	+0.845	2.23	Bn_Socket_Hair	Bn_Hair02_15	(-0.00 +0.10 -0.16)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_A_VAR_HEAD_006	37	2	partial	+0.903	1.80	Bn_Socket_Hair	Bn_Hair12_34	(+0.06 -0.03 -0.15)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_A_VAR_HEAD_007	182	2	humanoid	+0.943	1.19	Bn_Socket_Hair	Bn_Sec_BHair104	(+0.02 +0.16 -0.45)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_A_VAR_HEAD_007	182	2	humanoid	+0.922	1.36	Bn_Socket_Hair	Bn_Hair05_19	(-0.06 +0.18 -0.44)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_U_CMN_HEAD_002	111	2	humanoid	+0.916	1.19	Bn_Socket_Hair	Bn_Sec_BHair104	(+0.02 +0.19 -0.44)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_U_CMN_HEAD_002	111	2	humanoid	+0.967	1.92	Bn_Socket_Hair	Bn_Hair04_16	(-0.06 -0.02 -0.23)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_U_VAR_HEAD_000	81	2	humanoid	+0.985	1.11	Bn_Socket_BackHair	Bn_Sec_BHair104	(+0.02 +0.07 -0.43)	TFD_Gley_1_1_Pub.blend
+POST	PC_007_U_VAR_HEAD_000	81	2	humanoid	+0.988	1.13	Bn_Socket_BackHair	Bn_Sec_BHair11_3	(+0.01 +0.06 -0.38)	TFD_Gley_1_1_Pub.blend
+POST	Gley_BodyA_CMN2_Rig	429	2	humanoid	NOLEG	NA	-	NA	NA	未命名.blend
+POST	Genesis8_1Female	149	2	humanoid	+0.965	1.14	hip.R	0Sma00Toe4.R	(-0.31 -0.05 -1.15)	Gu Yu.blend
+POST	Hestia_R_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-R-Toe0	(-6.90 -4.42 -99.98)	Hestia_R_v1.0_2.79.blend
+POST	Hestia_R_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-L-Toe0	(+6.90 -4.42 -99.98)	Hestia_R_v1.0_2.79.blend
+POST	Hestia_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-R-Toe0	(-6.90 -4.42 -99.98)	Hestia_v1.0_2.79.blend
+POST	Hestia_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-L-Toe0	(+6.90 -4.42 -99.98)	Hestia_v1.0_2.79.blend
+POST	Hestia_NewYear_A_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-R-Toe0	(-6.90 -4.42 -99.98)	Hestia_v1.0_2.79.blend
+POST	Hestia_NewYear_A_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-L-Toe0	(+6.90 -4.42 -99.98)	Hestia_v1.0_2.79.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	002.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	002.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	003.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	003.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	006.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	006.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	008.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	008.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	009.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	009.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-R-Toe0	(-6.80 -101.64 +1.53)	010.blend
+POST	Armature	230	1	humanoid	+0.998	1.09	Bip001-Pelvis	Bip001-L-Toe0	(+6.80 -101.64 +1.53)	010.blend
+POST	root	247	2	humanoid	+0.959	1.21	root.x	toes_01.r_end	(-27.30 -11.70 -100.85)	knight.blend
+POST	root	247	2	humanoid	+0.959	1.21	root.x	toes_01.l_end	(+27.30 -11.70 -100.85)	knight.blend
+POST	APPLIED-rig	71	1	partial	+0.299	2.65	DEF-spine	DEF-shin.R	(-0.07 -0.11 +0.35)	leviathan_v1.1.blend
+POST	Ludmila_Young_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-R-Toe0	(-6.90 -4.42 -99.98)	Ludmila_Young_v1.0_2.79.blend
+POST	Ludmila_Young_arma	77	2	humanoid	+0.997	1.10	Bip001-Pelvis	Bip001-L-Toe0	(+6.90 -4.42 -99.98)	Ludmila_Young_v1.0_2.79.blend
+POST	FemaleArmature	296	1	humanoid	+0.963	1.18	hip	rSmallToe4_2	(-0.28 -1.02 +0.05)	RE2_Ada.blend
+POST	Genesis8Female	178	1	humanoid	+0.963	1.18	hip	rSmallToe4_2	(-28.19 -102.49 +5.19)	RE2_Ada.blend
+POST	FemaleArmature	298	1	humanoid	+0.963	1.18	hip	rSmallToe4_2	(-0.28 -1.02 +0.05)	RE2_Claire.blend
+POST	Genesis8Female	178	1	humanoid	+0.963	1.18	hip	rSmallToe4_2	(-28.19 -102.49 +5.19)	RE2_Claire.blend
+POST	hair.001	81	2	humanoid	+0.944	1.55	C_HairBase_a	R_HairE_h_Phy	(-17.07 -1.79 -48.86)	Rebirth Tifa v2(2B outfit) by Billyhhyb.blend
+POST	hair.001	81	2	humanoid	+0.944	1.55	C_HairBase_a	L_HairE_h_Phy	(-17.07 +1.79 -48.86)	Rebirth Tifa v2(2B outfit) by Billyhhyb.blend
+POST	Rebirth Tifa V2	296	2	humanoid	+0.990	1.15	hip	small_toe_4.02.R	(-0.12 -0.08 -1.02)	Rebirth Tifa v2(2B outfit) by Billyhhyb.blend
+POST	Rebirth Tifa V2	296	2	humanoid	+0.990	1.15	hip	small_toe_4.02.L	(+0.12 -0.08 -1.02)	Rebirth Tifa v2(2B outfit) by Billyhhyb.blend
+POST	skirt.001	106	2	non_humanoid	NOLEG	NA	-	NA	NA	Rebirth Tifa v2(2B outfit) by Billyhhyb.blend
+POST	Armature	64	2	humanoid	+0.984	1.12	unused bone0004	leg left toes	(+0.20 -0.02 -1.09)	reiko.blend
+POST	Armature	64	2	humanoid	+0.984	1.12	unused bone0004	leg right toes	(-0.20 -0.02 -1.09)	reiko.blend
+POST	PC_FP_Female_Red02.ao	89	2	humanoid	+0.988	1.09	Bip002-Spine	Bip002-L-Toe0Nub	(+0.14 +0.08 -1.04)	Vipe - test.blend
+POST	PC_FP_Female_Red02.ao	89	2	humanoid	+0.988	1.09	Bip002-Spine	Bip002-R-Toe0Nub	(+0.14 -0.08 -1.04)	Vipe - test.blend
+POST	PC_TP_Female_Red02.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-L-Toe001	(+0.06 +0.08 -0.98)	Vipe - test.blend
+POST	PC_TP_Female_Red02.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-R-Toe001	(+0.06 -0.08 -0.98)	Vipe - test.blend
+POST	PC_TP_Female_Red02_Hair.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-L-Toe001	(+0.06 +0.08 -0.98)	Vipe - test.blend
+POST	PC_TP_Female_Red02_Hair.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-R-Toe001	(+0.06 -0.08 -0.98)	Vipe - test.blend
+POST	PC_FP_Female_Red02.ao	89	2	humanoid	+0.988	1.09	Bip002-Spine	Bip002-L-Toe0Nub	(+0.14 +0.08 -1.04)	Vipe.blend
+POST	PC_FP_Female_Red02.ao	89	2	humanoid	+0.988	1.09	Bip002-Spine	Bip002-R-Toe0Nub	(+0.14 -0.08 -1.04)	Vipe.blend
+POST	PC_TP_Female_Red02.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-L-Toe001	(+0.06 +0.08 -0.98)	Vipe.blend
+POST	PC_TP_Female_Red02.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-R-Toe001	(+0.06 -0.08 -0.98)	Vipe.blend
+POST	PC_TP_Female_Red02_Hair.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-L-Toe001	(+0.06 +0.08 -0.98)	Vipe.blend
+POST	PC_TP_Female_Red02_Hair.ao	117	2	humanoid	+0.995	1.14	Bip001-Pelvis001	Bip001-R-Toe001	(+0.06 -0.08 -0.98)	Vipe.blend
+POST	metarig	69	2	humanoid	+0.995	1.19	spine	heel.02.R	(-0.09 +0.04 -0.95)	sena_t-pose_v1.0.blend
+POST	metarig	69	2	humanoid	+0.995	1.19	spine	heel.02.L	(+0.09 +0.04 -0.95)	sena_t-pose_v1.0.blend
+POST	rig	395	2	humanoid	+0.995	1.53	torso	ORG-heel.02.R	(-0.09 +0.05 -1.02)	sena_t-pose_v1.0.blend
+POST	Vice_arma	75	2	partial	+0.989	1.21	Bip001	Bip001-R-Toe0	(-8.66 -11.72 -96.77)	Vice_v1.0_2.79.blend
+POST	Vice_Halloween_A_arma	75	2	partial	+0.989	1.21	Bip001	Bip001-R-Toe0	(-8.66 -11.72 -96.77)	Vice_v1.0_2.79.blend
+POST	metarig	88	2	humanoid	+0.991	1.22	spine	heel.02.R	(-0.06 +0.10 -0.92)	yang_guifei_v1.0.blend
+POST	metarig	88	2	humanoid	+0.991	1.22	spine	heel.02.L	(+0.06 +0.10 -0.92)	yang_guifei_v1.0.blend
+POST	rig	499	2	humanoid	+0.948	1.00	twintail.R.002	tweak_twintail.R.003	(-0.17 +0.09 -0.57)	yang_guifei_v1.0.blend
+POST	rig	732	2	humanoid	+0.903	1.17	head.x	HairK_04_JNT	(-0.02 +0.24 -0.50)	【ZGabriel学习存档】布洛妮娅 blender制作米哈游风格三渲二.blend
+POST	rig	732	2	humanoid	+0.877	1.14	head.x	HairJ_04_JNT	(+0.18 +0.19 -0.48)	【ZGabriel学习存档】布洛妮娅 blender制作米哈游风格三渲二.blend
+POST	布洛妮娅 1.0_arm	395	2	humanoid	+0.911	1.26	腰	qz_14_5	(+0.35 +0.26 -0.97)	【ZGabriel学习存档】布洛妮娅 blender制作米哈游风格三渲二.blend
+POST	克拉拉_arm	603	2	humanoid	+0.985	1.25	腰	つま先.R	(-0.08 -0.15 -0.98)	克拉拉 - 副本.blend
+POST	Armature	239	2	humanoid	+0.946	1.08	root hips	leg left toes	(+0.32 -0.07 -0.97)	tsukushi_v1a.blend
+POST	Cute Casual Jeans	16	2	partial	+0.978	1.07	hip	lToe	(+0.24 +0.02 -1.12)	tsukushi_v1a.blend
+POST	Cute Casual Shoes	15	2	partial	+0.978	1.03	pelvis	rToe	(-0.24 +0.02 -1.14)	tsukushi_v1a.blend
+POST	Cute Casual Top	20	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	DashBikini_Bottom	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	DashBikini_Bra	17	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Flex_Bra	16	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Flex_Shorts	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Genesis 8 Female	172	2	humanoid	+0.970	1.11	hip	lSmallToe4_2	(+0.28 +0.02 -1.13)	tsukushi_v1a.blend
+POST	Genesis 8 Female Eyelashes	61	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Japanese Lingerie 02	24	2	partial	+0.966	1.09	hip	rShin	(-0.14 +0.04 -0.55)	tsukushi_v1a.blend
+POST	Modesty_Bra	16	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Modesty_Panty	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Nyao Tail	23	2	non_humanoid	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Sensual Wear Panty	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Sensual Wear Top	31	2	partial	+0.494	1.33	chestUpper	rThumb1	(-0.49 -0.06 -0.28)	tsukushi_v1a.blend
+POST	Tsukushi Hair Armature	136	1	humanoid	+0.365	1.72	hair root base a	hair front left 2 a	(-0.02 -0.09 +0.22)	tsukushi_v1a.blend
+POST	Tsukushi Hair Armature	136	1	humanoid	+0.640	1.39	hair root base a	hair front left 3 1 a	(-0.01 -0.14 +0.17)	tsukushi_v1a.blend
+POST	Tsukushi_rig	759	2	humanoid	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	XF-dForce Sweatshirt	53	2	partial	+0.507	1.30	chestUpper	lMid1	(+0.54 -0.06 -0.32)	tsukushi_v1a.blend
+POST	XF-dForce Sweatshirt	53	2	partial	+0.507	1.29	chestUpper	rMid1	(-0.54 -0.06 -0.32)	tsukushi_v1a.blend
+POST	XF-SexySweet Bottom	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	XF-SexySweet Top	15	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	XF-SSweet Lace Stockings	35	2	partial	+0.971	1.08	pelvis	rSmallToe4_2	(-0.28 +0.02 -1.14)	tsukushi_v1a.blend
+POST	XF-Sweatshirt Bottom	10	1	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	XF-Sweatshirt Top	16	2	partial	NOLEG	NA	-	NA	NA	tsukushi_v1a.blend
+POST	Tifa_Default_Armature	354	2	humanoid	+0.992	1.12	DEF-Hip	DEF-Toe.R	(-0.09 -0.07 -0.94)	最终幻想7蒂法（完美绑定）.blend
+POST	Tifa_Default_Armature	354	2	humanoid	+0.992	1.12	DEF-Hip	DEF-Toe.L	(+0.09 -0.07 -0.94)	最终幻想7蒂法（完美绑定）.blend
+POST	Tifa_metarig	733	2	humanoid	+0.995	1.15	Hip	heel.02.R	(-0.04 +0.09 -0.93)	最终幻想7蒂法（完美绑定）.blend
+POST	Tifa_metarig	733	2	humanoid	+0.995	1.15	Hip	heel.02.L	(+0.04 +0.09 -0.93)	最终幻想7蒂法（完美绑定）.blend
+POST	Tifa_rig	1792	2	humanoid	+0.995	1.44	MCH-torso_pivot	ORG-heel.02.R	(-0.04 +0.09 -1.00)	最终幻想7蒂法（完美绑定）.blend
+POST	SK_010250100029.ao	94	1	humanoid	+0.617	1.61	hair_Root	hair_F_physics_04	(+0.00 -0.08 +0.11)	镜.blend
+POST	SK_010250100029.ao	94	1	humanoid	+0.709	1.49	hair_Root	hair_F_physics_01	(+0.02 -0.09 +0.09)	镜.blend
+POST	SK_01025020029.ao	107	2	partial	NOLEG	NA	-	NA	NA	镜.blend
+POST	SK_0102503000029.ao	121	2	humanoid	+0.994	1.07	pelvis	ball_r	(-0.10 -0.02 -0.95)	镜.blend
+POST	SK_0102503000029.ao	121	2	humanoid	+0.994	1.07	pelvis	ball_l	(+0.10 -0.02 -0.95)	镜.blend
+POST	Armature	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.001	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.001	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.002	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.002	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.003	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.003	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.004	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.004	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.005	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:RightToeBase	(-5.09 -72.71 +3.03)	羽绒服夜店小姐姐不怕热.blend
+POST	Armature.005	52	1	partial	+0.997	1.08	mixamorig:Hips	mixamorig:LeftToeBase	(+5.09 -72.71 +3.15)	羽绒服夜店小姐姐不怕热.blend
+POST	metarig.001	17	0	non_humanoid	NA	NA	NA	NA	NA	能量汇聚.blend
+POST	Armature	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:RightToeBase	(-4.58 -74.95 +3.66)	蓝色死库水泳装-迷迭香.blend
+POST	Armature	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:LeftToeBase	(+4.58 -74.95 +3.70)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.001	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:RightToeBase	(-4.58 -74.95 +3.66)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.001	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:LeftToeBase	(+4.58 -74.95 +3.70)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.002	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:RightToeBase	(-4.58 -74.95 +3.66)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.002	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:LeftToeBase	(+4.58 -74.95 +3.70)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.003	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:RightToeBase	(-4.58 -74.95 +3.66)	蓝色死库水泳装-迷迭香.blend
+POST	Armature.003	52	1	partial	+0.997	1.10	mixamorig:Hips	mixamorig:LeftToeBase	(+4.58 -74.95 +3.70)	蓝色死库水泳装-迷迭香.blend
